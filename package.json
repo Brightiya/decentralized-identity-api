@@ -1,0 +1,30 @@
+{
+  "name": "decentralized-identity-api-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "compile": "npx hardhat compile --config ./hardhat.config.cjs",
+    "test:contracts": "npx hardhat test --config ./hardhat.config.cjs",
+    "start:node": "npx hardhat node --config ./hardhat.config.cjs",
+    "deploy:localhost": "npx hardhat run --network localhost scripts/deploy.js --config ./hardhat.config.cjs",
+    "lint": "echo \"Add linters later\"",
+    "postinstall": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.6.1",
+    "hardhat": "^2.22.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "ethers": "^6.15.0",
+    "node-fetch": "^3.3.2"
+  }
+}

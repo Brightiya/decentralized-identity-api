@@ -8,17 +8,34 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PROVIDER_URL: http://127.0.0.1:8545
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      PINATA_JWT: ${{ secrets.PINATA_JWT }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install backend deps
+      - name: Install dependencies
+        run: npm install
+      - name: Build and test backend
         run: |
           cd backend
           npm ci
-      - name: Run backend tests
-        run: |
-          cd backend
+          npm start & sleep 5
           npm test
+      - name: Deploy contract locally
+        run: npm run deploy:localhost
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          ng build --configuration production
+      - name: Run contract tests
+        run: npm run test:contracts
+      - name: Check for errors
+        if: failure()
+        run: echo "❌ CI failed; check logs for details"

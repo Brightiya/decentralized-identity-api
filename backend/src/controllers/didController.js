@@ -1,13 +1,17 @@
 // backend/src/controllers/didController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
-import contractData from "../../src/contractData.json" assert { type: "json" };
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+// Dynamically import contractData.json
+const contractData = await import("../../src/contractData.json", {
+  assert: { type: "json" },
+}).then((module) => module.default);
 const registry = new ethers.Contract(contractData.address, contractData.abi, signer);
 
 /**
@@ -96,7 +100,7 @@ export const resolveDID = async (req, res) => {
     }
 
     const cid = await registry.getProfileCID(address);
-    if (!cid || cid.length === 0) {
+    if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }
 
@@ -108,6 +112,9 @@ export const resolveDID = async (req, res) => {
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
     });
   } catch (err) {
+    if (err.code === "BAD_DATA") {
+      return res.status(404).json({ error: "DID Document not found or data unavailable" });
+    }
     console.error("❌ resolveDID error:", err);
     return res.status(500).json({ error: err.message });
   }
@@ -127,7 +134,7 @@ export const verifyDID = async (req, res) => {
 
     // Step 1: Resolve the DID
     const cid = await registry.getProfileCID(address);
-    if (!cid || cid.length === 0) {
+    if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }
     const didDocument = await fetchJSON(cid);

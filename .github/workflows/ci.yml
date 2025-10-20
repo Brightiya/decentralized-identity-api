@@ -25,6 +25,12 @@ jobs:
         run: |
           echo "PRIVATE_KEY is set: ${PRIVATE_KEY:-not set}"
           echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
+      - name: Start Hardhat node
+        run: |
+          cd backend
+          npx hardhat node &  # Start node in background
+          echo "Hardhat node started on PID $!"
+          sleep 5  # Give it time to start
       - name: Build and test backend
         run: |
           cd backend
@@ -32,7 +38,9 @@ jobs:
           npm start & sleep 5
           npm test
       - name: Deploy contract locally
-        run: npm run deploy:localhost
+        run: |
+          cd backend
+          npx hardhat run scripts/deploy.js --network localhost
       - name: Build frontend
         run: |
           cd frontend

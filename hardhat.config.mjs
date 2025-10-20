@@ -1,5 +1,4 @@
 // hardhat.config.mjs
-import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import { config as dotenvConfig } from "dotenv";
 import { resolve } from "path";
@@ -14,7 +13,7 @@ dotenvConfig({ path: resolve(__dirname, ".env") });
 
 const { SEPOLIA_RPC_URL, AMOY_RPC_URL, PRIVATE_KEY } = process.env;
 
-const config: HardhatUserConfig = {
+const config = {
   solidity: "0.8.20",
   networks: {
     hardhat: {

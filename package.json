@@ -12,12 +12,13 @@
     "test:contracts": "npx hardhat test --config ./hardhat.config.mjs",
     "start:node": "npx hardhat node --config ./hardhat.config.mjs",
     "deploy:localhost": "npx hardhat run --network localhost scripts/deploy.mjs --config ./hardhat.config.mjs",
-    "lint": "echo \"Add linters later\"",
+    "lint": "npx eslint .",
     "postinstall": "npm --prefix backend install && npm --prefix frontend install"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "dotenv": "^16.6.1",
+    "eslint": "^9.38.0",
     "hardhat": "^2.22.5"
   },
   "engines": {

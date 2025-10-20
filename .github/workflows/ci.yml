@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20'  # Stick with 20 for now, address Hardhat version later
       - name: Install dependencies
         run: npm install
       - name: Debug environment
@@ -27,8 +27,7 @@ jobs:
           echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
       - name: Start Hardhat node
         run: |
-          cd backend
-          npx hardhat node &  # Start node in background
+          npx hardhat node &  # Run from root
           echo "Hardhat node started on PID $!"
           sleep 5  # Give it time to start
       - name: Build and test backend
@@ -39,8 +38,7 @@ jobs:
           npm test
       - name: Deploy contract locally
         run: |
-          cd backend
-          npx hardhat run scripts/deploy.mjs --network localhost
+          npx hardhat run scripts/deploy.mjs --network localhost 
       - name: Build frontend
         run: |
           cd frontend

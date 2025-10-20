@@ -27,7 +27,7 @@ jobs:
           echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
       - name: Start Hardhat node
         run: |
-          npx hardhat node --config ./hardhat.config.mjs &  # Use .mjs config
+          npx hardhat node --config ./hardhat.config.mjs &  
           echo "Hardhat node started on PID $!"
           sleep 5
       - name: Build and test backend

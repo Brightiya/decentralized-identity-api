@@ -40,7 +40,7 @@ jobs:
       - name: Deploy contract locally
         run: |
           cd backend
-          npx hardhat run scripts/deploy.js --network localhost
+          npx hardhat run scripts/deploy.mjs --network localhost
       - name: Build frontend
         run: |
           cd frontend

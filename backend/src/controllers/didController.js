@@ -1,18 +1,36 @@
 // backend/src/controllers/didController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
-const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-
 // Dynamically import contractData.json
-const contractData = await import("../../src/contractData.json", {
-  assert: { type: "json" },
-}).then((module) => module.default);
-const registry = new ethers.Contract(contractData.address, contractData.abi, signer);
+const contractData = (async () => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
+  return JSON.parse(await readFile(contractDataPath, "utf8"));
+})();
+
+const providerUrl = process.env.PROVIDER_URL || "http://127.0.0.1:8545";
+const privateKey = process.env.PRIVATE_KEY;
+
+if (!privateKey) {
+  throw new Error("❌ Missing PRIVATE_KEY in .env");
+}
+
+const provider = new ethers.JsonRpcProvider(providerUrl);
+const signer = new ethers.Wallet(privateKey, provider);
+
+// Initialize registry contract after resolving contractData
+(async () => {
+  const { address, abi } = await contractData;
+  globalThis.registry = new ethers.Contract(address, abi, signer);
+})();
 
 /**
  * Register a DID (W3C DID Core + EIP-155 compliant)
@@ -71,7 +89,7 @@ export const registerDID = async (req, res) => {
     const cid = ipfsUri.replace("ipfs://", "");
 
     // Store CID on-chain
-    const tx = await registry.setProfileCID(address, cid);
+    const tx = await globalThis.registry.setProfileCID(address, cid);
     await tx.wait();
 
     return res.json({
@@ -99,7 +117,7 @@ export const resolveDID = async (req, res) => {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
 
-    const cid = await registry.getProfileCID(address);
+    const cid = await globalThis.registry.getProfileCID(address);
     if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }
@@ -133,7 +151,7 @@ export const verifyDID = async (req, res) => {
     }
 
     // Step 1: Resolve the DID
-    const cid = await registry.getProfileCID(address);
+    const cid = await globalThis.registry.getProfileCID(address);
     if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }

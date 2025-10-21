@@ -38,7 +38,7 @@ jobs:
           npm test
       - name: Deploy contract locally
         run: |
-          ./node_modules/.bin/hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.mjs  # Use local Hardhat
+          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.mjs 
       - name: Build frontend
         run: |
           cd frontend

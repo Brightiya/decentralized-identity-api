@@ -23,46 +23,60 @@ jobs:
         with:
           node-version: '22.10.0'
 
-      # Root install (Hardhat + tooling)
       - name: Install root dependencies
         run: npm ci
 
-      # Install workspaces (backend + frontend)
       - name: Install workspace dependencies
         run: |
-          npm --workspace backend ci
-          npm --workspace frontend ci
+          npm --prefix backend ci
+          npm --prefix frontend ci
 
-      # Start local Hardhat blockchain node
       - name: Start Hardhat node
         run: |
-          npx hardhat node --config ./hardhat.config.cjs &
-          echo "✅ Hardhat node started on PID $!"
-          sleep 5
+          npx hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
+          echo "⏳ Waiting for Hardhat node to be ready..."
+          for i in {1..20}; do
+            if nc -z 127.0.0.1 8545; then
+              echo "✅ Hardhat node is up!"
+              break
+            fi
+            echo "Waiting ($i)..."
+            sleep 2
+          done
+          if ! nc -z 127.0.0.1 8545; then
+            echo "❌ Hardhat node failed to start"
+            cat hardhat.log
+            exit 1
+          fi
 
-      # Run backend tests (API + integration)
-      - name: Test backend API
+      - name: Build and test backend
         run: |
           cd backend
+          npm start & sleep 5
           npm test
 
-      # Deploy contracts to local node
-      - name: Deploy contracts locally
+      - name: Deploy contract locally
         run: |
           npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # Run contract interaction tests
-      - name: Run contract tests
-        run: |
-          npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
-
-      # Build frontend for production
       - name: Build frontend
         run: |
           cd frontend
-          npm run build --if-present
+          npm ci
+          npx ng build --configuration production
 
-      # On failure message
+      - name: Run contract tests
+        run: |
+          npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
       - name: Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

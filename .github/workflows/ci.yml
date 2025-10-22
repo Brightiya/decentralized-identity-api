@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [ main ]
@@ -12,44 +13,59 @@ jobs:
       PROVIDER_URL: http://127.0.0.1:8545
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'  # Match recommended version
-      - name: Install dependencies
-        run: npm ci  # Use npm ci for consistent installs
+          node-version: '22.10.0'  # Specify exact version for consistency
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install workspace dependencies
+        run: |
+          npm --prefix backend ci
+          npm --prefix frontend ci
+
       - name: Debug environment
         run: |
+          echo "Node version: $(node -v)"
           echo "PRIVATE_KEY is set: ${PRIVATE_KEY:-not set}"
           echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
+
       - name: Start Hardhat node
         run: |
-          ./node_modules/.bin/hardhat node --config ./hardhat.config.cjs & 
+          npx hardhat node --config ./hardhat.config.cjs &
           echo "Hardhat node started on PID $!"
           sleep 5
+
       - name: Build and test backend
         run: |
           cd backend
-          npm ci
           npm start & sleep 5
           npm test
+
       - name: Deploy contract locally
         run: |
-          ./node_modules/.bin/hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs  
+          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
       - name: Build frontend
         run: |
           cd frontend
-          npm ci
+          npm ci  # Ensure fresh install for build
           ng build --configuration production
+
       - name: Run contract tests
-        run: npm run test:contracts
+        run: npx hardhat test --config ./hardhat.config.cjs
+
       - name: Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

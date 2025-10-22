@@ -70,7 +70,8 @@ jobs:
 
       - name: Run contract tests
         run: |
-          npx --prefix backend hardhat test test/api.test.js --config ./hardhat.config.cjs
+          cd backend
+          node_modules/.bin/hardhat test test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

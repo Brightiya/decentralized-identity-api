@@ -28,18 +28,18 @@ jobs:
 
       - name: Install workspace dependencies
         run: |
+          npm ci
+          npm --prefix backend install hardhat
           npm --prefix backend ci
           npm --prefix frontend ci
-          npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
 
       - name: Start Hardhat node
-        working-directory: backend
         run: |
           npx hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
           echo "⏳ Waiting for Hardhat node to be ready..."
           for i in {1..20}; do
             if nc -z 127.0.0.1 8545; then
-              echo "✅ Hardhat node is running!"
+              echo "✅ Hardhat node is up!"
               break
             fi
             echo "Waiting ($i)..."
@@ -52,13 +52,12 @@ jobs:
           fi
 
       - name: Build and test backend
-        working-directory: backend
         run: |
+          cd backend
           npm start & sleep 5
           npm test
 
       - name: Deploy contract locally
-        working-directory: backend
         run: |
           npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
@@ -67,15 +66,15 @@ jobs:
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
       - name: Build frontend
-        working-directory: frontend
         run: |
+          cd frontend
           npm ci
           npx ng build --configuration production
 
       - name: Run contract tests
-        working-directory: backend
         run: |
-          npx hardhat test test/api.test.js --config ./hardhat.config.cjs
+           cd backend
+           npx hardhat test test/api.test.js --config ../hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

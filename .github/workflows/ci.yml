@@ -15,32 +15,31 @@ jobs:
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
     steps:
-      - name: Checkout code
+      - name: 🧩 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
 
-      - name: Install root dependencies
+      - name: 📦 Install root dependencies
         run: npm ci
 
-      - name: Install workspace dependencies
+      - name: 📦 Install workspace dependencies
         run: |
           npm --prefix backend ci
           npm --prefix frontend ci
 
-      - name: Start Hardhat node
+      - name: 🚀 Start Hardhat local node
         run: |
-          npx hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
-          echo "⏳ Waiting for Hardhat node to be ready..."
+          npx --prefix backend hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
+          echo "⏳ Waiting for Hardhat node to start..."
           for i in {1..20}; do
             if nc -z 127.0.0.1 8545; then
-              echo "✅ Hardhat node is up!"
+              echo "✅ Hardhat node is ready!"
               break
             fi
-            echo "Waiting ($i)..."
             sleep 2
           done
           if ! nc -z 127.0.0.1 8545; then
@@ -48,35 +47,40 @@ jobs:
             cat hardhat.log
             exit 1
           fi
+        shell: bash
 
-      - name: Build and test backend
+      - name: 🧱 Deploy contracts to local Hardhat node
         run: |
-          cd backend
-          npm start & sleep 5
-          npm test
-
-      - name: Deploy contract locally
-        run: |
-          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      - name: Build frontend
+      - name: 🧪 Run backend API tests
+        run: |
+          cd backend
+          npm start & sleep 5
+          npm test
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
+      - name: 🧠 Run contract tests (reusing same Hardhat node)
+        run: |
+          npx --prefix backend hardhat test test/api.test.js --config ./hardhat.config.cjs
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
+      - name: 🧰 Build frontend
         run: |
           cd frontend
           npm ci
           npx ng build --configuration production
 
-      - name: Run contract tests
-        run: |
-          npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
-        env:
-          PROVIDER_URL: http://127.0.0.1:8545
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
-
-      - name: Check for errors
+      - name: ❌ Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

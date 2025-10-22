@@ -60,8 +60,8 @@ jobs:
       - name: Build frontend
         run: |
           cd frontend
-          npm ci  # Ensure fresh install for build
-          ng build --configuration production
+          npm ci
+          npx ng build --configuration production
 
       - name: Run contract tests
         run: npx hardhat test --config ./hardhat.config.cjs

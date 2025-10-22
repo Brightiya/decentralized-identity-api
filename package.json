@@ -19,7 +19,7 @@
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^16.6.1",
     "eslint": "^9.38.0",
-    "hardhat": "^2.26.0"
+    "hardhat": "^2.26.3"
   },
   "engines": {
     "node": ">=22.10.0"

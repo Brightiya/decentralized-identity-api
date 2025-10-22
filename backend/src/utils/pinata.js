@@ -1,5 +1,5 @@
 // backend/src/utils/pinata.js
-import { PinataSDK } from "pinata-web3";
+import { PinataSDK } from "@pinata/sdk";
 import dotenv from "dotenv";
 import axios from "axios";
 

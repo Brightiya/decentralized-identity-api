@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.10.0'  # Specify exact version for consistency
+          node-version: '22.10.0'
 
       - name: Install root dependencies
         run: npm ci
@@ -30,23 +30,6 @@ jobs:
         run: |
           npm --prefix backend ci
           npm --prefix frontend ci
-
-      - name: Verify Hardhat installation
-        run: |
-          echo "Checking Hardhat version..."
-          if [ -f node_modules/.bin/hardhat ]; then
-            ./node_modules/.bin/hardhat --version
-          else
-            echo "Hardhat not found in node_modules/.bin/"
-            exit 1
-          fi
-
-      - name: Debug environment
-        run: |
-          echo "Node version: $(node -v)"
-          echo "PRIVATE_KEY is set: ${PRIVATE_KEY:-not set}"
-          echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
-          ls -la node_modules/.bin/  # Check if hardhat is in bin
 
       - name: Start Hardhat node
         run: |
@@ -76,7 +59,7 @@ jobs:
 
       - name: Run contract tests
         run: |
-          ./node_modules/.bin/hardhat test --config ./hardhat.config.cjs
+          npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

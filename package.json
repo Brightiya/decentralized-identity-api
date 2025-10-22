@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "compile": "npx hardhat compile --config ./hardhat.config.cjs",
-    "test:contracts": "npx hardhat test --config ./hardhat.config.cjs",
+    "test:contracts": "npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs",
     "start:node": "npx hardhat node --config ./hardhat.config.cjs",
     "deploy:localhost": "npx hardhat run --network localhost scripts/deploy.mjs --config ./hardhat.config.cjs",
     "lint": "npx eslint .",

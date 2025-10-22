@@ -33,13 +33,14 @@ jobs:
 
       - name: Start Hardhat node
         run: |
-          npx --prefix backend hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
-          echo "⏳ Waiting for Hardhat node..."
+          npx hardhat node --config ./hardhat.config.cjs > hardhat.log 2>&1 &
+          echo "⏳ Waiting for Hardhat node to be ready..."
           for i in {1..20}; do
             if nc -z 127.0.0.1 8545; then
-              echo "✅ Hardhat node is ready!"
+              echo "✅ Hardhat node is up!"
               break
             fi
+            echo "Waiting ($i)..."
             sleep 2
           done
           if ! nc -z 127.0.0.1 8545; then
@@ -56,7 +57,7 @@ jobs:
 
       - name: Deploy contract locally
         run: |
-          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
@@ -70,8 +71,7 @@ jobs:
 
       - name: Run contract tests
         run: |
-          cd backend
-          node_modules/.bin/hardhat test test/api.test.js --config ./hardhat.config.cjs
+           npx --prefix backend hardhat test test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

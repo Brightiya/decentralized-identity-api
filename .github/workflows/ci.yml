@@ -36,6 +36,7 @@ jobs:
           echo "Node version: $(node -v)"
           echo "PRIVATE_KEY is set: ${PRIVATE_KEY:-not set}"
           echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
+          ls -la node_modules/.bin/  # Check if hardhat is in bin
 
       - name: Start Hardhat node
         run: |
@@ -64,7 +65,12 @@ jobs:
           npx ng build --configuration production
 
       - name: Run contract tests
-        run: npx hardhat test --config ./hardhat.config.cjs
+        run: |
+          ./node_modules/.bin/hardhat test --config ./hardhat.config.cjs
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
       - name: Check for errors
         if: failure()

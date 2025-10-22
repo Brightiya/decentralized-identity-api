@@ -70,8 +70,7 @@ jobs:
 
       - name: Run contract tests
         run: |
-          cd backend
-          node_modules/.bin/hardhat test test/api.test.js --config ./hardhat.config.cjs
+            node_modules/.bin/hardhat test test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

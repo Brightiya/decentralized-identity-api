@@ -21,7 +21,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.10.0'  # Specify exact version for consistency
+          node-version: '22.10.0'  
+
+      - name: Clear node modules cache
+        run:  rm -rf node_modules package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -66,7 +69,7 @@ jobs:
 
       - name: Run contract tests
         run: |
-          npx hardhat test --config ./hardhat.config.cjs
+          ./node_modules/.bin/hardhat test --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

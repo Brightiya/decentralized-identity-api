@@ -8,15 +8,15 @@
     "frontend"
   ],
   "scripts": {
-    "compile": "npx hardhat compile --config ./hardhat.config.mjs",
-    "test:contracts": "npx hardhat test --config ./hardhat.config.mjs",
-    "start:node": "npx hardhat node --config ./hardhat.config.mjs",
-    "deploy:localhost": "npx hardhat run --network localhost scripts/deploy.mjs --config ./hardhat.config.mjs",
+    "compile": "npx hardhat compile --config ./hardhat.config.cjs",
+    "test:contracts": "npx hardhat test --config ./hardhat.config.cjs",
+    "start:node": "npx hardhat node --config ./hardhat.config.cjs",
+    "deploy:localhost": "npx hardhat run --network localhost scripts/deploy.mjs --config ./hardhat.config.cjs",
     "lint": "npx eslint .",
     "postinstall": "npm --prefix backend install && npm --prefix frontend install"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^16.6.1",
     "eslint": "^9.38.0",
     "hardhat": "^2.26.0"
@@ -25,8 +25,9 @@
     "node": ">=22.10.0"
   },
   "dependencies": {
+    "@pinata/sdk": "^2.1.0",
     "ethers": "^6.15.0",
     "node-fetch": "^3.3.2",
-    "pinata-web3": "^0.5.4"
+    "pinata": "^2.5.1"
   }
 }

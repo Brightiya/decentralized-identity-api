@@ -23,54 +23,74 @@ jobs:
         with:
           node-version: '22.10.0'
 
-      - name: Install backend dependencies (force Hardhat)
+      # Root dependencies (monorepo)
+      - name: Install root dependencies
+        run: npm ci
+
+      # Backend dependencies (force compatible versions)
+      - name: Install backend dependencies
         run: |
           cd backend
-           # Downgrade chai to v4 for Hardhat compatibility
           npm install --save-dev chai@4.3.10
-            # Install hardhat and toolbox safely ignoring peer deps issues
-          npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+          npm install --legacy-peer-deps --save-dev hardhat @nomicfoundation/hardhat-toolbox
           npm ci --legacy-peer-deps
 
+      # Frontend dependencies
       - name: Install frontend dependencies
-        run: npm --prefix frontend ci
-
-      - name: Verify Hardhat installation
-        run: |
-          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"
-
-      - name: Start Hardhat node
-        run: |
-          npx --prefix backend hardhat node --config ./hardhat.config.cjs &
-          echo "Hardhat node started on PID $!"
-          sleep 5
-
-      - name: Build and test backend
-        run: |
-          cd backend
-          npm start & sleep 5
-          npm test
-
-      - name: Deploy contract locally
-        run: npx --prefix backend hardhat run ../scripts/deploy.mjs --network localhost --config ../hardhat.config.cjs
-        env:
-          PROVIDER_URL: http://127.0.0.1:8545
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
-
-      - name: Build frontend
         run: |
           cd frontend
           npm ci
-          npx ng build --configuration production
 
-      - name: Run contract tests
-        run: npx --prefix backend hardhat test test/api.test.js --config ../hardhat.config.cjs
+      # Verify that Hardhat binary exists
+      - name: Verify Hardhat installation
+        run: |
+          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"
+          npx --prefix backend hardhat --version
+
+      # Start local blockchain (Hardhat node)
+      - name: Start Hardhat local node
+        run: |
+          npx --prefix backend hardhat node &
+          echo "🟢 Hardhat node started"
+          sleep 10
+
+      # Run backend server and tests
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm start &
+          sleep 5
+          npm test
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
+      # Deploy contract locally after tests
+      - name: Deploy contract locally
+        run: |
+          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
+      # Build Angular frontend
+      - name: Build frontend
+        run: |
+          cd frontend
+          npx ng build --configuration production
+
+      # Run Hardhat contract integration tests
+      - name: Run contract tests
+        run: |
+          npx --prefix backend hardhat test test/api.test.js
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
+      # Show message on failure
       - name: Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

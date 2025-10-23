@@ -64,7 +64,7 @@ jobs:
             ls -la node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"       
       - name: Run contract tests
         run: |
-           npx hardhat test backend/test/api.test.js --config ../hardhat.config.cjs
+           npx hardhat test backend/test/api.test.js --config  ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

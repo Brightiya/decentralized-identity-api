@@ -19,7 +19,6 @@
     "dotenv": "^16.6.1",
     "ethers": "^6.15.0",
     "express": "^4.21.1",
-    "hardhat": "^2.26.3",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "node-fetch": "^3.3.2"

@@ -23,19 +23,22 @@ jobs:
         with:
           node-version: '22.10.0'
 
-      - name: Install root dependencies
-        run: npm ci
-      - name: Install Hardhat globally for CI
-        run: npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
-
-      - name: Install workspace dependencies
+      - name: Install backend dependencies (force Hardhat)
         run: |
-          npm --prefix backend ci
-          npm --prefix frontend ci
+          cd backend
+          npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+          npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Verify Hardhat installation
+        run: |
+          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"
 
       - name: Start Hardhat node
         run: |
-          npx hardhat node --config ./hardhat.config.cjs &
+          npx --prefix backend hardhat node --config ./hardhat.config.cjs &
           echo "Hardhat node started on PID $!"
           sleep 5
 
@@ -46,8 +49,7 @@ jobs:
           npm test
 
       - name: Deploy contract locally
-        run: |
-          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+        run: npx --prefix backend hardhat run ../scripts/deploy.mjs --network localhost --config ../hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
@@ -58,13 +60,9 @@ jobs:
           cd frontend
           npm ci
           npx ng build --configuration production
-     
-      - name: Verify Hardhat install 
-        run: |
-            ls -la node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"       
+
       - name: Run contract tests
-        run: |
-           npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
+        run: npx --prefix backend hardhat test test/api.test.js --config ../hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

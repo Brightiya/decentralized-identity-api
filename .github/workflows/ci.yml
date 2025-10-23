@@ -15,84 +15,61 @@ jobs:
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
     steps:
-      - name: 🧩 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
 
-      # Root dependencies (monorepo)
-      - name: 📦 Install root dependencies
-        run: |
-          npm ci || npm install --legacy-peer-deps
+      - name: Install root dependencies
+        run: npm ci
+      - name: Install Hardhat globally for CI
+        run: npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
 
-      # Backend dependencies (ensure Hardhat available globally in backend)
-      - name: 📦 Install backend dependencies
+      - name: Install workspace dependencies
         run: |
-          cd backend
-          rm -rf node_modules package-lock.json
-          npm install --legacy-peer-deps
-          npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox chai@4.3.10 --legacy-peer-deps
+          npm --prefix backend ci
+          npm --prefix frontend ci
 
-      # Frontend dependencies
-      - name: 📦 Install frontend dependencies
+      - name: Start Hardhat node
         run: |
-          cd frontend
-          rm -f package-lock.json
-          npm install --legacy-peer-deps
-
-      # ✅ Verify Hardhat binary exists and version
-      - name: 🔍 Verify Hardhat installation
-        run: |
-          npx --prefix backend hardhat --version || echo "❌ Hardhat binary missing"
-          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat .bin missing"
-
-      # ✅ Start local blockchain using root config (since hardhat.config.cjs is at root)
-      - name: 🟢 Start Hardhat local node
-        run: |
-          npx hardhat node --config ./hardhat.config.cjs --hostname 127.0.0.1 &
-          echo "🟢 Hardhat node started on 127.0.0.1:8545"
-          sleep 10
-
-      # 🧪 Run backend tests (Mocha)
-      - name: 🧪 Run backend tests
-        run: |
-          cd backend
-          npm start &
+          npx hardhat node --config ./hardhat.config.cjs &
+          echo "Hardhat node started on PID $!"
           sleep 5
-          npm test
-        env:
-          PROVIDER_URL: http://127.0.0.1:8545
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # 🧱 Deploy contract locally after tests
-      - name: 🚀 Deploy contract locally
+      - name: Build and test backend
         run: |
-          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+          cd backend
+          npm start & sleep 5
+          npm test
+
+      - name: Deploy contract locally
+        run: |
+          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # 🏗️ Build Angular frontend
-      - name: 🏗️ Build frontend
+      - name: Build frontend
         run: |
           cd frontend
+          npm ci
           npx ng build --configuration production
-
-      # 🔬 Run Hardhat contract integration tests
-      - name: 🔬 Run contract tests
+     
+      - name: Verify Hardhat install 
         run: |
-          npx --prefix backend hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
+            ls -la node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"       
+      - name: Run contract tests
+        run: |
+           npx hardhat test backend/test/api.test.js --config ../hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # ❌ Show message on failure
-      - name: ❌ Check for errors
+      - name: Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

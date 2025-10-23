@@ -7,6 +7,10 @@
     "backend",
     "frontend"
   ],
+  "nohoist": [
+    "**/hardhat",
+    "**/@nomicfoundation/hardhat-toolbox"
+  ],
   "scripts": {
     "compile": "npx hardhat compile --config ./hardhat.config.cjs",
     "test:contracts": "npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs",

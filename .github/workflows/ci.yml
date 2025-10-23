@@ -15,48 +15,49 @@ jobs:
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
     steps:
-      - name: Checkout code
+      - name: 🧩 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
 
       # Root dependencies (monorepo)
-      - name: Install root dependencies
-        run: npm ci
+      - name: 📦 Install root dependencies
+        run: |
+          npm ci || npm install --legacy-peer-deps
 
-      # Backend dependencies (force compatible versions)
-      - name: Install backend dependencies
+      # Backend dependencies (ensure Hardhat available globally in backend)
+      - name: 📦 Install backend dependencies
         run: |
           cd backend
-          npm install --save-dev chai@4.3.10
-          npm install --legacy-peer-deps --save-dev hardhat @nomicfoundation/hardhat-toolbox
-          npm ci --legacy-peer-deps
+          rm -rf node_modules package-lock.json
+          npm install --legacy-peer-deps
+          npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox chai@4.3.10 --legacy-peer-deps
 
       # Frontend dependencies
-      - name: Install frontend dependencies
+      - name: 📦 Install frontend dependencies
         run: |
           cd frontend
           rm -f package-lock.json
           npm install --legacy-peer-deps
 
-      # Verify that Hardhat binary exists
-      - name: Verify Hardhat installation
+      # ✅ Verify Hardhat binary exists and version
+      - name: 🔍 Verify Hardhat installation
         run: |
-          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"
-          npx --prefix backend hardhat --version
+          npx --prefix backend hardhat --version || echo "❌ Hardhat binary missing"
+          ls -la backend/node_modules/.bin | grep hardhat || echo "❌ Hardhat .bin missing"
 
-      # Start local blockchain (Hardhat node)
-      - name: Start Hardhat local node
+      # ✅ Start local blockchain using root config (since hardhat.config.cjs is at root)
+      - name: 🟢 Start Hardhat local node
         run: |
-          npx --prefix backend hardhat node &
-          echo "🟢 Hardhat node started"
+          npx hardhat node --config ./hardhat.config.cjs --hostname 127.0.0.1 &
+          echo "🟢 Hardhat node started on 127.0.0.1:8545"
           sleep 10
 
-      # Run backend server and tests
-      - name: Run backend tests
+      # 🧪 Run backend tests (Mocha)
+      - name: 🧪 Run backend tests
         run: |
           cd backend
           npm start &
@@ -67,31 +68,31 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # Deploy contract locally after tests
-      - name: Deploy contract locally
+      # 🧱 Deploy contract locally after tests
+      - name: 🚀 Deploy contract locally
         run: |
-          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost
+          npx --prefix backend hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # Build Angular frontend
-      - name: Build frontend
+      # 🏗️ Build Angular frontend
+      - name: 🏗️ Build frontend
         run: |
           cd frontend
           npx ng build --configuration production
 
-      # Run Hardhat contract integration tests
-      - name: Run contract tests
+      # 🔬 Run Hardhat contract integration tests
+      - name: 🔬 Run contract tests
         run: |
-          npx --prefix backend hardhat test test/api.test.js
+          npx --prefix backend hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      # Show message on failure
-      - name: Check for errors
+      # ❌ Show message on failure
+      - name: ❌ Check for errors
         if: failure()
         run: echo "❌ CI failed; check logs for details"

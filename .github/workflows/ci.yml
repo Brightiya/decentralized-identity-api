@@ -26,8 +26,11 @@ jobs:
       - name: Install backend dependencies (force Hardhat)
         run: |
           cd backend
+           # Downgrade chai to v4 for Hardhat compatibility
+          npm install --save-dev chai@4.3.10
+            # Install hardhat and toolbox safely ignoring peer deps issues
           npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
-          npm ci
+          npm ci --legacy-peer-deps
 
       - name: Install frontend dependencies
         run: npm --prefix frontend ci

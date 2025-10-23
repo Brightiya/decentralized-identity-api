@@ -39,7 +39,8 @@ jobs:
       - name: Install frontend dependencies
         run: |
           cd frontend
-          npm ci
+          rm -f package-lock.json
+          npm install --legacy-peer-deps
 
       # Verify that Hardhat binary exists
       - name: Verify Hardhat installation

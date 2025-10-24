@@ -22,39 +22,53 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
-          cache: 'npm' # Enable npm cache for faster installs
+          cache: 'yarn'
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Clear Yarn cache
+        run: yarn cache clean
 
       - name: Install root dependencies
-        run: npm ci # Clean install of root dependencies
+        run: yarn install --mode=skip-build --frozen-lockfile
 
       - name: Install Hardhat explicitly
-        run: npm install --save-dev hardhat@2.26.3 @nomicfoundation/hardhat-toolbox@6.1.0 # Pin versions for consistency
+        run: |
+          yarn add --dev hardhat@2.26.3 @nomicfoundation/hardhat-toolbox@6.1.0 --verbose
+          yarn list hardhat @nomicfoundation/hardhat-toolbox || echo "❌ Hardhat packages not listed"
 
       - name: Verify Hardhat installation
         run: |
+          echo "Checking node_modules/.bin directory..."
+          ls -la node_modules/.bin || echo "❌ node_modules/.bin directory missing"
           ls -la node_modules/.bin | grep hardhat || echo "❌ Hardhat binary missing"
-          npx hardhat --version || echo "❌ Hardhat CLI not functional"
+          yarn hardhat --version || echo "❌ Hardhat CLI not functional"
+          echo "Checking installed packages..."
+          yarn list hardhat @nomicfoundation/hardhat-toolbox || echo "❌ Hardhat packages not listed"
+          echo "Checking PATH..."
+          echo $PATH
 
       - name: Install workspace dependencies
         run: |
-          npm --prefix backend ci
-          npm --prefix frontend ci
+          yarn --cwd backend install --frozen-lockfile
+          yarn --cwd frontend install --frozen-lockfile
 
       - name: Start Hardhat node
         run: |
-          npx hardhat node --config ./hardhat.config.cjs &
+          yarn hardhat node --config ./hardhat.config.cjs &
           echo "Hardhat node started on PID $!"
           sleep 5
 
       - name: Build and test backend
         run: |
           cd backend
-          npm start & sleep 5
-          npm test
+          yarn start & sleep 5
+          yarn test
 
       - name: Deploy contract locally
         run: |
-          npx hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
+          yarn hardhat run scripts/deploy.mjs --network localhost --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
@@ -63,12 +77,12 @@ jobs:
       - name: Build frontend
         run: |
           cd frontend
-          npm ci
-          npx ng build --configuration production
+          yarn install --frozen-lockfile
+          yarn ng build --configuration production
 
       - name: Run contract tests
         run: |
-          npx hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
+          yarn hardhat test backend/test/api.test.js --config ./hardhat.config.cjs
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}

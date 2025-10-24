@@ -10,7 +10,7 @@
     "compile": "hardhat compile --config ../hardhat.config.cjs",
     "test:contracts": "hardhat test test/api.test.js --config ../hardhat.config.cjs",
     "start:node": "hardhat node --config ../hardhat.config.cjs",
-    "deploy:localhost": "hardhat run --network localhost scripts/deploy.mjs --config ../hardhat.config.cjs"
+    "deploy:localhost": "hardhat run --network localhost ../scripts/deploy.mjs --config ../hardhat.config.cjs"
   },
   "engines": {
     "node": ">=22.10.0"

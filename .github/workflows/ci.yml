@@ -43,7 +43,7 @@ jobs:
         run: corepack yarn install --frozen-lockfile --mode=skip-build
 
       - name: Verify Hardhat
-        run: corepack yarn hardhat --version
+        run: corepack yarn --cwd backend hardhat --version
 
       - name: Start Hardhat node
         run: |

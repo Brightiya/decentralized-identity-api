@@ -1,5 +1,5 @@
 // backend/src/utils/pinata.js
-import { PinataSDK } from "pinata-web3";
+import PinataSDK from "@pinata/sdk";
 import dotenv from "dotenv";
 import axios from "axios";
 
@@ -12,13 +12,11 @@ if (!PINATA_JWT) {
   console.warn("⚠️ Missing PINATA_JWT. Pinata uploads will fail.");
 }
 
-const pinata = new PinataSDK({
-  pinataJwt: PINATA_JWT,
-});
+const pinata = new PinataSDK({ pinataJWTKey: PINATA_JWT });
 
 export async function uploadJSON(json) {
   try {
-    const result = await pinata.upload.json(json);
+    const result = await pinata.pinJSONToIPFS(json);
     return `ipfs://${result.IpfsHash}`;
   } catch (err) {
     throw new Error(`Pinata upload failed: ${err.message}`);

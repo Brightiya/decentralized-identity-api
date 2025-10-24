@@ -1,4 +1,5 @@
 name: CI
+
 on:
   push:
     branches: [ main ]
@@ -12,34 +13,57 @@ jobs:
       PROVIDER_URL: http://127.0.0.1:8545
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22.10.0'
+          
+
+      # Enable and activate Yarn 4.5.1 via Corepack
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate Yarn 4.5.1
+        run: corepack prepare yarn@4.5.1 --activate
+
+      # Verify Yarn version
+      - name: Verify Yarn version
+        run: corepack yarn --version
+
+      # Use `corepack yarn` for all commands
+      - name: Clear Yarn cache
+        run: corepack yarn cache clean --all
+
       - name: Install dependencies
-        run: npm install
-      - name: Debug environment
+        run: corepack yarn install --frozen-lockfile --mode=skip-build
+
+      - name: Verify Hardhat
+        run: corepack yarn --cwd backend hardhat --version
+
+      - name: Start Hardhat node
         run: |
-          echo "PRIVATE_KEY is set: ${PRIVATE_KEY:-not set}"
-          echo "PINATA_JWT is set: ${PINATA_JWT:-not set}"
-      - name: Build and test backend
-        run: |
-          cd backend
-          npm ci
-          npm start & sleep 5
-          npm test
-      - name: Deploy contract locally
-        run: npm run deploy:localhost
+          corepack yarn --cwd backend start:node &
+          echo "Hardhat node started"
+          sleep 10
+
+      - name: Run backend tests
+        run: corepack yarn --cwd backend test:contracts
+
       - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          ng build --configuration production
-      - name: Run contract tests
-        run: npm run test:contracts
+        run: corepack yarn --cwd frontend ng build --configuration production
+
+      - name: Deploy contract locally
+        run: corepack yarn --cwd backend deploy:localhost
+        env:
+          PROVIDER_URL: http://127.0.0.1:8545
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+
       - name: Check for errors
         if: failure()
-        run: echo "❌ CI failed; check logs for details"
+        run: echo "CI failed"

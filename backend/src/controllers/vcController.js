@@ -1,15 +1,36 @@
 // backend/src/controllers/vcController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
-import contractData from "../../src/contractData.json" assert { type: "json" };
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
-const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-const registry = new ethers.Contract(contractData.address, contractData.abi, signer);
+// Dynamically import contractData.json
+const contractData = (async () => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
+  return JSON.parse(await readFile(contractDataPath, "utf8"));
+})();
 
+const providerUrl = process.env.PROVIDER_URL || "http://127.0.0.1:8545";
+const privateKey = process.env.PRIVATE_KEY;
+
+if (!privateKey) {
+  throw new Error("❌ Missing PRIVATE_KEY in .env");
+}
+
+const provider = new ethers.JsonRpcProvider(providerUrl);
+const signer = new ethers.Wallet(privateKey, provider);
+
+// Initialize registry contract after resolving contractData
+(async () => {
+  const { address, abi } = await contractData;
+  globalThis.registry = new ethers.Contract(address, abi, signer);
+})();
 // -----------------------------
 // 1️⃣ Issue a Verifiable Credential
 // -----------------------------
@@ -78,7 +99,7 @@ try {
       currentProfile = await fetchJSON(profileCID);
     }
   } catch (e) {
-    console.warn("ℹ️ No existing profile found; creating new one");
+    console.warn(" No existing profile found; creating new one", e);
   }
 
   // 7️⃣ Append new VC reference

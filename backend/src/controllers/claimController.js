@@ -1,9 +1,19 @@
 // backend/src/controllers/claimController.js
 import { ethers } from "ethers";
 import dotenv from "dotenv";
-import contractData from "../../src/contractData.json" assert { type: "json" };
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 dotenv.config();
+
+// Dynamically import contractData.json
+const contractData = (async () => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
+  return JSON.parse(await readFile(contractDataPath, "utf8"));
+})();
 
 // -----------------------------
 // Setup Provider & Contract
@@ -17,8 +27,13 @@ if (!privateKey) {
 
 const provider = new ethers.JsonRpcProvider(providerUrl);
 const signer = new ethers.Wallet(privateKey, provider);
-const registryAddress = contractData.address;
-const registryContract = new ethers.Contract(registryAddress, contractData.abi, signer);
+
+// Resolve contractData and set up registryContract
+(async () => {
+  const { address, abi } = await contractData;
+  globalThis.registryAddress = address;
+  globalThis.registryContract = new ethers.Contract(address, abi, signer);
+})();
 
 // -----------------------------
 // Helper: Convert string → bytes32 safely
@@ -46,7 +61,7 @@ export const setClaim = async (req, res) => {
 
     console.log("🧩 Setting claim:", { owner, claimIdBytes32, claimHashBytes32 });
 
-    const tx = await registryContract.setClaim(owner, claimIdBytes32, claimHashBytes32);
+    const tx = await globalThis.registryContract.setClaim(owner, claimIdBytes32, claimHashBytes32);
     await tx.wait();
 
     return res.json({
@@ -73,7 +88,7 @@ export const getClaim = async (req, res) => {
     }
 
     const claimIdBytes32 = toBytes32(claimId);
-    const claimHash = await registryContract.getClaim(owner, claimIdBytes32);
+    const claimHash = await globalThis.registryContract.getClaim(owner, claimIdBytes32);
 
     if (
       !claimHash ||
@@ -109,7 +124,7 @@ export const removeClaim = async (req, res) => {
 
     console.log("🗑️ Removing claim:", { owner, claimIdBytes32 });
 
-    const tx = await registryContract.removeClaim(owner, claimIdBytes32);
+    const tx = await globalThis.registryContract.removeClaim(owner, claimIdBytes32);
     await tx.wait();
 
     return res.json({

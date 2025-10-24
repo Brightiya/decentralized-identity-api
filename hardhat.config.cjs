@@ -1,7 +1,10 @@
 // hardhat.config.cjs
 require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
-//require("@semaphore-protocol/hardhat"); // optional
+const { config } = require("dotenv");
+const { resolve } = require("path");
+
+
+config({ path: resolve(__dirname, ".env") });
 
 const { SEPOLIA_RPC_URL, AMOY_RPC_URL, PRIVATE_KEY } = process.env;
 

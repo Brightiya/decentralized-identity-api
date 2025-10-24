@@ -24,37 +24,41 @@ jobs:
           node-version: '22.10.0'
           cache: 'yarn'
 
+      # Enable and activate Yarn 4.5.1 via Corepack
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Install Yarn 4.5.1
+      - name: Activate Yarn 4.5.1
         run: corepack prepare yarn@4.5.1 --activate
 
+      # Verify Yarn version
+      - name: Verify Yarn version
+        run: corepack yarn --version
+
+      # Use `corepack yarn` for all commands
       - name: Clear Yarn cache
-        run: yarn cache clean --all
+        run: corepack yarn cache clean --all
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --mode=skip-build
+        run: corepack yarn install --frozen-lockfile --mode=skip-build
 
-      - name: Verify Hardhat installation
-        run: |
-          yarn hardhat --version || echo "❌ Hardhat CLI not functional"
-          yarn list hardhat @nomicfoundation/hardhat-toolbox || echo "❌ Hardhat packages not listed"
+      - name: Verify Hardhat
+        run: corepack yarn hardhat --version
 
       - name: Start Hardhat node
         run: |
-          yarn --cwd backend start:node &
-          echo "Hardhat node started on PID $!"
+          corepack yarn --cwd backend start:node &
+          echo "Hardhat node started"
           sleep 10
 
       - name: Run backend tests
-        run: yarn --cwd backend test:contracts
+        run: corepack yarn --cwd backend test:contracts
 
       - name: Build frontend
-        run: yarn --cwd frontend ng build --configuration production
+        run: corepack yarn --cwd frontend ng build --configuration production
 
       - name: Deploy contract locally
-        run: yarn --cwd backend deploy:localhost
+        run: corepack yarn --cwd backend deploy:localhost
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
@@ -62,4 +66,4 @@ jobs:
 
       - name: Check for errors
         if: failure()
-        run: echo "❌ CI failed; check logs for details"
+        run: echo "CI failed"

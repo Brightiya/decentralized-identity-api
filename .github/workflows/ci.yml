@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
-          cache: 'yarn'
+          
 
       # Enable and activate Yarn 4.5.1 via Corepack
       - name: Enable Corepack

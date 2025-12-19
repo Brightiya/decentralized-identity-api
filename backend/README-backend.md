@@ -1,16 +1,18 @@
 # Backend README (Pinata)
 
 ## Setup
+
 1. Copy `.env.example` → `.env` and fill values (especially PINATA_API_KEY / PINATA_SECRET_API_KEY).
 2. Install dependencies:
+
    ```bash
    cd backend
    npm install
 3. Start a local Hardhat node (optional, for contract interactions): ``npx hardhat node``
-4. Deploy IdentityRegistry contract (optional local deploy: ``npx hardhat run --network localhost ../scripts/deploy.js``
+
+4. Deploy IdentityRegistry contract (optional local deploy): ``npx hardhat run --network localhost ../scripts/deploy.js``
    Copy deployed address to IDENTITY_REGISTRY_ADDRESS in .env.
 5. Start server: npm run dev
-
 
 Example endpoints
 

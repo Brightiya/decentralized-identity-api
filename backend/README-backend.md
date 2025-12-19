@@ -8,9 +8,9 @@
    ```bash
    cd backend
    npm install
-3. Start a local Hardhat node (optional, for contract interactions): ``npx hardhat node``
+3. Start a local Hardhat node (optional, for contract interactions): `npx hardhat node`
 
-4. Deploy IdentityRegistry contract (optional local deploy): ``npx hardhat run --network localhost ../scripts/deploy.js``
+4. Deploy IdentityRegistry contract (optional local deploy): `npx hardhat run --network localhost ./scripts/deploy.js`(from main directory)
    Copy deployed address to IDENTITY_REGISTRY_ADDRESS in .env.
 5. Start server: npm run dev
 

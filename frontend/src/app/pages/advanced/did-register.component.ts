@@ -1,9 +1,8 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { WalletService } from '../services/wallet.service';
-import { ApiService } from '../services/api.service';
-
+import { WalletService } from '../../services/wallet.service';
+import { ApiService } from '../../services/api.service';
 @Component({
   selector: 'app-did-register',
   standalone: true,

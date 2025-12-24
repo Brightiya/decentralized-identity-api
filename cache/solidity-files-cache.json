@@ -1,8 +1,8 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api/contracts/IdentityRegistry.sol": {
-      "lastModificationDate": 1760517153528,
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/IdentityRegistry.sol": {
+      "lastModificationDate": 1766167102331,
       "contentHash": "20689ae32397b820525059cf6a0c63a8",
       "sourceName": "contracts/IdentityRegistry.sol",
       "solcConfig": {

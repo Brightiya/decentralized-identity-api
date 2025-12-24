@@ -7,7 +7,7 @@
 
    ```bash
    cd backend
-   npm install
+   yarn install
 3. Start a local Hardhat node (optional, for contract interactions): `npx hardhat node`
 
 4. Deploy IdentityRegistry contract (optional local deploy): `npx hardhat run --network localhost ./scripts/deploy.mjs`(from main directory)

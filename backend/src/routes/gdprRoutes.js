@@ -4,6 +4,6 @@ import { authMiddleware } from "../../middleware/auth.js";
 
 const router = express.Router();
 
-router.delete("/erase", authMiddleware, eraseProfile);
+router.delete("/erase",  eraseProfile);
 
 export default router;

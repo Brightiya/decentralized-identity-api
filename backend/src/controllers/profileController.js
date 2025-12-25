@@ -145,13 +145,18 @@ export const createOrUpdateProfile = async (req, res) => {
 
     let existingProfile = {};
 
-    // 🔄 Load existing profile if present
+     // 🚫 GDPR HARD STOP — erased profiles cannot be recreated
     const existingCid = await registry.getProfileCID(owner);
     if (existingCid && existingCid.length > 0) {
       try {
-        existingProfile = await fetchJSON(existingCid);
+        const existing = await fetchJSON(existingCid);
+        if (existing?.erased === true) {
+          return res.status(403).json({
+            error: "Profile erased under GDPR Art.17 and cannot be recreated"
+          });
+        }
       } catch {
-        console.warn("⚠️ Failed to fetch existing profile, recreating");
+        // Ignore fetch errors here; normal flow continues
       }
     }
 
@@ -208,6 +213,16 @@ export const getProfile = async (req, res) => {
     }
 
     const profile = await fetchJSON(cid);
+
+    // 🔥 ADD THIS BLOCK
+if (profile?.erased === true) {
+  return res.status(410).json({
+    did: `did:ethr:${address}`,
+    erased: true,
+    erasedAt: profile.erasedAt,
+    message: "Profile erased under GDPR Art.17"
+  });
+}
 
     // ✅ Correct context filtering
     const credentials = (profile.credentials || []).filter(

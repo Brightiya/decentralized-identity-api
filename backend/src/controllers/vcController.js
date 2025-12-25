@@ -491,27 +491,24 @@ export const verifyVC = async (req, res) => {
       }
     }
 
-    /* -------------------------------------------------
-       4️⃣ Verify signature
-    --------------------------------------------------*/ 
+   /* -------------------------------------------------
+   4️⃣ Verify signature
+--------------------------------------------------*/ 
 
-    const vcString = JSON.stringify({
-      "@context": vc["@context"],
-      type: vc.type,
-      issuer: vc.issuer,
-      issuanceDate: vc.issuanceDate,
-      credentialSubject: vc.credentialSubject,
-      pimv: vc.pimv,
-    });
+const { proof, ...signedVC } = vc;
+const vcString = JSON.stringify(signedVC);
 
-    const recovered = ethers.verifyMessage(
-      vcString,
-      vc.proof.jws
-    );
+const recovered = ethers.verifyMessage(vcString, proof.jws);
+const validSig = recovered.toLowerCase() === didToAddress(vc.issuer).toLowerCase();
 
-    const validSig =
-      recovered.toLowerCase() ===
-      vc.proof.verificationMethod.toLowerCase();
+if (!validSig) {
+  return res.status(400).json({
+    error: "Invalid signature",
+    recoveredAddress: recovered,
+    expectedIssuerAddress: didToAddress(vc.issuer),
+    providedIssuer: vc.issuer
+  });
+}
 
     /* -------------------------------------------------
        5️⃣ Verify on-chain anchor
@@ -524,7 +521,8 @@ export const verifyVC = async (req, res) => {
     const claimIdBytes32 = ethers.keccak256(
       ethers.toUtf8Bytes(claimId)
     );
-
+    const subjectAddress = didToAddress(subject);
+    
     const onChainHash = await registry.getClaim(
       subjectAddress,
       claimIdBytes32

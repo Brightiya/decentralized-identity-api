@@ -160,6 +160,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
+import { Router } from '@angular/router';
+
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -448,6 +450,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     }
   `]
 })
+
 export class GdprComponent {
   confirmed = false;
   connecting = false;
@@ -459,7 +462,8 @@ export class GdprComponent {
 
   constructor(
     public wallet: WalletService,
-    private api: ApiService
+    private api: ApiService,
+   // private router: Router
   ) {}
 
   async connect() {
@@ -496,6 +500,19 @@ export class GdprComponent {
         this.result = res;
         this.loading = false;
         this.confirmed = false;
+        // ✅ Remember erased DID for Vault display
+        sessionStorage.setItem(
+          'erasedDid',
+          `did:ethr:${this.wallet.address}`
+        );
+        sessionStorage.setItem(
+          'erasedAt',
+          new Date().toISOString()
+        );
+        // ✅ GDPR-compliant cleanup
+        this.wallet.disconnect();
+        // ✅ Leave identity-related views
+       // this.router.navigate(['/']);
       },
       error: (err: any) => {
         this.error = err?.error?.message || err?.message || 'Erasure request failed';

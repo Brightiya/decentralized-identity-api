@@ -164,7 +164,7 @@ export class ApiService {
    */
   getDisclosuresForSubject(subjectDid: string) {
     return this.http.get(
-      `${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}`
+      `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`
     );
   }
 

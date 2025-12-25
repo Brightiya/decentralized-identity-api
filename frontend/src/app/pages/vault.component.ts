@@ -184,11 +184,13 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 }
 */
+
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
-// Add these Material imports
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -196,10 +198,25 @@ import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { firstValueFrom, Subscription } from 'rxjs';
 
+interface ProfileResponse {
+  did: string;
+  context?: string;
+  attributes: any;
+  credentials: any[];
+  // Tombstone fields
+  erased?: boolean;
+  erasedAt?: string;
+  gdpr?: { article: string; action: string };
+  credentialSubject?: { id: string };
+}
+
 @Component({
   selector: 'app-vault',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule,
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule
@@ -221,11 +238,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
 
       <div class="wallet-info" *ngIf="wallet.address; else connectPrompt">
         <div class="address-row">
-          <input
-            class="address-input"
-            [value]="wallet.address!"
-            disabled
-          />
+          <input class="address-input" [value]="wallet.address!" disabled />
           <button mat-icon-button class="copy-btn" (click)="copyAddress()">
             <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
           </button>
@@ -246,11 +259,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
         <p class="muted">
           Connect your Ethereum wallet to access your personal identity vault.
         </p>
-
-        <button
-          class="connect-btn"
-          (click)="connect()"
-          [disabled]="loading">
+        <button class="connect-btn" (click)="connect()" [disabled]="loading">
           <mat-icon *ngIf="!loading">wallet</mat-icon>
           <span>{{ loading ? 'Connecting...' : 'Connect Wallet' }}</span>
         </button>
@@ -258,7 +267,7 @@ import { firstValueFrom, Subscription } from 'rxjs';
     </section>
 
     <!-- Profile Status Card -->
-    <section class="card elevated" *ngIf="wallet.address">
+    <section class="card elevated" *ngIf="wallet.address || isErased">
       <div class="card-header">
         <mat-icon class="header-icon">shield</mat-icon>
         <h3>Vault Profile</h3>
@@ -273,45 +282,61 @@ import { firstValueFrom, Subscription } from 'rxjs';
         </ng-container>
 
         <ng-template #profileLoaded>
-          <ng-container *ngIf="profileExists; else noProfile">
-            <div class="status success">
-              <mat-icon>verified</mat-icon>
-              <div>
-                <strong>Your identity vault is active</strong>
-                <p class="muted small">All credentials and contexts are ready.</p>
-              </div>
-            </div>
+          <!-- Erased State -->
+          <ng-container *ngIf="isErased">
+    <div class="status erased">
+      <mat-icon inline color="warn">privacy_tip</mat-icon>
+      <div>
+        <strong>Your identity has been permanently erased</strong>
+        <p class="muted small">
+          You exercised your Right to be Forgotten on {{ erasedAt | date:'medium' }}.
+        </p>
+        <p class="muted small">
+          No credentials or personal data are accessible. This is cryptographically proven on-chain.
+        </p>
+      </div>
+    </div>
+  </ng-container>
 
-            <div class="actions">
-              <a routerLink="/contexts" class="btn-primary">
-                <mat-icon>layers</mat-icon>
-                Manage Contexts
-              </a>
-              <a routerLink="/credentials" class="btn-secondary">
-                <mat-icon>badge</mat-icon>
-                Issue Credential
-              </a>
-            </div>
-          </ng-container>
+          <!-- Active Profile -->
+  <ng-container *ngIf="!isErased && profileExists">
+    <div class="status success">
+      <mat-icon>verified</mat-icon>
+      <div>
+        <strong>Your identity vault is active</strong>
+        <p class="muted small">All credentials and contexts are ready.</p>
+      </div>
+    </div>
 
-          <ng-template #noProfile>
-            <div class="status warning">
-              <mat-icon>info</mat-icon>
-              <div>
-                <strong>No vault profile found</strong>
-                <p class="muted small">Create one to start issuing and managing credentials.</p>
-              </div>
-            </div>
+    <div class="actions">
+      <a routerLink="/contexts" class="btn-primary">
+        <mat-icon>layers</mat-icon>
+        Manage Contexts
+      </a>
+      <a routerLink="/credentials" class="btn-secondary">
+        <mat-icon>badge</mat-icon>
+        Issue Credential
+      </a>
+    </div>
+  </ng-container>
 
-            <button
-              class="btn-primary"
-              (click)="createProfile()"
-              [disabled]="loading">
-              <mat-icon *ngIf="!loading">add_box</mat-icon>
-              <span>{{ loading ? 'Creating...' : 'Create Vault Profile' }}</span>
-            </button>
-          </ng-template>
-        </ng-template>
+            <!-- No Profile -->
+  <ng-container *ngIf="!isErased && !profileExists">
+    <div class="status warning">
+      <mat-icon>info</mat-icon>
+      <div>
+        <strong>No vault profile found</strong>
+        <p class="muted small">Create one to start issuing and managing credentials.</p>
+      </div>
+    </div>
+
+    <button class="btn-primary" (click)="createProfile()" [disabled]="loading">
+      <mat-icon *ngIf="!loading">add_box</mat-icon>
+      <span>{{ loading ? 'Creating...' : 'Create Vault Profile' }}</span>
+    </button>
+  </ng-container>
+  </ng-template>
+      
       </div>
     </section>
   `,
@@ -517,32 +542,135 @@ import { firstValueFrom, Subscription } from 'rxjs';
       margin: 4px 0 0 0;
       font-size: 0.9rem;
     }
+
+    .status.erased {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px;
+      background: #fffbeb;
+      border: 1px solid #fed7aa;
+      border-radius: 12px;
+      color: #9a3412;
+      margin: 16px 0;
+    }
+
+    .status.erased mat-icon {
+      font-size: 36px;
+      width: 44px;
+      height: 44px;
+      margin-top: 4px;
+    }
+
+    .status.erased strong {
+      font-size: 1.2rem;
+      display: block;
+      margin-bottom: 8px;
+    }
   `]
 })
 export class VaultComponent implements OnInit, OnDestroy {
   loading = false;
   profileExists = false;
   copied = false;
+  isErased = false;
+  erasedAt: string | null = null;
+  currentProfile: any = null;
 
   private sub?: Subscription;
+  
 
   constructor(
     public wallet: WalletService,
-    private api: ApiService
+    private api: ApiService,
+    @Inject(PLATFORM_ID) private platformId: Object
   ) {}
 
   ngOnInit() {
+    const isBrowser = isPlatformBrowser(this.platformId);
+      
+     if (isBrowser) {
+    const erasedDid = sessionStorage.getItem('erasedDid');
+    const erasedAt = sessionStorage.getItem('erasedAt');
+
+      if (erasedDid) {
+        this.isErased = true;
+        this.profileExists = false;
+        this.erasedAt = erasedAt;
+        this.loading = false;
+      }
+    }
     this.sub = this.wallet.address$.subscribe(address => {
       if (address) {
-        this.checkProfile();
-      } else {
-        this.profileExists = false;
-      }
+         sessionStorage.removeItem('erasedDid');
+          sessionStorage.removeItem('erasedAt');
+          this.checkProfile();
+      } 
     });
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
+  }
+/** 
+  private resetState() {
+    this.profileExists = false;
+    this.isErased = false;
+    this.erasedAt = null;
+    this.currentProfile = null;
+  }
+  */
+
+  async checkProfile() {
+  if (!this.wallet.address) return;
+  this.loading = true;
+
+  try {
+    const profile: any = await firstValueFrom(
+      this.api.getProfile(this.wallet.address)
+    );
+
+    // If we get here, profile exists and is active
+    this.isErased = false;
+    this.profileExists = true;
+    this.erasedAt = null;
+
+  } catch (err: any) {
+    if (err.status === 410) {
+      // ✅ GDPR-erased
+      this.isErased = true;
+      this.profileExists = false;
+      this.erasedAt = err.error?.erasedAt || null;
+    } else if (err.status === 404) {
+      // No profile ever created
+      this.isErased = false;
+      this.profileExists = false;
+      this.erasedAt = null;
+    } else {
+      console.error('Profile check failed', err);
+      this.isErased = false;
+      this.profileExists = false;
+    }
+  } finally {
+    this.loading = false;
+  }
+}
+
+  createProfile() {
+    if (!this.wallet.address || this.isErased) return;
+
+    this.loading = true;
+    this.api.createProfile({ owner: this.wallet.address }).subscribe({
+      next: () => {
+        this.profileExists = true;
+        this.isErased = false;
+        this.loading = false;
+      },
+      error: () => {
+        alert('Failed to create vault profile');
+        this.loading = false;
+      }
+    });
   }
 
   async connect() {
@@ -554,36 +682,6 @@ export class VaultComponent implements OnInit, OnDestroy {
     } finally {
       this.loading = false;
     }
-  }
-
-  async checkProfile() {
-    if (!this.wallet.address) return;
-    this.loading = true;
-
-    try {
-      await firstValueFrom(this.api.getProfile(this.wallet.address));
-      this.profileExists = true;
-    } catch {
-      this.profileExists = false;
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  createProfile() {
-    if (!this.wallet.address) return;
-
-    this.loading = true;
-    this.api.createProfile({ owner: this.wallet.address }).subscribe({
-      next: () => {
-        this.profileExists = true;
-        this.loading = false;
-      },
-      error: () => {
-        alert('Failed to create vault profile');
-        this.loading = false;
-      }
-    });
   }
 
   copyAddress() {

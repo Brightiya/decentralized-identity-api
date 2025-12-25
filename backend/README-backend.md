@@ -12,7 +12,7 @@
 
 4. Deploy IdentityRegistry contract (optional local deploy): `npx hardhat run --network localhost ./scripts/deploy.mjs`(from main directory)
    Copy deployed address to IDENTITY_REGISTRY_ADDRESS in .env.
-5. Start server: npm run dev (from backend directory)
+5. Start server: npm run dev or (from backend directory) or yarn --cwd backend dev(from frontend)
 
 Example endpoints
 
@@ -27,3 +27,25 @@ Example endpoints
 + POST /api/vc/issue — issue demo VC JWT
 
 + POST /api/vc/verify — verify demo VC JWT
+
+// DB:
+  In your project root (where backend/ is)
+
+  1. Connect as the default superuser (no password needed)
+   Run this — it will connect without asking for a password:
+   psql postgres
+  2. Create the pimv_user and pimv_db exactly as in your .env
+   Inside the psql prompt, run these commands one by one:
+   CREATE USER pimv_user WITH PASSWORD 'strongpassword' CREATEDB;
+
+   CREATE DATABASE pimv_db OWNER pimv_user;
+
+   -- Optional: Grant all privileges (good for dev)
+   GRANT ALL PRIVILEGES ON DATABASE pimv_db TO pimv_user;
+   Then quit: \q
+ 3. Now run your schema file:
+    psql "$DATABASE_URL" -f backend/db/schema.sq(if this fails), run:
+    psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
+ 4. test with:
+    psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db
+// Qmf5DEsxcYM9qH7PqUqjanNfJAjtNJVmegTwDe1ynKtadf

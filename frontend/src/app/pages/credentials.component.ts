@@ -1,201 +1,3 @@
-/** 
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { WalletService } from '../services/wallet.service';
-import { ApiService } from '../services/api.service';
-import { ContextService } from '../services/context.service';
-
-
-@Component({
-  selector: 'app-credentials',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <h2>Credentials</h2>
-    <p class="muted">
-      Issue and verify verifiable credentials linked to consented contexts.
-    </p>
-
-    <button (click)="connect()">Connect Wallet</button>
-    <div *ngIf="address">Connected: {{ address }}</div>
-
-    <hr />
-
-    <!-- Issue VC -->
-    <section class="card">
-      <h3>Issue Credential</h3>
-
-      <!-- Context selector -->
-      <label>Context
-        <select [(ngModel)]="context" [disabled]="result">
-          <option value="">-- select --</option>
-          <option *ngFor="let c of contexts" [value]="c">
-            {{ c | titlecase }}
-          </option>
-        </select>
-      </label>
-
-      <!-- Add custom context -->
-      <div class="row">
-        <input
-          placeholder="Add custom context (e.g. health)"
-          [(ngModel)]="newContext"
-        />
-        <button class="btn-secondary" (click)="addContext()">
-          Add
-        </button>
-      </div>
-
-      <label>Subject DID
-        <input [(ngModel)]="subject">
-      </label>
-
-      <label>Claim ID
-        <input [(ngModel)]="claimId">
-      </label>
-
-      <label>Claim JSON
-        <textarea [(ngModel)]="claim"></textarea>
-      </label>
-
-      <button (click)="issueVC()">Issue VC</button>
-    </section>
-
-    <!-- Verify VC -->
-    <section class="card">
-      <h3>Verify Credential</h3>
-      <textarea
-        [(ngModel)]="verifyPayload"
-        placeholder="Paste VC JSON"
-      ></textarea>
-      <button (click)="verifyVC()">Verify</button>
-    </section>
-
-    <pre *ngIf="result">{{ result | json }}</pre>
-  `,
-  styles: [`
-    .card {
-      padding: 16px;
-      margin-bottom: 16px;
-      border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,.05);
-      max-width: 600px;
-    }
-    textarea { width: 100%; min-height: 80px; }
-    .row {
-      display: flex;
-      gap: 8px;
-      margin: 8px 0;
-    }
-    .btn-secondary {
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: #e3f2fd;
-      color: #1976d2;
-      border: none;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .muted { color: #666; }
-  `]
-})
-export class CredentialsComponent {
-  address: string | null = null;
-
-  // Default + user-added contexts
-  contexts: string[] = [];
-  context = '';
-  newContext = '';
-
-  subject = '';
-  claimId = 'identity.email';
-  claim = '{"email":"alice@example.com"}';
-
-  verifyPayload = '';
-  result: any;
-
-  constructor(
-    private wallet: WalletService,
-    private api: ApiService,
-    private contextService: ContextService
-  ) {this.contextService.contexts$.subscribe(ctxs => {
-    this.contexts = ctxs;
-  });
-}
-
-  async connect() {
-    const r = await this.wallet.connect();
-    this.address = r.address;
-    this.subject = `did:ethr:${this.address}`;
-  }
-
-  addContext() {
-    const ctx = this.newContext.trim().toLowerCase();
-    if (!ctx) return;
-
-    if (this.contexts.includes(ctx)) {
-      alert('Context already exists');
-      return;
-    }
-
-  this.contextService.addContext(this.newContext);
-  this.context = this.newContext.toLowerCase();
-  this.newContext = '';
-  }
-
-  issueVC() {
-    if (!this.context) {
-      alert('Select a context first');
-      return;
-    }
-
-    if (!this.address) {
-      alert('Wallet not connected');
-      return;
-    }
-
-    let claimObj;
-    try {
-      claimObj = JSON.parse(this.claim);
-    } catch {
-      alert('Claim must be valid JSON');
-      return;
-    }
-
-    this.api.issueVC({
-      issuer: `did:ethr:${this.address}`,
-      subject: this.subject,
-      claimId: this.claimId,
-      claim: claimObj,
-      context: this.context,
-      consent: this.context !== 'default'
-        ? { purpose: 'credential issuance' }
-        : undefined
-    }).subscribe(
-      r => this.result = r,
-      e => this.result = e.error || e
-    );
-  }
-
-  verifyVC() {
-    let vc;
-    try {
-      vc = JSON.parse(this.verifyPayload);
-    } catch {
-      alert('Invalid VC JSON');
-      return;
-    }
-
-    this.api.verifyVC(vc).subscribe(
-      r => this.result = r,
-      e => this.result = e.error || e
-    );
-  }
-}
-*/
-
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -276,7 +78,7 @@ import { MatCardModule } from '@angular/material/card';
       </mat-card-content>
     </mat-card>
 
-    <!-- Main Tabs: Issue & Verify -->
+    <!-- Main Tabs: Issue VC -->
     <mat-tab-group class="tabs" *ngIf="address" animationDuration="300ms">
       <!-- Issue Tab -->
       <mat-tab label="Issue Credential">
@@ -324,6 +126,18 @@ import { MatCardModule } from '@angular/material/card';
                 </div>
               </div>
 
+                      <!-- Purpose (GDPR-required) -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Purpose</mat-label>
+          <input
+            matInput
+            [(ngModel)]="purpose"
+            placeholder="e.g. account verification, onboarding"
+          />
+          <mat-hint>Required for consent-based disclosure</mat-hint>
+        </mat-form-field>
+
+
               <!-- Claim Details -->
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Claim ID</mat-label>
@@ -364,41 +178,6 @@ import { MatCardModule } from '@angular/material/card';
         </div>
       </mat-tab>
 
-      <!-- Verify Tab -->
-      <mat-tab label="Verify Credential">
-        <div class="tab-content">
-          <mat-card class="card elevated" appearance="outlined">
-            <mat-card-header>
-              <mat-icon class="header-icon" mat-card-avatar>verified_user</mat-icon>
-              <mat-card-title>Verify Credential</mat-card-title>
-            </mat-card-header>
-
-            <mat-card-content>
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Verifiable Credential JSON</mat-label>
-                <textarea
-                  matInput
-                  rows="12"
-                  [(ngModel)]="verifyPayload"
-                  placeholder="Paste full VC JSON here..."
-                ></textarea>
-              </mat-form-field>
-
-              <div class="verify-actions">
-                <button
-                  mat-raised-button
-                  color="accent"
-                  (click)="verifyVC()"
-                  [disabled]="!verifyPayload.trim() || verifying">
-                  <mat-icon *ngIf="!verifying">security</mat-icon>
-                  <mat-spinner diameter="20" *ngIf="verifying"></mat-spinner>
-                  <span>{{ verifying ? 'Verifying...' : 'Verify Credential' }}</span>
-                </button>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
-      </mat-tab>
     </mat-tab-group>
 
     <!-- Result Display -->
@@ -554,11 +333,6 @@ import { MatCardModule } from '@angular/material/card';
       margin-top: 12px;
     }
 
-    .verify-actions {
-      text-align: right;
-      margin-top: 16px;
-    }
-
     .tab-content {
       padding: 24px 0;
     }
@@ -597,22 +371,28 @@ import { MatCardModule } from '@angular/material/card';
     .muted { color: #64748b; }
   `]
 })
+
 export class CredentialsComponent implements OnInit {
+  // Wallet
   address: string | null = null;
+  subject = '';
   connecting = false;
-  issuing = false;
-  verifying = false;
   copied = false;
 
+  // Context
   contexts: string[] = [];
   context = '';
   newContext = '';
 
-  subject = '';
+  // Claim issuance (single-claim VC by design)
   claimId = 'identity.email';
   claim = '{\n  "email": "alice@example.com"\n}';
 
-  verifyPayload = '';
+  // 🔐 Purpose is now mandatory for consent-aware issuance
+  purpose = '';
+
+  // UI state
+  issuing = false;
   result: any | null = null;
 
   constructor(
@@ -621,22 +401,23 @@ export class CredentialsComponent implements OnInit {
     private contextService: ContextService
   ) {}
 
+  // --------------------
+  // Lifecycle
+  // --------------------
   ngOnInit() {
-    // Subscribe to dynamic contexts
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts = ctxs.sort();
     });
 
-    // React to wallet changes
     this.wallet.address$.subscribe(addr => {
       this.address = addr;
-      if (addr) {
-        this.subject = `did:ethr:${addr}`;
-      }
+      this.subject = addr ? `did:ethr:${addr}` : '';
     });
   }
-  
-  
+
+  // --------------------
+  // Wallet
+  // --------------------
   async connect() {
     this.connecting = true;
     try {
@@ -652,11 +433,14 @@ export class CredentialsComponent implements OnInit {
     if (!this.address) return;
     navigator.clipboard.writeText(this.address);
     this.copied = true;
-    setTimeout(() => this.copied = false, 2000);
+    setTimeout(() => (this.copied = false), 2000);
   }
 
+  // --------------------
+  // Contexts
+  // --------------------
   addContext() {
-    let ctx = this.newContext.trim().toLowerCase();
+    const ctx = this.newContext.trim().toLowerCase();
     if (!ctx) return;
 
     if (!/^[a-z0-9-]+$/.test(ctx)) {
@@ -674,81 +458,81 @@ export class CredentialsComponent implements OnInit {
     this.newContext = '';
   }
 
-  isIssueValid(): boolean {
-    if (!this.context || !this.claimId.trim()) return false;
+  // --------------------
+  // Validation
+  // --------------------
+    isIssueValid(): boolean {
+    // Context must be selected (not empty string)
+    if (!this.context || this.context.trim().length === 0) return false;
+
+    // Claim ID must exist
+    if (!this.claimId || this.claimId.trim().length === 0) return false;
+
+    // Purpose must exist (non-empty)
+    if (!this.purpose || this.purpose.trim().length === 0) return false;
+
+    // Claim must be valid JSON object
     try {
-      JSON.parse(this.claim);
-      return true;
+      const parsed = JSON.parse(this.claim);
+      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
     } catch {
       return false;
     }
   }
 
+
+  // --------------------
+  // Issue VC (single claim, consent enforced server-side)
+  // --------------------
   issueVC() {
-    if (!this.isIssueValid()) return;
+  if (!this.isIssueValid()) return;
 
-    this.issuing = true;
-    this.result = null;
+  this.issuing = true;
+  this.result = null;
 
-    let claimObj: any;
-    try {
-      claimObj = JSON.parse(this.claim);
-    } catch {
-      alert('Invalid JSON in claim');
+  let claimObj: any;
+  try {
+    claimObj = JSON.parse(this.claim);
+  } catch {
+    alert('Invalid JSON in claim');
+    this.issuing = false;
+    return;
+  }
+
+  this.api.issueVC({
+    issuer: `did:ethr:${this.address}`,
+    subject: this.subject,
+    claimId: this.claimId,
+    claim: claimObj,
+    context: this.context,
+
+    // ✅ purpose goes inside consent
+    consent: {
+      purpose: this.purpose.trim()
+    }
+  }).subscribe({
+    next: (r) => {
+      this.result = r;
       this.issuing = false;
-      return;
+    },
+    error: (e) => {
+      this.result = e.error || e;
+      this.issuing = false;
     }
+  });
+}
 
-    this.api.issueVC({
-      issuer: `did:ethr:${this.address}`,
-      subject: this.subject,
-      claimId: this.claimId,
-      claim: claimObj,
-      context: this.context,
-      consent: this.context !== 'default' ? { purpose: 'credential issuance' } : undefined
-    }).subscribe({
-      next: (r) => {
-        this.result = r;
-        this.issuing = false;
-      },
-      error: (e) => {
-        this.result = e.error || e;
-        this.issuing = false;
-      }
-    });
-  }
 
-  verifyVC() {
-    if (!this.verifyPayload.trim()) return;
-
-    this.verifying = true;
-    this.result = null;
-
-    let vc: any;
-    try {
-      vc = JSON.parse(this.verifyPayload);
-    } catch {
-      alert('Invalid VC JSON');
-      this.verifying = false;
-      return;
-    }
-
-    this.api.verifyVC(vc).subscribe({
-      next: (r) => {
-        this.result = r;
-        this.verifying = false;
-      },
-      error: (e) => {
-        this.result = e.error || e;
-        this.verifying = false;
-      }
-    });
-  }
-
+  // --------------------
+  // Helpers
+  // --------------------
   isSuccessResult(): boolean {
-    return this.result && this.result.message && this.result.message.includes('issued');
+    return !!(
+      this.result &&
+      typeof this.result.message === 'string' &&
+      this.result.message.toLowerCase().includes('issued')
+    );
   }
 }
 
-// Fix for SSR/module import issues
 export default CredentialsComponent;

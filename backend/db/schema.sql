@@ -64,6 +64,54 @@ COMMENT ON COLUMN disclosures.consent IS
 COMMENT ON COLUMN disclosures.disclosed_at IS
 'Timestamp when disclosure occurred';
 
+-- --------------------------------------------
+-- Consent registry (GDPR source of truth)
+-- --------------------------------------------
+CREATE TABLE IF NOT EXISTS consents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Data subject (owner of the identity)
+  subject_did TEXT NOT NULL,
+
+  -- Claim this consent applies to
+  claim_id TEXT NOT NULL,
+
+  -- Purpose limitation
+  purpose TEXT NOT NULL,
+
+  -- Optional verifier scoping (NULL = any verifier)
+  verifier_did TEXT,
+
+  -- Consent lifecycle
+  issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMP,
+  revoked_at TIMESTAMP,
+
+  -- Free-form metadata (optional, future-proofing)
+  metadata JSONB
+);
+
+-- --------------------------------------------
+-- Indexes for fast verification
+-- --------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_consents_subject
+  ON consents(subject_did);
+
+CREATE INDEX IF NOT EXISTS idx_consents_claim
+  ON consents(claim_id);
+
+CREATE INDEX IF NOT EXISTS idx_consents_purpose
+  ON consents(purpose);
+
+CREATE INDEX IF NOT EXISTS idx_consents_active
+  ON consents(subject_did, claim_id, purpose)
+  WHERE revoked_at IS NULL;
+
+CREATE UNIQUE INDEX uniq_active_consent
+ON consents (subject_did, claim_id, purpose)
+WHERE revoked_at IS NULL;
+
+
 
 --- How to apply it (one-time):
---bash: psql "$DATABASE_URL" -f backend/db/schema.sql
+--psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql

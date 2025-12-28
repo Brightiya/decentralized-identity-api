@@ -187,6 +187,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../services/api.service';
 import { WalletService } from '../services/wallet.service';
 import { ContextService } from '../services/context.service';
+import { RouterModule } from '@angular/router';
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -203,6 +204,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule,
     MatIconModule,
     MatButtonModule,
     MatSelectModule,

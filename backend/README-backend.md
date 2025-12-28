@@ -12,7 +12,7 @@
 
 4. Deploy IdentityRegistry contract (optional local deploy): `npx hardhat run --network localhost ./scripts/deploy.mjs`(from main directory)
    Copy deployed address to IDENTITY_REGISTRY_ADDRESS in .env.
-5. Start server: npm run dev or (from backend directory) or yarn --cwd backend dev(from frontend)
+5. Start server: npm run dev or (from backend directory) or yarn --cwd backend dev(from frontend dir.)
 
 Example endpoints
 
@@ -48,4 +48,10 @@ Example endpoints
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
  4. test with:
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db
-// Qmf5DEsxcYM9qH7PqUqjanNfJAjtNJVmegTwDe1ynKtadf
+
+did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+ name
+ QmNud1HjajCyjyVoVHRfyn86265qkw6U3rNuBuXpLedFmE
+
+ email
+QmQaXoq7zS4xJa8DH2Yp6YZgEJkNCcHXr4QvnjbfinGRKV

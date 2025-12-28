@@ -148,14 +148,17 @@ Open <http://localhost:4200>
 
 #### As a Verifier (API)
 
+Note Using CURL, you must start PostgreSQL first: brew services start postgresql
+
 ```bash
 curl -X POST http://localhost:4000/api/vc/verify \
+  -H "Content-Type: application/json" \
   -d '{
-    "cid": "YOUR_CID",
-    "claimId": "identity.email",
-    "subject": "did:ethr:0xf39F...",
-    "verifierDid": "did:ethr:0x7099...",
-    "purpose": "credential issuance",
+    "cid": "Your cid" E.g:,"QmV6jXNoBV85pU1a9PKoXhnSHeKbpsrJZLMt7jibPwJfV3",
+    "claimId": "e.g: professional.medical_license",
+    "subject":e.g: "did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "verifierDid":e.g: "did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "purpose":e.g: "employment verification",
     "consent": true
   }'
 ```

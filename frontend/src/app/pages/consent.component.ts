@@ -1,170 +1,7 @@
-/** 
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ClaimService } from '../services/claim.service';
-import { WalletService } from '../services/wallet.service';
-
-@Component({
-  selector: 'app-consent',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <h2>Consent Management</h2>
-
-    <button (click)="connectWallet()">Connect Wallet</button>
-    <div *ngIf="walletAddress" class="muted">
-      Connected: {{ walletAddress }}
-    </div>
-
-    <hr />
-
-    <!-- Context -->
-    <section class="card">
-      <label>Context</label>
-      <select [(ngModel)]="context">
-        <option value="">-- Select context --</option>
-        <option *ngFor="let c of contexts" [value]="c">
-          {{ c | titlecase }}
-        </option>
-      </select>
-    </section>
-
-    <!-- Attributes -->
-    <section class="card" *ngIf="context">
-      <h3>Attributes to Share</h3>
-
-      <label *ngFor="let attr of attributes">
-        <input
-          type="checkbox"
-          [checked]="selectedAttributes.includes(attr)"
-          (change)="toggleAttribute(attr)"
-        />
-        {{ attr }}
-      </label>
-    </section>
-
-    <!-- Consent -->
-    <section class="card" *ngIf="selectedAttributes.length">
-      <label>
-        <input type="checkbox" [(ngModel)]="explicitConsent" />
-        I explicitly consent to share the selected attributes
-      </label>
-
-      <button
-        [disabled]="!explicitConsent"
-        (click)="grantConsent()"
-      >
-        Grant Consent
-      </button>
-    </section>
-
-    <!-- Revoke -->
-    <section class="card muted" *ngIf="consentClaimId">
-      <p>Consent ID: {{ consentClaimId }}</p>
-      <button class="danger" (click)="revokeConsent()">
-        Revoke Consent
-      </button>
-    </section>
-
-    <pre *ngIf="result">{{ result | json }}</pre>
-  `,
-  styles: [`
-    .card {
-      padding: 16px;
-      border-radius: 12px;
-      background: #fff;
-      margin-bottom: 16px;
-      max-width: 520px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.05);
-    }
-    label { display: block; margin-bottom: 8px; }
-    select { width: 100%; padding: 6px; }
-    button { margin-top: 8px; }
-    .danger { background: #ffebee; color: #c62828; }
-    .muted { color: #666; }
-  `]
-})
-export class ConsentComponent {
-  walletAddress: string | null = null;
-
-  contexts = ['personal', 'professional', 'legal'];
-  attributes = ['name', 'email', 'credentials'];
-
-  context = '';
-  selectedAttributes: string[] = [];
-  explicitConsent = false;
-
-  consentClaimId: string | null = null;
-  result: any;
-
-  constructor(
-    private claims: ClaimService,
-    private wallet: WalletService
-  ) {}
-
-  async connectWallet() {
-    const r = await this.wallet.connect();
-    this.walletAddress = r.address;
-  }
-
-  toggleAttribute(attr: string) {
-    if (this.selectedAttributes.includes(attr)) {
-      this.selectedAttributes = this.selectedAttributes.filter(a => a !== attr);
-    } else {
-      this.selectedAttributes.push(attr);
-    }
-  }
-
-  async grantConsent() {
-    if (!this.walletAddress) return;
-
-    const payload = {
-      owner: this.walletAddress,
-      context: this.context,
-      attributes: this.selectedAttributes,
-      timestamp: new Date().toISOString()
-    };
-
-    const claimHash = await crypto.subtle.digest(
-      'SHA-256',
-      new TextEncoder().encode(JSON.stringify(payload))
-    );
-
-    const hashHex = Array.from(new Uint8Array(claimHash))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    this.consentClaimId = `consent:${this.context}`;
-
-    this.claims.setClaim({
-      owner: this.walletAddress,
-      claimId: this.consentClaimId,
-      claimHash: hashHex
-    }).subscribe(res => this.result = res);
-  }
-
-  revokeConsent() {
-    if (!this.walletAddress || !this.consentClaimId) return;
-
-    this.claims.removeClaim({
-      owner: this.walletAddress,
-      claimId: this.consentClaimId
-    }).subscribe(res => {
-      this.result = res;
-      this.consentClaimId = null;
-      this.selectedAttributes = [];
-      this.explicitConsent = false;
-    });
-  }
-}
-*/
-
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ClaimService } from '../services/claim.service';
 import { WalletService } from '../services/wallet.service';
 import { ContextService } from '../services/context.service';
 import { ApiService } from '../services/api.service';
@@ -178,6 +15,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDividerModule } from '@angular/material/divider';
 
 @Component({
   selector: 'app-consent',
@@ -193,7 +31,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatCheckboxModule,
     MatCardModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatDividerModule
   ],
   template: `
     <div class="consent-header">
@@ -238,7 +77,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       </mat-card-content>
     </mat-card>
 
-    <!-- Consent Flow (only visible after wallet connection) -->
+    <!-- Consent Flow -->
     <ng-container *ngIf="wallet.address">
       <!-- Context Selection -->
       <mat-card class="card elevated" appearance="outlined">
@@ -256,18 +95,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
                 {{ c | titlecase }}
               </mat-option>
             </mat-select>
-            <mat-icon matSuffix>arrow_drop_down</mat-icon>
           </mat-form-field>
-
-          <div class="hint" *ngIf="context">
-            <mat-icon inline>info</mat-icon>
-            Attributes available in the <strong>{{ context | titlecase }}</strong> context will be shown below.
-          </div>
         </mat-card-content>
       </mat-card>
 
       <!-- Attribute Selection -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="context && !loadingAttributes && attributes.length > 0">
+      <mat-card class="card elevated" appearance="outlined" *ngIf="context && attributes.length > 0">
         <mat-card-header>
           <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
           <mat-card-title>Attributes to Share</mat-card-title>
@@ -283,34 +116,33 @@ import { MatTooltipModule } from '@angular/material/tooltip';
               {{ attr | titlecase }}
             </mat-checkbox>
           </div>
-
-          <div class="warning-box" *ngIf="selectedAttributes.length === 0">
-            <mat-icon inline>warning</mat-icon>
-            Select at least one attribute to proceed with consent.
-          </div>
         </mat-card-content>
       </mat-card>
 
-      <!-- Loading attributes -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="context && loadingAttributes">
-        <mat-card-content class="loading-state">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Loading attributes for {{ context | titlecase }} context...</p>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Explicit Consent & Grant -->
+      <!-- Purpose & Explicit Consent -->
       <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
         <mat-card-header>
           <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
-          <mat-card-title>Explicit Consent Required</mat-card-title>
+          <mat-card-title>Purpose & Explicit Consent</mat-card-title>
         </mat-card-header>
 
         <mat-card-content>
-          <mat-checkbox [(ngModel)]="explicitConsent">
+          <!-- Purpose Field -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Purpose of Disclosure</mat-label>
+            <input matInput [(ngModel)]="purpose" placeholder="e.g. medical treatment, employment verification" required />
+            <mat-hint>The specific purpose for which this data will be used</mat-hint>
+          </mat-form-field>
+
+          <!-- Checkbox with reliable (change) binding -->
+          <mat-checkbox
+            [checked]="explicitConsent"
+            (change)="explicitConsent = $event.checked">
             <strong>I explicitly consent</strong> to sharing the selected attributes from my
-            <strong>{{ context | titlecase }}</strong> context for verification purposes.
-            <br /><small class="muted">This consent is recorded on-chain and can be revoked at any time.</small>
+            <strong>{{ context | titlecase }}</strong> context for the purpose:
+            <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
+            <br />
+            <small class="muted">This consent is recorded on-chain and can be revoked at any time.</small>
           </mat-checkbox>
 
           <div class="actions">
@@ -318,39 +150,63 @@ import { MatTooltipModule } from '@angular/material/tooltip';
               mat-raised-button
               color="primary"
               (click)="grantConsent()"
-              [disabled]="!explicitConsent || loading">
+              [disabled]="!explicitConsent || !purpose.trim() || loading || selectedAttributes.length === 0">
               <mat-icon *ngIf="!loading">task_alt</mat-icon>
               <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
-              <span>{{ loading ? 'Recording Consent...' : 'Grant Consent' }}</span>
+              <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
             </button>
           </div>
         </mat-card-content>
       </mat-card>
 
-      <!-- Active Consent / Revoke -->
-      <mat-card class="card elevated revoke-card" appearance="outlined" *ngIf="activeConsent">
-        <mat-card-header>
-          <mat-icon class="header-icon" color="warn" mat-card-avatar>gavel</mat-icon>
-          <mat-card-title>Active Consent</mat-card-title>
-        </mat-card-header>
+      <!-- Active Consents Display -->
+<mat-card
+  class="card elevated"
+  appearance="outlined"
+  *ngIf="activeConsents && activeConsents.length > 0">
 
-        <mat-card-content>
-          <p>
-            <strong>Consent ID:</strong> <code>{{ activeConsent.claimId }}</code>
-          </p>
-          <p class="small muted">
-            Issued on: {{ activeConsent.timestamp | date:'medium' }}
-          </p>
+  <mat-card-header>
+    <mat-icon class="header-icon" color="primary" mat-card-avatar>gavel</mat-icon>
+    <mat-card-title>Active Consents</mat-card-title>
+  </mat-card-header>
 
-          <button mat-raised-button color="warn" (click)="revokeConsent()" [disabled]="loading">
-            <mat-icon>delete_forever</mat-icon>
-            Revoke Consent
-          </button>
-        </mat-card-content>
-      </mat-card>
+  <mat-card-content>
+    <div
+      class="consent-entry"
+      *ngFor="let consent of activeConsents">
+
+      <p>
+        <strong>Purpose:</strong>
+        {{ consent.purpose }}
+      </p>
+
+      <p>
+        <strong>Consent ID:</strong>
+        <code>{{ consent.claimId }}</code>
+      </p>
+
+      <p class="small muted">
+        Issued on:
+        {{ consent.grantedAt | date:'medium' }}
+      </p>
+
+      <button
+        mat-raised-button
+        color="warn"
+        (click)="revokeConsent(consent)"
+        [disabled]="loading">
+        <mat-icon>delete_forever</mat-icon>
+        Revoke Consent
+      </button>
+
+      <mat-divider class="my-2"></mat-divider>
+    </div>
+  </mat-card-content>
+</mat-card>
+
 
       <!-- Empty States -->
-      <mat-card class="card elevated empty-state" *ngIf="context && !loadingAttributes &&  attributes.length === 0">
+      <mat-card class="card elevated empty-state" *ngIf="context && !loadingAttributes && attributes.length === 0">
         <mat-icon class="empty-icon">inbox</mat-icon>
         <h3>No attributes available</h3>
         <p class="muted">
@@ -360,7 +216,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       </mat-card>
     </ng-container>
 
-    <!-- Debug Output (can be removed in production) -->
+    <!-- Debug Output (remove in production) -->
     <pre class="debug" *ngIf="result">{{ result | json }}</pre>
   `,
   styles: [`
@@ -537,6 +393,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     }
   `]
 })
+
 export class ConsentComponent implements OnInit {
   walletAddress: string | null = null;
   connecting = false;
@@ -544,54 +401,54 @@ export class ConsentComponent implements OnInit {
   loadingAttributes = false;
   copied = false;
 
-  contexts: string[] = []; // Will be populated from ContextService or API
+  contexts: string[] = [];
   attributes: string[] = [];
-  //attributes: string[] = ['name', 'email', 'date of birth', 'nationality']; // Example; ideally loaded dynamically
 
   context = '';
   selectedAttributes: string[] = [];
+  purpose = '';
   explicitConsent = false;
 
-  activeConsent: { claimId: string; timestamp: string } | null = null;
-  result: any;
+  // ✅ ARRAY (matches template)
+  activeConsents: {
+    claimId: string;
+    purpose: string;
+    grantedAt: string;
+  }[] = [];
+
+  result: any = null;
 
   constructor(
-    private claims: ClaimService,
     public wallet: WalletService,
     private contextService: ContextService,
     private api: ApiService
-  ) {
-    this.walletAddress = this.wallet.address;
-
-    }
+  ) {}
 
   ngOnInit() {
-    // React to future changes (connect/disconnect)
     this.wallet.address$.subscribe(addr => {
       this.walletAddress = addr;
-      if (!addr) {
-        this.resetForm();
-      }
-    });
-    // SUBSCRIBE TO CONTEXTSERVICE
-    this.contextService.contexts$.subscribe(ctxs => {
-      this.contexts = ctxs.sort(); // Optional: keep alphabetical order
+      if (!addr) this.resetForm();
     });
 
+    this.contextService.contexts$.subscribe(ctxs => {
+      this.contexts = ctxs.sort();
+    });
   }
+
   private resetForm() {
     this.context = '';
     this.selectedAttributes = [];
+    this.purpose = '';
     this.explicitConsent = false;
-    this.activeConsent = null;
+    this.activeConsents = [];
+    this.result = null;
+    this.attributes = [];
   }
 
   async connectWallet() {
     this.connecting = true;
     try {
       await this.wallet.connect();
-    } catch (e: any) {
-      alert(e.message || 'Wallet connection failed');
     } finally {
       this.connecting = false;
     }
@@ -601,19 +458,22 @@ export class ConsentComponent implements OnInit {
     if (!this.wallet.address) return;
     navigator.clipboard.writeText(this.wallet.address);
     this.copied = true;
-    setTimeout(() => this.copied = false, 2000);
+    setTimeout(() => (this.copied = false), 2000);
   }
 
   onContextChange() {
     this.selectedAttributes = [];
+    this.purpose = '';
     this.explicitConsent = false;
-    this.activeConsent = null;
+    this.activeConsents = [];
+    this.result = null;
 
     if (!this.context || !this.wallet.address) {
       this.attributes = [];
       return;
     }
-    this.loadAttributesForContext()
+
+    this.loadAttributesForContext();
   }
 
   private loadAttributesForContext() {
@@ -622,12 +482,10 @@ export class ConsentComponent implements OnInit {
 
     this.api.getProfileByContext(this.wallet.address!, this.context).subscribe({
       next: (res: any) => {
-        const attrsObj = res.attributes || {};
-        this.attributes = Object.keys(attrsObj);
+        this.attributes = Object.keys(res.attributes || {});
         this.loadingAttributes = false;
       },
-      error: (err) => {
-        console.error('Failed to load attributes for context:', err);
+      error: () => {
         this.attributes = [];
         this.loadingAttributes = false;
       }
@@ -635,77 +493,112 @@ export class ConsentComponent implements OnInit {
   }
 
   toggleAttribute(attr: string) {
-    if (this.selectedAttributes.includes(attr)) {
-      this.selectedAttributes = this.selectedAttributes.filter(a => a !== attr);
-    } else {
-      this.selectedAttributes.push(attr);
-    }
-    this.explicitConsent = false; // Reset consent when selection changes
+    this.selectedAttributes.includes(attr)
+      ? (this.selectedAttributes = this.selectedAttributes.filter(a => a !== attr))
+      : this.selectedAttributes.push(attr);
+
+    this.explicitConsent = false;
   }
 
   async grantConsent() {
-    if (!this.wallet.address || this.selectedAttributes.length === 0) return;
+  // 🚫 Prevent double-click / double-submit
+  if (this.loading) return;
+  this.loading = true;
 
-    this.loading = true;
+  try {
+    if (
+      !this.wallet.address ||
+      !this.selectedAttributes.length ||
+      !this.purpose.trim() ||
+      !this.explicitConsent
+    ) {
+      alert('Explicit consent is required');
+      return;
+    }
 
-    const payload = {
-      owner: this.wallet.address,
-      context: this.context,
-      attributes: this.selectedAttributes,
-      purpose: 'selective disclosure',
-      timestamp: new Date().toISOString()
-    };
+    for (const attr of this.selectedAttributes) {
+      // 🔑 REAL claimId used by verifier
+      const claimId = `identity.${attr}`;
 
-    try {
-      const claimHash = await this.hashPayload(payload);
-      const claimId = `consent:${this.context}:${Date.now()}`;
-
-      this.claims.setClaim({
+      const payload = {
         owner: this.wallet.address,
         claimId,
-        claimHash
-      }).subscribe({
-        next: (res) => {
-          this.result = res;
-          this.activeConsent = { claimId, timestamp: payload.timestamp };
-          this.explicitConsent = false;
-        },
-        error: (err) => {
-          alert('Failed to record consent');
-          console.error(err);
-        }
-      });
-    } catch (err) {
-      alert('Error preparing consent');
-    } finally {
-      this.loading = false;
-    }
-  }
+        purpose: this.purpose.trim(),
+        grantedAt: new Date().toISOString()
+      };
 
-  revokeConsent() {
-    if (!this.activeConsent || !this.wallet.address) return;
+      const hash = await this.hashPayload(payload);
+      /**
+      // 1️⃣ Anchor consent on-chain (SEQUENTIAL – no overlap)
+      await this.claims.setClaim({
+        owner: this.wallet.address,
+        claimId,
+        claimHash: hash
+      }).toPromise();
+     */
+      // 2️⃣ Persist consent in DB (verifier source of truth)
+      await this.api.grantConsent({
+        owner: this.wallet.address,
+        claimId,
+        purpose: payload.purpose
+      }).toPromise();
+
+      // 3️⃣ Update UI
+      this.activeConsents.push({
+        claimId,
+        purpose: payload.purpose,
+        grantedAt: payload.grantedAt
+      });
+    }
+
+    // Reset UI
+    this.selectedAttributes = [];
+    this.purpose = '';
+    this.explicitConsent = false;
+
+  } catch (err) {
+    console.error('❌ grantConsent failed:', err);
+    alert('Failed to record consent');
+  } finally {
+    this.loading = false;
+  }
+}
+
+  // ✅ Revoke consent (DB-only, GDPR compliant)
+  revokeConsent(consent: { claimId: string }) {
+    if (!this.wallet.address) return;
 
     this.loading = true;
-    this.claims.removeClaim({
+
+    this.api.revokeConsent({
       owner: this.wallet.address,
-      claimId: this.activeConsent.claimId
+      claimId: consent.claimId
     }).subscribe({
-      next: (res) => {
+      next: res => {
         this.result = res;
-        this.activeConsent = null;
-        this.selectedAttributes = [];
-        this.explicitConsent = false;
+
+        // Remove from UI
+        this.activeConsents = this.activeConsents.filter(
+          c => c.claimId !== consent.claimId
+        );
       },
-      error: () => alert('Failed to revoke consent')
-    }).add(() => this.loading = false);
+      error: err => {
+        console.error('❌ Failed to revoke consent', err);
+        alert('Failed to revoke consent');
+      },
+      complete: () => (this.loading = false)
+    });
   }
+
 
   private async hashPayload(payload: any): Promise<string> {
     const data = new TextEncoder().encode(JSON.stringify(payload));
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hashBuffer))
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return [...new Uint8Array(hash)]
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
   }
 }
+
+
 export default ConsentComponent;

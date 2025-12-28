@@ -1,44 +1,3 @@
-/** 
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
-
-@Injectable({ providedIn: 'root' })
-export class ApiService {
-  base = environment.backendUrl;
-
-  constructor(private http: HttpClient) {}
-
-  // DID endpoints
-  registerDID(payload: any) {
-    return this.http.post(`${this.base}/api/did/register`, payload);
-  }
-  resolveDID(address: string) {
-    return this.http.get(`${this.base}/api/did/${address}`);
-  }
-  verifyDID(payload: any) {
-    return this.http.post(`${this.base}/api/did/verify`, payload);
-  }
-
-  // VC endpoints
-  issueVC(payload: any) {
-    return this.http.post(`${this.base}/api/vc/issue`, payload);
-  }
-  verifyVC(payload: any) {
-    return this.http.post(`${this.base}/api/vc/verify`, payload);
-  }
-
-  // Profile
-  getProfile(address: string) {
-    return this.http.get(`${this.base}/api/profile/${address}`);
-  }
-  createProfile(payload: any) {
-    return this.http.post(`${this.base}/api/profile`, payload);
-  }
-}
-*/
-
-
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
@@ -104,7 +63,7 @@ export class ApiService {
     claim: any;
     context?: string;
     consent?: {
-      purpose: string;
+      purpose?: string;
       expiresAt?: string;
     };
   }) {
@@ -117,13 +76,56 @@ export class ApiService {
    */
   verifyVC(payload: {
     cid: string;
-    claimId: string;
     subject: string;
     verifierDid: string;
     purpose: string;
     consent: boolean;
+    claimId?: string;
+    claimIds?: string[];
   }) {
     return this.http.post(`${this.base}/api/vc/verify`, payload);
+  }
+    
+    /* -------------------------------------------------
+    Consent endpoints (GDPR-compliant)
+  -------------------------------------------------- */
+
+  /**
+   * Fetch active consents for a DID (per context)
+   */
+  getActiveConsents(subjectDid: string, context?: string) {
+    const ctx = context
+      ? `?context=${encodeURIComponent(context)}`
+      : '';
+    return this.http.get(
+      `${this.base}/api/consent/${encodeURIComponent(subjectDid)}${ctx}`
+    );
+  }
+
+    grantConsent(payload: {
+    owner: string;
+    claimId: string;
+    purpose: string;
+    expiresAt?: string;
+  }) {
+    return this.http.post(
+      `${this.base}/api/consent/grant`,
+      payload
+    );
+  }
+
+
+  /**
+   * Revoke a specific consent (on-chain)
+   */
+  revokeConsent(payload: {
+    owner: string;
+    claimId: string;
+  }) {
+    return this.http.post(
+      `${this.base}/api/consent/revoke`,
+      payload
+    );
   }
 
   /* -------------------------------------------------

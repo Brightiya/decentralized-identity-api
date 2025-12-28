@@ -1,189 +1,3 @@
-/**
-// backend/src/controllers/vcController.js
-import { ethers } from "ethers";
-import { uploadJSON, fetchJSON } from "../utils/pinata.js";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-// Dynamically import contractData.json
-const contractData = (async () => {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
-  return JSON.parse(await readFile(contractDataPath, "utf8"));
-})();
-
-const providerUrl = process.env.PROVIDER_URL || "http://127.0.0.1:8545";
-const privateKey = process.env.PRIVATE_KEY;
-
-if (!privateKey) {
-  throw new Error("❌ Missing PRIVATE_KEY in .env");
-}
-
-const provider = new ethers.JsonRpcProvider(providerUrl);
-const signer = new ethers.Wallet(privateKey, provider);
-
-// Initialize registry contract after resolving contractData
-(async () => {
-  const { address, abi } = await contractData;
-  globalThis.registry = new ethers.Contract(address, abi, signer);
-})();
-// -----------------------------
-// 1️⃣ Issue a Verifiable Credential
-// -----------------------------
-export const issueVC = async (req, res) => {
-  try {
-    const { issuer, subject, claimId, claim } = req.body;
-
-    if (!issuer || !subject || !claimId || !claim) {
-      return res.status(400).json({ error: "issuer, subject, claimId, and claim are required" });
-    }
-
-    // 1️⃣ Build VC payload
-    const vc = {
-      "@context": ["https://www.w3.org/2018/credentials/v1"],
-      type: ["VerifiableCredential"],
-      issuer,
-      issuanceDate: new Date().toISOString(),
-      credentialSubject: { id: subject, claim },
-    };
-
-    // 2️⃣ Sign VC
-    const vcString = JSON.stringify(vc);
-    const signature = await signer.signMessage(vcString);
-    vc.proof = {
-      type: "EcdsaSecp256k1Signature2019",
-      created: new Date().toISOString(),
-      proofPurpose: "assertionMethod",
-      verificationMethod: issuer,
-      jws: signature,
-    };
-
-    // 3️⃣ Upload VC to IPFS
-    const ipfsUri = await uploadJSON(vc);
-    const cid = ipfsUri.replace("ipfs://", "");
-
-    // 4️⃣ Compute claimHash (keccak256)
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(vcString));
-    const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
-
-    // 5️⃣ Anchor claimHash on-chain
-    const tx = await registry.setClaim(subject, claimIdBytes32, claimHash);
-    await tx.wait();
-
-    return res.json({
-      message: "✅ VC issued and anchored on-chain",
-      cid,
-      ipfsUri,
-      claimId,
-      claimHash,
-      txHash: tx.hash,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
-    });
-  } catch (err) {
-    console.error("❌ issueVC error:", err);
-    res.status(500).json({ error: err.message });
-  }
-
-
-// After anchoring the claim on-chain
-try {
-  // 6️⃣ Fetch existing profile (if any)
-  let currentProfile = {};
-  try {
-    const profileCID = await registry.getProfileCID(subject);
-    if (profileCID && profileCID.length > 0) {
-      currentProfile = await fetchJSON(profileCID);
-    }
-  } catch (e) {
-    console.warn(" No existing profile found; creating new one", e);
-  }
-
-  // 7️⃣ Append new VC reference
-  const newCredential = {
-    type: "GenericCredential",
-    cid,
-    gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
-    issuedAt: new Date().toISOString(),
-  };
-  const updatedCredentials = [...(currentProfile.credentials || []), newCredential];
-
-  // 8️⃣ Build updated profile
-  const updatedProfile = {
-    ...currentProfile,
-    id: `did:example:${subject}`,
-    credentials: updatedCredentials,
-    updatedAt: new Date().toISOString(),
-  };
-
-  // 9️⃣ Upload to IPFS
-  const profileUri = await uploadJSON(updatedProfile);
-  const profileCid = profileUri.replace("ipfs://", "");
-
-  // 🔟 Update profile CID on-chain
-  const tx2 = await registry.setProfileCID(subject, profileCid);
-  await tx2.wait();
-
-  console.log("✅ Profile auto-updated with new VC:", profileCid);
-} catch (updateErr) {
-  console.warn("⚠️ Failed to auto-update profile:", updateErr.message);
-}
-};
-
-// -----------------------------
-// 2️⃣ Verify a VC
-// -----------------------------
-export const verifyVC = async (req, res) => {
-  try {
-    const { cid, claimId, subject } = req.body;
-    if (!cid || !claimId || !subject) {
-      return res.status(400).json({ error: "cid, claimId, and subject required" });
-    }
-
-    // 1️⃣ Fetch VC JSON from IPFS
-    const vc = await fetchJSON(cid);
-    const vcString = JSON.stringify({
-      "@context": vc["@context"],
-      type: vc.type,
-      issuer: vc.issuer,
-      issuanceDate: vc.issuanceDate,
-      credentialSubject: vc.credentialSubject,
-    });
-
-    // 2️⃣ Verify signature
-    const recovered = ethers.verifyMessage(vcString, vc.proof.jws);
-    const validSig = recovered.toLowerCase() === vc.proof.verificationMethod.toLowerCase();
-
-    // 3️⃣ Recompute claimHash
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(vcString));
-    const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
-
-    // 4️⃣ Fetch on-chain claimHash
-    const onChainHash = await registry.getClaim(subject, claimIdBytes32);
-    const validOnChain = onChainHash === claimHash;
-
-    return res.json({
-      message: validSig && validOnChain ? "✅ VC is valid and matches on-chain" : "❌ VC invalid or tampered",
-      validSig,
-      validOnChain,
-      issuer: vc.issuer,
-      subject,
-      recovered,
-      onChainHash,
-      localHash: claimHash,
-      credential: vc,
-    });
-  } catch (err) {
-    console.error("❌ verifyVC error:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-*/
-
  // backend/src/controllers/vcController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
@@ -234,11 +48,9 @@ const signer = new ethers.Wallet(privateKey, provider);
 
     return didOrAddress;
   };
-
 /* ------------------------------------------------------------------
    1️⃣ Issue Context-Aware Verifiable Credential
 ------------------------------------------------------------------- */
-
 export const issueVC = async (req, res) => {
   try {
     const {
@@ -246,8 +58,7 @@ export const issueVC = async (req, res) => {
       subject,
       claimId,
       claim,
-      context = "default",
-      consent,
+      context = "default"
     } = req.body;
 
     if (!issuer || !subject || !claimId || !claim) {
@@ -256,18 +67,9 @@ export const issueVC = async (req, res) => {
       });
     }
 
-    // 🔐 GDPR: explicit consent required outside default context
-    if (context !== "default" && !consent?.purpose) {
-      return res.status(400).json({
-        error: "Explicit consent with purpose is required for this context",
-      });
-    }
-   
-
-    /*  -----------------------------
-       Build VC payload
-    ------------------------------ */
-
+    /* -------------------------------------------------
+       Build VC payload (NO consent here)
+    --------------------------------------------------*/
     const vc = {
       "@context": ["https://www.w3.org/2018/credentials/v1"],
       type: ["VerifiableCredential"],
@@ -275,33 +77,17 @@ export const issueVC = async (req, res) => {
       issuanceDate: new Date().toISOString(),
       credentialSubject: {
         id: subject,
-        claim,
+        claim
       },
       pimv: {
         context,
-        claimId,
-        consent: consent
-          ? {
-              purpose: consent.purpose,
-              grantedAt: new Date().toISOString(),
-              expiresAt: consent.expiresAt || null,
-            }
-          : null,
-      },
+        claimId
+      }
     };
-   /** 
-     //This enforces GDPR-compliant explicit disclosure.
-    if (!context || context === "default") {
-      return res.status(400).json({
-      error: "Explicit context required for VC issuance"
-    });
-    }
-    */
 
-    /* -----------------------------
+    /* -------------------------------------------------
        Sign VC
-    ------------------------------ */
-
+    --------------------------------------------------*/
     const vcString = JSON.stringify(vc);
     const signature = await signer.signMessage(vcString);
 
@@ -310,38 +96,34 @@ export const issueVC = async (req, res) => {
       created: new Date().toISOString(),
       proofPurpose: "assertionMethod",
       verificationMethod: issuer,
-      jws: signature,
+      jws: signature
     };
 
-    /* -----------------------------
+    /* -------------------------------------------------
        Upload VC to IPFS
-    ------------------------------ */
-
+    --------------------------------------------------*/
     const ipfsUri = await uploadJSON(vc);
     const cid = ipfsUri.replace("ipfs://", "");
 
-    /* -----------------------------
-       Anchor claim on-chain
-    ------------------------------ */
-
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(vcString));
+    /* -------------------------------------------------
+       Anchor VC hash on-chain (ONLY place this happens)
+    --------------------------------------------------*/
+    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
     const claimIdBytes32 = ethers.keccak256(
       ethers.toUtf8Bytes(claimId)
     );
-    
-
     const subjectAddress = didToAddress(subject);
 
     const tx = await registry.setClaim(
       subjectAddress,
       claimIdBytes32,
       claimHash
-       );
+    );
     await tx.wait();
-    /* -----------------------------
-       Auto-update Profile (best-effort)
-    ------------------------------ */
 
+    /* -------------------------------------------------
+       Auto-update Profile (best effort)
+    --------------------------------------------------*/
     try {
       let profile = {};
       const profileCID = await registry.getProfileCID(subjectAddress);
@@ -350,22 +132,19 @@ export const issueVC = async (req, res) => {
         profile = await fetchJSON(profileCID);
       }
 
-      const newCredentialRef = {
-        type: "ContextualCredential",
-        cid,
-        context,
-        claimId,
-        issuedAt: new Date().toISOString(),
-      };
-
       const updatedProfile = {
         ...profile,
-        id: `did:example:${subject}`,
         credentials: [
           ...(profile.credentials || []),
-          newCredentialRef,
+          {
+            type: "ContextualCredential",
+            cid,
+            context,
+            claimId,
+            issuedAt: new Date().toISOString()
+          }
         ],
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const profileUri = await uploadJSON(updatedProfile);
@@ -380,20 +159,19 @@ export const issueVC = async (req, res) => {
       console.warn("⚠️ Profile auto-update skipped:", e.message);
     }
 
-    /* -----------------------------
+    /* -------------------------------------------------
        Response
-    ------------------------------*/ 
-
+    --------------------------------------------------*/
     return res.json({
-      message: "✅ Context-aware VC issued",
+      message: "✅ VC issued and anchored",
       cid,
-      context,
       claimId,
+      context,
       claimHash,
-      ipfsUri,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
       txHash: tx.hash,
+      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`
     });
+
   } catch (err) {
     console.error("❌ issueVC error:", err);
     return res.status(500).json({ error: err.message });
@@ -401,166 +179,150 @@ export const issueVC = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   2️⃣ Verify Verifiable Credential
+   2️⃣ Verify Verifiable Credentials (multi-CID, one-claim-per-VC)
 ------------------------------------------------------------------- */
-
 export const verifyVC = async (req, res) => {
   try {
     const {
-      cid,
-      claimId,
       subject,
       verifierDid,
       purpose,
-      consent
+      consent,
+      credentials
     } = req.body;
 
     /* -------------------------------------------------
-       1️⃣ Access-level (GDPR disclosure) enforcement
-    --------------------------------------------------*/ 
-
-    if (!cid || !claimId || !subject) {
+       1️⃣ Basic request validation
+    --------------------------------------------------*/
+    if (
+      !subject ||
+      !verifierDid ||
+      !purpose ||
+      consent !== true ||
+      !Array.isArray(credentials) ||
+      credentials.length === 0
+    ) {
       return res.status(400).json({
-        error: "cid, claimId, and subject are required",
+        error:
+          "subject, verifierDid, purpose, consent=true, credentials[] required",
       });
     }
 
-    if (!verifierDid) {
-      return res.status(403).json({
-        error: "Verifier DID required for disclosure",
-      });
-    }
-
-    if (!purpose) {
-      return res.status(403).json({
-        error: "Disclosure purpose required",
-      });
-    }
-
-    if (consent !== true) {
-      return res.status(403).json({
-        error: "Explicit consent required for disclosure",
-      });
-    }
-
-    /* -------------------------------------------------
-       2️⃣ Fetch VC from IPFS
-    --------------------------------------------------*/ 
-
-    const vc = await fetchJSON(cid);
-
-    /* -------------------------------------------------
-    🚫 GDPR Art.17 — Right to Erasure enforcement
-    --------------------------------------------------*/ 
-
-    if (vc?.credentialSubject?.id === "[ERASED]") {
-    return res.status(410).json({
-    error: "Credential subject has exercised right to erasure",
-    });
-    }
-
-    /* -------------------------------------------------
-       3️⃣ Credential-level consent enforcement
-    --------------------------------------------------*/ 
-
-    const vcContext = vc?.pimv?.context || "default";
-    const vcConsent = vc?.pimv?.consent;
-
-    // Default context = public
-    if (vcContext !== "default") {
-      if (!vcConsent) {
-        return res.status(403).json({
-          error: "No consent attached to this credential",
-        });
-      }
-
-      if (vcConsent.purpose !== purpose) {
-        return res.status(403).json({
-          error: "Purpose not authorized by credential holder",
-          allowedPurpose: vcConsent.purpose,
-        });
-      }
-
-      if (
-        vcConsent.expiresAt &&
-        new Date(vcConsent.expiresAt) < new Date()
-      ) {
-        return res.status(403).json({
-          error: "Consent has expired",
-        });
-      }
-    }
-
-   /* -------------------------------------------------
-   4️⃣ Verify signature
---------------------------------------------------*/ 
-
-const { proof, ...signedVC } = vc;
-const vcString = JSON.stringify(signedVC);
-
-const recovered = ethers.verifyMessage(vcString, proof.jws);
-const validSig = recovered.toLowerCase() === didToAddress(vc.issuer).toLowerCase();
-
-if (!validSig) {
-  return res.status(400).json({
-    error: "Invalid signature",
-    recoveredAddress: recovered,
-    expectedIssuerAddress: didToAddress(vc.issuer),
-    providedIssuer: vc.issuer
-  });
-}
-
-    /* -------------------------------------------------
-       5️⃣ Verify on-chain anchor
-    --------------------------------------------------*/ 
-
-    const claimHash = ethers.keccak256(
-      ethers.toUtf8Bytes(vcString)
-    );
-
-    const claimIdBytes32 = ethers.keccak256(
-      ethers.toUtf8Bytes(claimId)
-    );
+    const disclosed = {};
+    const denied = {};
     const subjectAddress = didToAddress(subject);
-    
-    const onChainHash = await registry.getClaim(
-      subjectAddress,
-      claimIdBytes32
-    );
 
-    const validOnChain = onChainHash === claimHash;
+    /* -------------------------------------------------
+       2️⃣ Process each VC independently
+    --------------------------------------------------*/
+    for (const entry of credentials) {
+      const { cid, claimId } = entry;
 
-    if (!validSig || !validOnChain) {
-      return res.status(400).json({
-        error: "VC verification failed",
-        validSig,
-        validOnChain,
+      if (!cid || !claimId) {
+        denied[claimId || cid] = "Invalid credential entry";
+        continue;
+      }
+
+      /* -------------------------------------------------
+         3️⃣ Fetch VC from IPFS
+      --------------------------------------------------*/
+      const vc = await fetchJSON(cid);
+
+      /* -------------------------------------------------
+         🚫 GDPR Art.17 — Right to Erasure
+      --------------------------------------------------*/
+      if (vc?.credentialSubject?.id === "[ERASED]") {
+        denied[claimId] = "Credential subject erased";
+        continue;
+      }
+
+      /* -------------------------------------------------
+         4️⃣ Verify VC signature
+      --------------------------------------------------*/
+      const { proof, ...signedVC } = vc;
+
+      if (!proof?.jws) {
+        denied[claimId] = "Missing VC proof";
+        continue;
+      }
+
+      const vcString = JSON.stringify(signedVC);
+      const recovered = ethers.verifyMessage(vcString, proof.jws);
+      const issuerAddress = didToAddress(vc.issuer);
+
+      if (recovered.toLowerCase() !== issuerAddress.toLowerCase()) {
+        denied[claimId] = "Invalid VC signature";
+        continue;
+      }
+
+      /* -------------------------------------------------
+         5️⃣ Enforce consent + purpose (DB = source of truth)
+      --------------------------------------------------*/
+      const consentRes = await pool.query(
+        `
+        SELECT 1
+        FROM consents
+        WHERE subject_did = $1
+          AND claim_id = $2
+          AND purpose = $3
+          AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+        `,
+        [subjectAddress, claimId, purpose]
+      );
+
+      if (consentRes.rowCount === 0) {
+        denied[claimId] = "No valid consent for this purpose";
+        continue;
+      }
+
+      /* -------------------------------------------------
+         6️⃣ Data minimization (single claim only)
+      --------------------------------------------------*/
+      const field = claimId.split(".").pop();
+      const value = vc?.credentialSubject?.claim?.[field];
+
+      if (value === undefined) {
+        denied[claimId] = "Claim not present in credential";
+        continue;
+      }
+
+      disclosed[claimId] = value;
+
+      /* -------------------------------------------------
+         7️⃣ Log disclosure (audit trail)
+      --------------------------------------------------*/
+      await pool.query(
+        `
+        INSERT INTO disclosures
+          (subject_did, verifier_did, claim_id, purpose, consent)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [subjectAddress, verifierDid, claimId, purpose, true]
+      );
+    }
+
+    /* -------------------------------------------------
+       8️⃣ Enforce data minimization
+    --------------------------------------------------*/
+    if (Object.keys(disclosed).length === 0) {
+      return res.status(403).json({
+        error: "No credentials authorized for disclosure",
+        denied,
       });
     }
 
     /* -------------------------------------------------
-       6️⃣ Log disclosure (PostgreSQL)
-    --------------------------------------------------*/ 
-
-    await pool.query(
-      `
-      INSERT INTO disclosures
-        (subject_did, verifier_did, claim_id, purpose, consent)
-      VALUES ($1, $2, $3, $4, $5)
-      `,
-      [subject, verifierDid, claimId, purpose, true]
-    );
-
-    /* -------------------------------------------------
-       7️⃣ Success response
-    --------------------------------------------------*/ 
-
+       9️⃣ Success
+    --------------------------------------------------*/
     return res.json({
-      message: "✅ VC verified with enforced disclosure",
-      subject,
+      message: "✅ Credentials verified with enforced disclosure",
+      subject: subjectAddress,
       verifierDid,
       purpose,
-      credential: vc,
+      disclosed,
+      denied,
     });
 
   } catch (err) {
@@ -569,74 +331,90 @@ if (!validSig) {
   }
 };
 
+
 /* ------------------------------------------------------------------
-   3️⃣ Validate Raw Verifiable Credential (Advanced/Debug)
+   3️⃣ Validate Raw Verifiable Credential (Debug / Audit)
 ------------------------------------------------------------------- */
 
 export const validateRawVC = async (req, res) => {
   try {
     const vc = req.body;
 
-    if (!vc || typeof vc !== 'object') {
-      return res.status(400).json({ error: "Valid VC JSON required in body" });
+    if (!vc || typeof vc !== "object") {
+      return res.status(400).json({ error: "Valid VC JSON required" });
     }
 
-    // Basic structure check
-    if (!vc["@context"] || !vc.type || !vc.issuer || !vc.credentialSubject || !vc.proof) {
-      return res.status(400).json({ error: "Invalid VC structure: missing required fields" });
+    if (
+      !vc["@context"] ||
+      !vc.type ||
+      !vc.issuer ||
+      !vc.credentialSubject ||
+      !vc.proof
+    ) {
+      return res.status(400).json({
+        error: "Invalid VC structure"
+      });
     }
 
-    // Reconstruct signed message (excluding proof)
-    const { proof, ...signedPart } = vc;
-    const vcString = JSON.stringify(signedPart);
+    /* 1️⃣ Verify signature */
+    const { proof, ...unsignedVC } = vc;
 
-    // Verify signature
-    const recovered = ethers.verifyMessage(vcString, proof.jws);
-    // Extract address from DID if needed
-    const issuerAddress = didToAddress(vc.issuer);  // Use your existing helper!
-    const validSig = recovered.toLowerCase() === issuerAddress.toLowerCase();
+    const recovered = ethers.verifyMessage(
+      JSON.stringify(unsignedVC),
+      proof.jws
+    );
 
-    if (!validSig) {
+    const issuerAddress = didToAddress(vc.issuer);
+    if (recovered.toLowerCase() !== issuerAddress.toLowerCase()) {
       return res.status(400).json({
         error: "Invalid signature",
-        recoveredAddress: recovered,
-        expectedIssuerAddress: issuerAddress,
-        expectedIssuer: vc.issuer
+        recovered,
+        expected: issuerAddress
       });
     }
 
-    // Compute claim hash and check on-chain
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(vcString));
+    /* 2️⃣ Verify on-chain anchor */
+    const claimId = vc.pimv?.claimId;
+    if (!claimId) {
+      return res.status(400).json({
+        error: "VC missing pimv.claimId"
+      });
+    }
+
+    if (!vc.cid && !vc.pimv?.cid) {
+      return res.status(400).json({
+        error: "CID required for on-chain validation"
+      });
+    }
+
+    const cid = vc.cid || vc.pimv.cid;
     const subjectAddress = didToAddress(vc.credentialSubject.id);
 
-    // Try to infer claimId from pimv or fallback
-   // const inferredClaimId = vc.pimv?.claimId || "unknown";
-    // Try to get claimId from the credential if stored (you can add it to pimv on issuance)
-    const claimId = vc.pimv?.claimId; // fallback to common default
-    if (!claimId) {
-      return res.status(400).json({ error: "VC missing pimv.claimId — cannot validate on-chain anchor" });
-  }
+    const claimHash = ethers.keccak256(
+      ethers.toUtf8Bytes(cid)
+    );
+    const claimIdBytes32 = ethers.keccak256(
+      ethers.toUtf8Bytes(claimId)
+    );
 
-    const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
-    const onChainHash = await registry.getClaim(subjectAddress, claimIdBytes32);
+    const onChainHash = await registry.getClaim(
+      subjectAddress,
+      claimIdBytes32
+    );
 
-    const validOnChain = onChainHash === claimHash;
-
-    if (!validOnChain) {
+    if (onChainHash !== claimHash) {
       return res.status(400).json({
         error: "On-chain anchor mismatch",
-        expectedHash: claimHash,
-        onChainHash
+        expected: claimHash,
+        onChain: onChainHash
       });
     }
 
-    // All good!
     return res.json({
-      message: "✅ Verifiable Credential is valid",
-      validSignature: true,
-      validOnChain: true,
+      message: "✅ VC is cryptographically and on-chain valid",
       issuer: vc.issuer,
       subject: vc.credentialSubject.id,
+      claimId,
       context: vc.pimv?.context || "default",
       issuedAt: vc.issuanceDate
     });

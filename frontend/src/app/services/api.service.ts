@@ -170,16 +170,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * Export disclosure history as JSON
-   * (GDPR Art. 15 – Data Portability)
-   */
-  exportDisclosures(subjectDid: string) {
-    return this.http.get(
-      `${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`
-    );
-  }
-
     /**
    * GDPR Art.17 – Right to Erasure
    */

@@ -11,6 +11,7 @@ const router = express.Router();
 router.get("/subject/:subjectDid", getDisclosuresBySubject);
 
 // ✅ GDPR Art. 15 export
+// Administrative / API-only GDPR export (not used by UI)
 router.get("/:did/export", exportDisclosuresForSubject);
 
 export default router;

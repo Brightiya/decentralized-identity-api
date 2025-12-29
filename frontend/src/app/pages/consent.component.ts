@@ -36,189 +36,175 @@ import { MatDividerModule } from '@angular/material/divider';
   ],
   template: `
     <div class="consent-header">
-      <h1>Consent Management</h1>
-      <p class="subtitle">
-        Control exactly which personal attributes you share and with whom. Your explicit consent is required for any disclosure.
-      </p>
-    </div>
+    <h1>Consent Management</h1>
+    <p class="subtitle">
+      Control exactly which personal attributes you share and with whom. Your explicit consent is required for any disclosure.
+    </p>
+  </div>
 
-    <!-- Wallet Connection -->
+  <!-- Wallet Connection -->
+  <mat-card class="card elevated" appearance="outlined">
+    <mat-card-header>
+      <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+      <mat-card-title>Wallet Connection</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <ng-container *ngIf="wallet.address; else connectPrompt">
+        <div class="connected-state">
+          <div class="address-row">
+            <code class="address">{{ wallet.address }}</code>
+            <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
+              <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
+          </div>
+          <p class="status success">
+            <mat-icon inline>check_circle</mat-icon>
+            Wallet connected successfully
+          </p>
+        </div>
+      </ng-container>
+      <ng-template #connectPrompt>
+        <p class="muted">
+          Connect your wallet to manage consent for attribute disclosure.
+        </p>
+        <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting">
+          <mat-icon *ngIf="!connecting">wallet</mat-icon>
+          <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
+        </button>
+      </ng-template>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Consent Flow -->
+  <ng-container *ngIf="wallet.address">
+    <!-- Context Selection -->
     <mat-card class="card elevated" appearance="outlined">
       <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-        <mat-card-title>Wallet Connection</mat-card-title>
+        <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
+        <mat-card-title>Select Context</mat-card-title>
       </mat-card-header>
-
       <mat-card-content>
-        <ng-container *ngIf="wallet.address; else connectPrompt">
-          <div class="connected-state">
-            <div class="address-row">
-              <code class="address">{{ wallet.address }}</code>
-              <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
-                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
-            </div>
-            <p class="status success">
-              <mat-icon inline>check_circle</mat-icon>
-              Wallet connected successfully
-            </p>
-          </div>
-        </ng-container>
-
-        <ng-template #connectPrompt>
-          <p class="muted">
-            Connect your wallet to manage consent for attribute disclosure.
-          </p>
-          <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting">
-            <mat-icon *ngIf="!connecting">wallet</mat-icon>
-            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-          </button>
-        </ng-template>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Disclosure Context</mat-label>
+          <mat-select [(ngModel)]="context" (selectionChange)="onContextChange()">
+            <mat-option value="">-- Choose a context --</mat-option>
+            <mat-option *ngFor="let c of contexts" [value]="c">
+              {{ c | titlecase }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
       </mat-card-content>
     </mat-card>
 
-    <!-- Consent Flow -->
-    <ng-container *ngIf="wallet.address">
-      <!-- Context Selection -->
-      <mat-card class="card elevated" appearance="outlined">
-        <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
-          <mat-card-title>Select Context</mat-card-title>
-        </mat-card-header>
+    <!-- Attribute Selection with Loading State -->
+    <mat-card class="card elevated" appearance="outlined" *ngIf="context">
+      <mat-card-header>
+        <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
+        <mat-card-title>Attributes to Share</mat-card-title>
+        <div class="badge" *ngIf="!loadingAttributes && attributes.length > 0">
+          {{ selectedAttributes.length }} selected
+        </div>
+      </mat-card-header>
 
-        <mat-card-content>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Disclosure Context</mat-label>
-            <mat-select [(ngModel)]="context" (selectionChange)="onContextChange()">
-              <mat-option value="">-- Choose a context --</mat-option>
-              <mat-option *ngFor="let c of contexts" [value]="c">
-                {{ c | titlecase }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </mat-card-content>
-      </mat-card>
+      <mat-card-content>
+        <!-- Loading Spinner -->
+        <div class="loading-state" *ngIf="loadingAttributes">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading attributes...</p>
+        </div>
 
-      <!-- Attribute Selection -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="context && attributes.length > 0">
-        <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
-          <mat-card-title>Attributes to Share</mat-card-title>
-          <div class="badge">{{ selectedAttributes.length }} selected</div>
-        </mat-card-header>
-
-        <mat-card-content>
-          <div class="attributes-list">
-            <mat-checkbox
-              *ngFor="let attr of attributes"
-              [checked]="selectedAttributes.includes(attr)"
-              (change)="toggleAttribute(attr)">
-              {{ attr | titlecase }}
-            </mat-checkbox>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Purpose & Explicit Consent -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
-        <mat-card-header>
-          <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
-          <mat-card-title>Purpose & Explicit Consent</mat-card-title>
-        </mat-card-header>
-
-        <mat-card-content>
-          <!-- Purpose Field -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Purpose of Disclosure</mat-label>
-            <input matInput [(ngModel)]="purpose" placeholder="e.g. medical treatment, employment verification" required />
-            <mat-hint>The specific purpose for which this data will be used</mat-hint>
-          </mat-form-field>
-
-          <!-- Checkbox with reliable (change) binding -->
+        <!-- Attributes List -->
+        <div class="attributes-list" *ngIf="!loadingAttributes && attributes.length > 0">
           <mat-checkbox
-            [checked]="explicitConsent"
-            (change)="explicitConsent = $event.checked">
-            <strong>I explicitly consent</strong> to sharing the selected attributes from my
-            <strong>{{ context | titlecase }}</strong> context for the purpose:
-            <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
-            <br />
-            <small class="muted">This consent is recorded on-chain and can be revoked at any time.</small>
+            *ngFor="let attr of attributes"
+            [checked]="selectedAttributes.includes(attr)"
+            (change)="toggleAttribute(attr)">
+            {{ attr | titlecase }}
           </mat-checkbox>
+        </div>
 
-          <div class="actions">
-            <button
-              mat-raised-button
-              color="primary"
-              (click)="grantConsent()"
-              [disabled]="!explicitConsent || !purpose.trim() || loading || selectedAttributes.length === 0">
-              <mat-icon *ngIf="!loading">task_alt</mat-icon>
-              <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
-              <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
-            </button>
-          </div>
-        </mat-card-content>
-      </mat-card>
+        <!-- Empty State (no attributes) -->
+        <div class="empty-state" *ngIf="!loadingAttributes && attributes.length === 0">
+          <mat-icon class="empty-icon">inbox</mat-icon>
+          <h3>No attributes available</h3>
+          <p class="muted">
+            No credentials have been issued for the <strong>{{ context | titlecase }}</strong> context yet.
+            Go to <a routerLink="/credentials">Credentials</a> to issue one.
+          </p>
+        </div>
+      </mat-card-content>
+    </mat-card>
 
-      <!-- Active Consents Display -->
-<mat-card
-  class="card elevated"
-  appearance="outlined"
-  *ngIf="activeConsents && activeConsents.length > 0">
+    <!-- Purpose & Explicit Consent -->
+    <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
+      <mat-card-header>
+        <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
+        <mat-card-title>Purpose & Explicit Consent</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Purpose of Disclosure</mat-label>
+          <input matInput [(ngModel)]="purpose" placeholder="e.g. medical treatment, employment verification" required />
+          <mat-hint>The specific purpose for which this data will be used</mat-hint>
+        </mat-form-field>
 
-  <mat-card-header>
-    <mat-icon class="header-icon" color="primary" mat-card-avatar>gavel</mat-icon>
-    <mat-card-title>Active Consents</mat-card-title>
-  </mat-card-header>
+        <mat-checkbox
+          [checked]="explicitConsent"
+          (change)="explicitConsent = $event.checked">
+          <strong>I explicitly consent</strong> to sharing the selected attributes from my
+          <strong>{{ context | titlecase }}</strong> context for the purpose:
+          <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
+          <br />
+          <small class="muted">This consent is recorded on-chain and can be revoked at any time.</small>
+        </mat-checkbox>
 
-  <mat-card-content>
-    <div
-      class="consent-entry"
-      *ngFor="let consent of activeConsents">
+        <div class="actions">
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="grantConsent()"
+            [disabled]="!explicitConsent || !purpose.trim() || loading || selectedAttributes.length === 0">
+            <mat-icon *ngIf="!loading">task_alt</mat-icon>
+            <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+            <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
 
-      <p>
-        <strong>Purpose:</strong>
-        {{ consent.purpose }}
-      </p>
+    <!-- Active Consents Display -->
+    <mat-card
+      class="card elevated"
+      appearance="outlined"
+      *ngIf="activeConsents && activeConsents.length > 0">
+      <mat-card-header>
+        <mat-icon class="header-icon" color="primary" mat-card-avatar>gavel</mat-icon>
+        <mat-card-title>Active Consents</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="consent-entry" *ngFor="let consent of activeConsents">
+          <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
+          <p><strong>Consent ID:</strong> <code>{{ consent.claimId }}</code></p>
+          <p class="small muted">
+            Issued on: {{ consent.grantedAt | date:'medium' }}
+          </p>
+          <button
+            mat-raised-button
+            color="warn"
+            (click)="revokeConsent(consent)"
+            [disabled]="loading">
+            <mat-icon>delete_forever</mat-icon>
+            Revoke Consent
+          </button>
+          <mat-divider class="my-2"></mat-divider>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </ng-container>
 
-      <p>
-        <strong>Consent ID:</strong>
-        <code>{{ consent.claimId }}</code>
-      </p>
-
-      <p class="small muted">
-        Issued on:
-        {{ consent.grantedAt | date:'medium' }}
-      </p>
-
-      <button
-        mat-raised-button
-        color="warn"
-        (click)="revokeConsent(consent)"
-        [disabled]="loading">
-        <mat-icon>delete_forever</mat-icon>
-        Revoke Consent
-      </button>
-
-      <mat-divider class="my-2"></mat-divider>
-    </div>
-  </mat-card-content>
-</mat-card>
-
-
-      <!-- Empty States -->
-      <mat-card class="card elevated empty-state" *ngIf="context && !loadingAttributes && attributes.length === 0">
-        <mat-icon class="empty-icon">inbox</mat-icon>
-        <h3>No attributes available</h3>
-        <p class="muted">
-          No credentials have been issued for the <strong>{{ context | titlecase }}</strong> context yet.
-          Go to <a routerLink="/credentials">Credentials</a> to issue one.
-        </p>
-      </mat-card>
-    </ng-container>
-
-    <!-- Debug Output (remove in production) -->
-    <pre class="debug" *ngIf="result">{{ result | json }}</pre>
-  `,
+  <!-- Debug Output -->
+  <pre class="debug" *ngIf="result">{{ result | json }}</pre>
+`,
   styles: [`
     .consent-header {
       text-align: center;
@@ -387,10 +373,17 @@ import { MatDividerModule } from '@angular/material/divider';
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
+      justify-content: center;
+      padding: 60px 20px;
       padding: 40px 0;
       color: #64748b;
+      min-height: 200px;
     }
+
+    .loading-state p {
+    margin-top: 16px;
+    font-size: 1rem;
+  }
   `]
 })
 

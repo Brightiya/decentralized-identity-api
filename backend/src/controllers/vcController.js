@@ -48,6 +48,7 @@ const signer = new ethers.Wallet(privateKey, provider);
 
     return didOrAddress;
   };
+
 /* ------------------------------------------------------------------
    1️⃣ Issue Context-Aware Verifiable Credential
 ------------------------------------------------------------------- */
@@ -58,7 +59,8 @@ export const issueVC = async (req, res) => {
       subject,
       claimId,
       claim,
-      context = "default"
+      context = "default",
+      consent
     } = req.body;
 
     if (!issuer || !subject || !claimId || !claim) {
@@ -66,9 +68,14 @@ export const issueVC = async (req, res) => {
         error: "issuer, subject, claimId, and claim are required",
       });
     }
+    if (!consent || !consent.purpose || !consent.purpose.trim()) {
+      return res.status(400).json({
+        error: "Explicit consent purpose is required for VC issuance"
+      });
+    }
 
     /* -------------------------------------------------
-       Build VC payload (NO consent here)
+       Build VC payload — FINAL version (no cid yet)
     --------------------------------------------------*/
     const vc = {
       "@context": ["https://www.w3.org/2018/credentials/v1"],
@@ -81,12 +88,15 @@ export const issueVC = async (req, res) => {
       },
       pimv: {
         context,
-        claimId
+        claimId,
+        purpose: consent.purpose,
+        consentRequired: true
+        // We will NOT put cid here in the signed part
       }
     };
 
     /* -------------------------------------------------
-       Sign VC
+       Sign the clean VC
     --------------------------------------------------*/
     const vcString = JSON.stringify(vc);
     const signature = await signer.signMessage(vcString);
@@ -100,18 +110,31 @@ export const issueVC = async (req, res) => {
     };
 
     /* -------------------------------------------------
-       Upload VC to IPFS
+       Upload the FINAL signed VC to IPFS
     --------------------------------------------------*/
     const ipfsUri = await uploadJSON(vc);
     const cid = ipfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
-       Anchor VC hash on-chain (ONLY place this happens)
+       Create enriched version for gateway (includes cid) — NOT signed
     --------------------------------------------------*/
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
-    const claimIdBytes32 = ethers.keccak256(
-      ethers.toUtf8Bytes(claimId)
-    );
+    const enrichedVC = {
+      ...vc,
+      pimv: {
+        ...vc.pimv,
+        cid  // ← Add CID here, but this version is NOT signed
+      }
+    };
+
+    // Upload enriched version (this is what users see via gatewayUrl)
+    const enrichedIpfsUri = await uploadJSON(enrichedVC);
+    const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
+
+    /* -------------------------------------------------
+       Anchor the SIGNED (clean) VC's CID on-chain
+    --------------------------------------------------*/
+    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid)); // ← anchor the signed one
+    const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
     const subjectAddress = didToAddress(subject);
 
     const tx = await registry.setClaim(
@@ -122,7 +145,7 @@ export const issueVC = async (req, res) => {
     await tx.wait();
 
     /* -------------------------------------------------
-       Auto-update Profile (best effort)
+       Auto-update Profile — use signed CID
     --------------------------------------------------*/
     try {
       let profile = {};
@@ -138,7 +161,7 @@ export const issueVC = async (req, res) => {
           ...(profile.credentials || []),
           {
             type: "ContextualCredential",
-            cid,
+            cid,  // signed version
             context,
             claimId,
             issuedAt: new Date().toISOString()
@@ -150,30 +173,27 @@ export const issueVC = async (req, res) => {
       const profileUri = await uploadJSON(updatedProfile);
       const newProfileCid = profileUri.replace("ipfs://", "");
 
-      const tx2 = await registry.setProfileCID(
-        subjectAddress,
-        newProfileCid
-      );
-      await tx2.wait();
+      await registry.setProfileCID(subjectAddress, newProfileCid).then(tx => tx.wait());
     } catch (e) {
-      console.warn("⚠️ Profile auto-update skipped:", e.message);
+      console.warn("Profile auto-update skipped:", e.message);
     }
 
     /* -------------------------------------------------
-       Response
+       Response — point to enriched gateway URL
     --------------------------------------------------*/
     return res.json({
-      message: "✅ VC issued and anchored",
-      cid,
+      message: " ✅ VC issued and anchored",
+      cid: enrichedCid,  // enriched one for user
+      signedCid: cid,    // for debugging
       claimId,
       context,
       claimHash,
       txHash: tx.hash,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`
+      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`
     });
 
   } catch (err) {
-    console.error("❌ issueVC error:", err);
+    console.error("issueVC error:", err);
     return res.status(500).json({ error: err.message });
   }
 };
@@ -331,7 +351,6 @@ export const verifyVC = async (req, res) => {
   }
 };
 
-
 /* ------------------------------------------------------------------
    3️⃣ Validate Raw Verifiable Credential (Debug / Audit)
 ------------------------------------------------------------------- */
@@ -356,7 +375,18 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    /* 1️⃣ Verify signature */
+    /* 1️⃣ Verify signature — handle case where pimv.cid is present */
+    let cidForValidation = null;
+
+    // Extract and temporarily remove cid if present (in pimv or root)
+    if (vc.pimv?.cid) {
+      cidForValidation = vc.pimv.cid;
+      delete vc.pimv.cid;  // Remove so signature matches original signed payload
+    } else if (vc.cid) {
+      cidForValidation = vc.cid;
+      delete vc.cid;
+    }
+
     const { proof, ...unsignedVC } = vc;
 
     const recovered = ethers.verifyMessage(
@@ -369,7 +399,8 @@ export const validateRawVC = async (req, res) => {
       return res.status(400).json({
         error: "Invalid signature",
         recovered,
-        expected: issuerAddress
+        expected: issuerAddress,
+        note: "Signature mismatch likely due to extra fields (e.g. cid) added after signing"
       });
     }
 
@@ -381,17 +412,16 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    if (!vc.cid && !vc.pimv?.cid) {
+    if (!cidForValidation) {
       return res.status(400).json({
-        error: "CID required for on-chain validation"
+        error: "CID required for on-chain validation (not found in vc.cid or vc.pimv.cid)"
       });
     }
 
-    const cid = vc.cid || vc.pimv.cid;
     const subjectAddress = didToAddress(vc.credentialSubject.id);
 
     const claimHash = ethers.keccak256(
-      ethers.toUtf8Bytes(cid)
+      ethers.toUtf8Bytes(cidForValidation)
     );
     const claimIdBytes32 = ethers.keccak256(
       ethers.toUtf8Bytes(claimId)
@@ -406,21 +436,25 @@ export const validateRawVC = async (req, res) => {
       return res.status(400).json({
         error: "On-chain anchor mismatch",
         expected: claimHash,
-        onChain: onChainHash
+        onChain: onChainHash,
+        cidUsed: cidForValidation
       });
     }
 
+    /* Success */
     return res.json({
       message: "✅ VC is cryptographically and on-chain valid",
       issuer: vc.issuer,
       subject: vc.credentialSubject.id,
       claimId,
       context: vc.pimv?.context || "default",
+      purpose: vc.pimv?.purpose,
+      cid: cidForValidation,
       issuedAt: vc.issuanceDate
     });
 
   } catch (err) {
-    console.error("❌ validateRawVC error:", err);
+    console.error("validateRawVC error:", err);
     return res.status(500).json({ error: err.message });
   }
 };

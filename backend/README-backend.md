@@ -55,3 +55,5 @@ did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 
  email
 QmQaXoq7zS4xJa8DH2Yp6YZgEJkNCcHXr4QvnjbfinGRKV
+
+"✅ VC issued and anchored"

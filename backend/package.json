@@ -25,6 +25,7 @@
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "multiformats": "^13.4.2",
     "node-fetch": "^3.3.2",
     "pg": "^8.16.3",
     "typescript": "^5.4.5"

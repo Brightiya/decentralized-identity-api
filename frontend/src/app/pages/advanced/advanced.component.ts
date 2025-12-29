@@ -340,6 +340,7 @@ export class AdvancedComponent {
   did = '';
   verifyPayload = '';
   result: any = null;
+   cid = '';
 
   resolving = false;
   verifying = false;
@@ -383,21 +384,25 @@ export class AdvancedComponent {
       return;
     }
 
+    // ✅ attach CID if user provided one
+    if (this.cid.trim()) {
+      payload.cid = this.cid.trim();
+    }
+
     this.verifying = true;
     this.result = null;
     this.currentTool = 'verify';
 
-   // Use the new raw validation endpoint
-  this.api.validateRawVC(payload).subscribe({
-    next: (r) => {
-      this.result = r;
-      this.verifying = false;
-    },
-    error: (e) => {
-      this.result = e.error || { error: 'Validation failed', details: e.message };
-      this.verifying = false;
-    }
-  });
+    this.api.validateRawVC(payload).subscribe({
+      next: (r) => {
+        this.result = r;
+        this.verifying = false;
+      },
+      error: (e) => {
+        this.result = e.error || { error: 'Validation failed', details: e.message };
+        this.verifying = false;
+      }
+    });
   }
 
   isSuccessResult(): boolean {

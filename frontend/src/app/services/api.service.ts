@@ -70,18 +70,16 @@ export class ApiService {
     return this.http.post(`${this.base}/api/vc/issue`, payload);
   }
 
-  /**
+    /**
    * Verify VC with enforced disclosure
    * (purpose + consent + verifier DID required)
    */
   verifyVC(payload: {
-    cid: string;
     subject: string;
     verifierDid: string;
     purpose: string;
     consent: boolean;
-    claimId?: string;
-    claimIds?: string[];
+    credentials: { cid: string; claimId: string }[];   // ← array of credentials
   }) {
     return this.http.post(`${this.base}/api/vc/verify`, payload);
   }

@@ -1,0 +1,25 @@
+.verifier-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .verifier-card {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .full-width { width: 100%; }
+    .credential-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .cred-field { flex: 1; }
+    .add-btn { margin-bottom: 24px; }
+    .actions { text-align: right; margin-top: 24px; }
+    .result {
+      margin-top: 32px;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .success { background: #f0fdf4; border: 1px solid #86efac; }
+    .error { background: #fef2f2; border: 1px solid #fecaca; }

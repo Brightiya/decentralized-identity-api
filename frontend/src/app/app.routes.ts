@@ -8,6 +8,7 @@ import { CredentialsComponent } from './pages/credentials.component';
 import { GdprComponent } from './pages/gdpr.component';
 import { DisclosuresComponent } from './pages/disclosures.component';
 import { AdvancedComponent } from './pages/advanced/advanced.component';
+import { VerifierComponent } from './pages/verifier/verifier.component';
 
 export const routes: Routes = [
   {
@@ -23,6 +24,7 @@ export const routes: Routes = [
   { path: 'credentials', component: CredentialsComponent },
   { path: 'gdpr', component: GdprComponent },
   { path: 'advanced', component: AdvancedComponent },
+  { path: 'verifier', component: VerifierComponent },
   {
   path: 'profile',
   loadComponent: () => import('./pages/profile.component').then(m => m.ProfileComponent)

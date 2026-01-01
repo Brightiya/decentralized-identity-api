@@ -51,9 +51,7 @@ Example endpoints
 
 did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  name
- QmNud1HjajCyjyVoVHRfyn86265qkw6U3rNuBuXpLedFmE
+ QmdDggmL1mGvocT1sPHQDegBuEcqgbLX47davvVDsp27ge
 
  email
-QmQaXoq7zS4xJa8DH2Yp6YZgEJkNCcHXr4QvnjbfinGRKV
-
-"✅ VC issued and anchored"
+QmNuQtMAqL5ejQJqAcx4hkVbepk8GkhKTGod9xN3VtcfDY

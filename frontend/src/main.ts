@@ -14,6 +14,7 @@ import { CredentialsComponent } from './app/pages/credentials.component';
 import { GdprComponent } from './app/pages/gdpr.component';
 import { AdvancedComponent } from './app/pages/advanced/advanced.component';
 import { DisclosuresComponent } from './app/pages/disclosures.component';
+import { VerifierComponent } from './app/pages/verifier/verifier.component';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async'; 
 /** 
 const routes = [
@@ -39,6 +40,7 @@ const routes: Routes = [
   { path: 'gdpr', component: GdprComponent },
   { path: 'advanced', component: AdvancedComponent },
   { path: 'disclosures', component: DisclosuresComponent },
+  { path: 'verifier', component: VerifierComponent },
   {
   path: 'profile',
   loadComponent: () => import('./app/pages/profile.component').then(m => m.ProfileComponent)

@@ -3,6 +3,8 @@ import { isPlatformBrowser } from '@angular/common';
 import { BrowserProvider, JsonRpcSigner, Eip1193Provider } from 'ethers';
 import { BehaviorSubject } from 'rxjs';
 
+
+
 declare const window: any;
 
 @Injectable({ providedIn: 'root' })

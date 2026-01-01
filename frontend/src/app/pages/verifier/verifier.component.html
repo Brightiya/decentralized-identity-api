@@ -1,0 +1,100 @@
+<div class="verifier-container">
+      <mat-card class="verifier-card">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>verified_user</mat-icon>
+          <mat-card-title>Credential Verification & Disclosure Request</mat-card-title>
+          <mat-card-subtitle>
+            Request and verify credentials from a subject with explicit purpose and consent.
+          </mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content>
+          <form [formGroup]="form" (ngSubmit)="submit()">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Subject DID</mat-label>
+              <input matInput formControlName="subject" placeholder="did:ethr:0x..." />
+              <mat-error *ngIf="form.get('subject')?.hasError('required')">
+                Subject DID is required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Verifier DID</mat-label>
+              <input matInput formControlName="verifierDid" placeholder="did:ethr:0x..." />
+              <mat-error *ngIf="form.get('verifierDid')?.hasError('required')">
+                Verifier DID is required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Purpose of Disclosure</mat-label>
+              <textarea matInput formControlName="purpose" rows="2"></textarea>
+              <mat-hint>e.g., "Legal case", "KYC verification", "Employment check"</mat-hint>
+              <mat-error *ngIf="form.get('purpose')?.hasError('required')">
+                Purpose is required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-checkbox formControlName="consent" color="primary">
+              I confirm that this disclosure request is lawful, necessary, and I have the right to request these credentials for the stated purpose.
+            </mat-checkbox>
+
+            <mat-divider class="my-3"></mat-divider>
+
+            <h3>Requested Credentials</h3>
+
+            <div formArrayName="credentials">
+              <div *ngFor="let cred of credentialsArray.controls; let i = index" [formGroupName]="i" class="credential-row">
+                <mat-form-field appearance="outline" class="cred-field">
+                  <mat-label>Claim ID</mat-label>
+                  <input matInput formControlName="claimId" placeholder="e.g. identity.email" />
+                  <mat-error *ngIf="cred.get('claimId')?.hasError('required')">
+                    Claim ID is required
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="cred-field">
+                  <mat-label>CID</mat-label>
+                  <input matInput formControlName="cid" placeholder="e.g. QmQaXoq7zS4xJa8DH2Yp6YZgEJkNCcHXr4QvnjbfinGRKV" />
+                  <mat-error *ngIf="cred.get('cid')?.hasError('required')">
+                    CID is required
+                  </mat-error>
+                </mat-form-field>
+
+                <button mat-icon-button color="warn" (click)="removeCredential(i)" matTooltip="Remove">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <button mat-stroked-button color="primary" type="button" (click)="addCredential()" class="add-btn">
+              <mat-icon>add</mat-icon> Add Credential
+            </button>
+
+            <div class="actions">
+              <button
+                mat-raised-button
+                color="primary"
+                type="submit"
+                [disabled]="form.invalid || isSubmitting || credentialsArray.length === 0"
+              >
+                <mat-spinner *ngIf="isSubmitting" diameter="20"></mat-spinner>
+                <span *ngIf="!isSubmitting">Verify & Request Disclosure</span>
+                <span *ngIf="isSubmitting">Processing...</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Result / Error -->
+          <div *ngIf="result" class="result success">
+            <h3>Verification Successful</h3>
+            <pre>{{ result | json }}</pre>
+          </div>
+
+          <div *ngIf="error" class="result error">
+            <h3>Error</h3>
+            <p>{{ error }}</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>

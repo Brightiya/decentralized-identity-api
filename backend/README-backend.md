@@ -51,7 +51,7 @@ Example endpoints
 
 did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  name
- QmdDggmL1mGvocT1sPHQDegBuEcqgbLX47davvVDsp27ge
+ QmSe2TeXUE5GtqbAnYoB1XbWdmTM3srfNtsms2DGti9GF4
 
  email
-QmNuQtMAqL5ejQJqAcx4hkVbepk8GkhKTGod9xN3VtcfDY
+Qmf2wTrBDXXBTnn4DXMeBM9ebj739Efwewe8bRAaoSki1C

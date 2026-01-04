@@ -383,6 +383,7 @@ export class CredentialsComponent implements OnInit {
   contexts: string[] = [];
   context = '';
   newContext = '';
+  expiresAt?: string;
 
   // Claim issuance (single-claim VC by design)
   claimId = 'identity.email';
@@ -508,7 +509,8 @@ export class CredentialsComponent implements OnInit {
 
     // ✅ purpose goes inside consent
     consent: {
-      purpose: this.purpose.trim()
+      purpose: this.purpose.trim(),
+      expiresAt: this.expiresAt || undefined
     }
   }).subscribe({
     next: (r) => {

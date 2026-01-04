@@ -276,7 +276,18 @@ export const verifyVC = async (req, res) => {
       }
 
       /* -------------------------------------------------
-         5️⃣ Enforce consent + purpose (DB = source of truth)
+         🔎 Extract VC context (MANDATORY)
+      --------------------------------------------------*/
+      const vcContext = vc?.pimv?.context;
+
+      if (!vcContext || typeof vcContext !== "string") {
+        denied[claimId] = "VC missing disclosure context";
+        continue;
+      }
+
+      /* -------------------------------------------------
+         5️⃣ Enforce consent + purpose + context
+         (DB = source of truth)
       --------------------------------------------------*/
       const consentRes = await pool.query(
         `
@@ -285,15 +296,16 @@ export const verifyVC = async (req, res) => {
         WHERE subject_did = $1
           AND claim_id = $2
           AND purpose = $3
+          AND context = $4
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         LIMIT 1
         `,
-        [subjectAddress, claimId, purpose]
+        [subjectAddress, claimId, purpose, vcContext]
       );
 
       if (consentRes.rowCount === 0) {
-        denied[claimId] = "No valid consent for this purpose";
+        denied[claimId] = "No valid consent for this purpose and context";
         continue;
       }
 
@@ -316,10 +328,10 @@ export const verifyVC = async (req, res) => {
       await pool.query(
         `
         INSERT INTO disclosures
-          (subject_did, verifier_did, claim_id, purpose, consent)
-        VALUES ($1, $2, $3, $4, $5)
+          (subject_did, verifier_did, claim_id, purpose, context, consent)
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [subjectAddress, verifierDid, claimId, purpose, true]
+        [subjectAddress, verifierDid, claimId, purpose, vcContext, true]
       );
     }
 
@@ -350,6 +362,7 @@ export const verifyVC = async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 };
+
 
 /* ------------------------------------------------------------------
    3️⃣ Validate Raw Verifiable Credential (Debug / Audit)

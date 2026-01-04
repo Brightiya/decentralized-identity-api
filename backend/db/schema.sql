@@ -31,6 +31,21 @@ CREATE TABLE IF NOT EXISTS disclosures (
   disclosed_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- 1️⃣ Add column as nullable first
+ALTER TABLE disclosures
+ADD COLUMN IF NOT EXISTS context TEXT;
+
+-- 2️⃣ Backfill existing rows
+-- Choose a safe default for historical disclosures
+UPDATE disclosures
+SET context = 'legacy-identity'
+WHERE context IS NULL;
+
+-- 3️⃣ Enforce NOT NULL only after data is clean
+ALTER TABLE disclosures
+ALTER COLUMN context SET NOT NULL;
+
+
 -- --------------------------------------------
 -- Indexes for audit queries
 -- --------------------------------------------
@@ -39,6 +54,15 @@ CREATE INDEX IF NOT EXISTS idx_disclosures_subject
 
 CREATE INDEX IF NOT EXISTS idx_disclosures_verifier
   ON disclosures(verifier_did);
+
+CREATE INDEX IF NOT EXISTS idx_disclosures_subject_context
+  ON disclosures(subject_did, context);
+
+CREATE INDEX IF NOT EXISTS idx_disclosures_compliance
+  ON disclosures (subject_did)
+  WHERE context = 'compliance';
+
+
 
 -- --------------------------------------------
 -- Optional comment documentation
@@ -64,6 +88,13 @@ COMMENT ON COLUMN disclosures.consent IS
 COMMENT ON COLUMN disclosures.disclosed_at IS
 'Timestamp when disclosure occurred';
 
+COMMENT ON COLUMN disclosures.context IS
+'Disclosure context (e.g. identity, medical, professional)';
+
+COMMENT ON COLUMN disclosures.verifier_did IS
+'DID of the verifier / relying party OR system actor (e.g. SYSTEM:GDPR)';
+
+
 -- --------------------------------------------
 -- Consent registry (GDPR source of truth)
 -- --------------------------------------------
@@ -81,6 +112,9 @@ CREATE TABLE IF NOT EXISTS consents (
 
   -- Optional verifier scoping (NULL = any verifier)
   verifier_did TEXT,
+
+  -- Consent context (REQUIRED for scoped consent)
+  context TEXT,
 
   -- Consent lifecycle
   issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -103,15 +137,86 @@ CREATE INDEX IF NOT EXISTS idx_consents_claim
 CREATE INDEX IF NOT EXISTS idx_consents_purpose
   ON consents(purpose);
 
-CREATE INDEX IF NOT EXISTS idx_consents_active
-  ON consents(subject_did, claim_id, purpose)
+-- Active consent lookup (context-aware)
+CREATE INDEX IF NOT EXISTS idx_consents_context_subject
+  ON consents(subject_did, context)
   WHERE revoked_at IS NULL;
 
-CREATE UNIQUE INDEX uniq_active_consent
-ON consents (subject_did, claim_id, purpose)
+
+-- --------------------------------------------
+-- DATA CLEANUP: Revoke duplicate active consents
+-- Keep the most recent issued_at per subject+claim+context
+-- --------------------------------------------
+
+  WITH ranked_consents AS (
+    SELECT
+      id,
+      ROW_NUMBER() OVER (
+        PARTITION BY subject_did, claim_id, context
+        ORDER BY issued_at DESC
+      ) AS rn
+    FROM consents
+    WHERE revoked_at IS NULL
+  )
+  UPDATE consents
+  SET revoked_at = NOW()
+  WHERE id IN (
+    SELECT id
+    FROM ranked_consents
+    WHERE rn > 1
+  );
+
+
+-- --------------------------------------------
+-- FIX: Correct unique constraint (context-aware)
+-- --------------------------------------------
+DROP INDEX IF EXISTS uniq_active_consent;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_consent
+ON consents (subject_did, claim_id, context)
 WHERE revoked_at IS NULL;
 
+-- --------------------------------------------
+-- DATA MIGRATION (ONE-TIME, SAFE)
+-- --------------------------------------------
+-- Existing rows were created before `context`
+-- Based on provided data, all current claims
+-- belong to the `identity` context
+-- --------------------------------------------
+UPDATE consents
+SET context = 'identity'
+WHERE context IS NULL
+  AND claim_id LIKE 'identity.%';
 
+-- --------------------------------------------
+-- Optional comment documentation
+-- --------------------------------------------
+COMMENT ON TABLE consents IS
+'GDPR-compliant registry of active consents (source of truth for verifiers)';
 
---- How to apply it (one-time):
---psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
+COMMENT ON COLUMN consents.subject_did IS
+'DID of the data subject granting consent';
+
+COMMENT ON COLUMN consents.claim_id IS
+'Claim identifier this consent applies to (e.g. identity.email)';
+
+COMMENT ON COLUMN consents.purpose IS
+'Purpose for which consent is granted (purpose limitation)';
+
+COMMENT ON COLUMN consents.verifier_did IS
+'Optional: specific verifier DID this consent applies to (NULL = any)';
+
+COMMENT ON COLUMN consents.context IS
+'Context scope (e.g. identity, medical, professional)';
+
+COMMENT ON COLUMN consents.issued_at IS
+'Timestamp when consent was granted';
+
+COMMENT ON COLUMN consents.expires_at IS
+'Optional expiration timestamp';
+
+COMMENT ON COLUMN consents.revoked_at IS
+'Timestamp when consent was revoked (NULL = active)';
+
+COMMENT ON COLUMN consents.metadata IS
+'Optional JSON metadata (future-proofing)';

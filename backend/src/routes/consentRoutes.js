@@ -1,15 +1,18 @@
 import express from "express";
 import {
   grantConsent,
-  revokeConsent
+  revokeConsent,
+  getActiveConsents  // ← NEW import
 } from "../controllers/consentController.js";
 
 const router = express.Router();
 
 router.post("/grant", grantConsent);
-/**
- * GDPR Art.7(3) — Withdraw consent
- */
 router.post("/revoke", revokeConsent);
+
+// NEW: Get active consents (with optional context)
+router.get("/active/:owner/:context?", getActiveConsents);
+// If no context: /active/:owner
+// With context: /active/:owner/personal
 
 export default router;

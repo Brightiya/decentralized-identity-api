@@ -33,6 +33,7 @@ export const getDisclosuresBySubject = async (req, res) => {
         verifier_did,
         claim_id,
         purpose,
+        context,
         consent,
         disclosed_at
       FROM disclosures
@@ -77,6 +78,7 @@ export const getDisclosuresByVerifier = async (req, res) => {
         subject_did,
         claim_id,
         purpose,
+        context,
         consent,
         disclosed_at
       FROM disclosures
@@ -114,6 +116,7 @@ export const exportDisclosuresForSubject = async (req, res) => {
         verifier_did,
         claim_id,
         purpose,
+        context,
         consent,
         disclosed_at
       FROM disclosures

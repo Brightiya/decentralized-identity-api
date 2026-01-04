@@ -25,132 +25,149 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   ],
   template: `
     <div class="disclosures-header">
-      <h1>Disclosure History</h1>
-      <p class="subtitle">
-        View all past verifiable credential disclosures, including who accessed your data and for what purpose.
+  <h1>Disclosure History</h1>
+  <p class="subtitle">
+    View all past verifiable credential disclosures, including who accessed your data and for what purpose.
+  </p>
+</div>
+
+<!-- Wallet Connection Card -->
+<mat-card class="card elevated" appearance="outlined">
+  <mat-card-header>
+    <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+    <mat-card-title>Identity</mat-card-title>
+  </mat-card-header>
+
+  <mat-card-content>
+    <ng-container *ngIf="wallet.address; else connectPrompt">
+      <div class="connected-state">
+        <div class="did-display">
+          <strong>Subject DID:</strong>
+          <code>did:ethr:{{ wallet.address }}</code>
+          <button mat-icon-button (click)="copyDid()" matTooltip="Copy DID">
+            <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+        <p class="status success">
+          <mat-icon inline>check_circle</mat-icon>
+          Wallet connected — disclosure log loaded
+        </p>
+      </div>
+    </ng-container>
+
+    <ng-template #connectPrompt>
+      <p class="muted">
+        Connect your wallet to view your disclosure history.
+      </p>
+      <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
+        <mat-icon *ngIf="!connecting">wallet</mat-icon>
+        <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
+      </button>
+    </ng-template>
+  </mat-card-content>
+</mat-card>
+
+<!-- Disclosure Table -->
+<mat-card
+  class="card elevated table-card"
+  appearance="outlined"
+  *ngIf="wallet.address">
+
+  <mat-card-header>
+    <mat-icon class="header-icon" mat-card-avatar>history</mat-icon>
+    <mat-card-title>Disclosure Records</mat-card-title>
+    <div class="badge" *ngIf="disclosures.length > 0">
+      {{ disclosures.length }} record{{ disclosures.length === 1 ? '' : 's' }}
+    </div>
+  </mat-card-header>
+
+  <mat-card-content>
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="loading">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading disclosure history...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="!loading && disclosures.length === 0">
+      <mat-icon class="empty-icon">privacy_tip</mat-icon>
+      <h3>No disclosures yet</h3>
+      <p class="muted">
+        Your data has not been shared with any verifier. Privacy preserved!
       </p>
     </div>
 
-    <!-- Wallet Connection Card -->
-    <mat-card class="card elevated" appearance="outlined">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-        <mat-card-title>Identity</mat-card-title>
-      </mat-card-header>
+    <!-- Scrollable Table Wrapper -->
+    <div class="table-scroll" *ngIf="!loading && disclosures.length > 0">
+      <table mat-table [dataSource]="disclosures" class="disclosure-table">
 
-      <mat-card-content>
-        <ng-container *ngIf="wallet.address; else connectPrompt">
-          <div class="connected-state">
-            <div class="did-display">
-              <strong>Subject DID:</strong>
-              <code>did:ethr:{{ wallet.address }}</code>
-              <button mat-icon-button (click)="copyDid()" matTooltip="Copy DID">
-                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
-            </div>
-            <p class="status success">
-              <mat-icon inline>check_circle</mat-icon>
-              Wallet connected — disclosure log loaded
-            </p>
-          </div>
+        <!-- Verifier Column -->
+        <ng-container matColumnDef="verifier">
+          <th mat-header-cell *matHeaderCellDef>Verifier</th>
+          <td mat-cell *matCellDef="let d">
+            <code class="verifier-did">{{ d.verifier_did || 'Unknown' }}</code>
+          </td>
         </ng-container>
 
-        <ng-template #connectPrompt>
-          <p class="muted">
-            Connect your wallet to view your disclosure history.
-          </p>
-          <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
-            <mat-icon *ngIf="!connecting">wallet</mat-icon>
-            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-          </button>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
+        <!-- Claim Column -->
+        <ng-container matColumnDef="claim">
+          <th mat-header-cell *matHeaderCellDef>Claim</th>
+          <td mat-cell *matCellDef="let d">
+            {{ d.claim_id || '—' }}
+          </td>
+        </ng-container>
 
-    <!-- Disclosure Table -->
-    <mat-card class="card elevated table-card" appearance="outlined" *ngIf="wallet.address">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>history</mat-icon>
-        <mat-card-title>Disclosure Records</mat-card-title>
-        <div class="badge" *ngIf="disclosures.length > 0">
-          {{ disclosures.length }} record{{ disclosures.length === 1 ? '' : 's' }}
-        </div>
-      </mat-card-header>
+        <!-- Context Column -->
+        <ng-container matColumnDef="context">
+          <th mat-header-cell *matHeaderCellDef>Context</th>
+          <td mat-cell *matCellDef="let d">
+            <span class="context-badge">{{ d.context }}</span>
+          </td>
+        </ng-container>
 
-      <mat-card-content>
-        <!-- Loading State -->
-        <div class="loading-state" *ngIf="loading">
-          <mat-spinner diameter="48"></mat-spinner>
-          <p>Loading disclosure history...</p>
-        </div>
+        <!-- Purpose Column -->
+        <ng-container matColumnDef="purpose">
+          <th mat-header-cell *matHeaderCellDef>Purpose</th>
+          <td mat-cell *matCellDef="let d">
+            <span class="purpose">{{ d.purpose || 'General' }}</span>
+          </td>
+        </ng-container>
 
-        <!-- Empty State -->
-        <div class="empty-state" *ngIf="!loading && disclosures.length === 0">
-          <mat-icon class="empty-icon">privacy_tip</mat-icon>
-          <h3>No disclosures yet</h3>
-          <p class="muted">
-            Your data has not been shared with any verifier. Privacy preserved!
-          </p>
-        </div>
+        <!-- Consent Column -->
+        <ng-container matColumnDef="consent">
+          <th mat-header-cell *matHeaderCellDef>Consent</th>
+          <td mat-cell *matCellDef="let d">
+            <mat-icon
+              [color]="d.consent ? 'primary' : 'warn'"
+              matTooltip="{{ d.consent ? 'Consent granted' : 'Consent denied' }}">
+              {{ d.consent ? 'check_circle' : 'cancel' }}
+            </mat-icon>
+          </td>
+        </ng-container>
 
-        <!-- Table -->
-        <table mat-table [dataSource]="disclosures" class="disclosure-table" *ngIf="!loading && disclosures.length > 0">
+        <!-- Date Column -->
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Date</th>
+          <td mat-cell *matCellDef="let d">
+            {{ d.disclosed_at | date:'medium' }}
+          </td>
+        </ng-container>
 
-          <!-- Verifier Column -->
-          <ng-container matColumnDef="verifier">
-            <th mat-header-cell *matHeaderCellDef>Verifier</th>
-            <td mat-cell *matCellDef="let d">
-              <code class="verifier-did">{{ d.verifier_did || 'Unknown' }}</code>
-            </td>
-          </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
 
-          <!-- Claim Column -->
-          <ng-container matColumnDef="claim">
-            <th mat-header-cell *matHeaderCellDef>Claim</th>
-            <td mat-cell *matCellDef="let d">
-              {{ d.claim_id || '—' }}
-            </td>
-          </ng-container>
+    <!-- Export Button -->
+    <div class="actions" *ngIf="disclosures.length > 0">
+      <button mat-raised-button color="accent" (click)="exportDisclosures()">
+        <mat-icon>download</mat-icon>
+        Download Disclosure Report (JSON)
+      </button>
+    </div>
+  </mat-card-content>
+</mat-card>
 
-          <!-- Purpose Column -->
-          <ng-container matColumnDef="purpose">
-            <th mat-header-cell *matHeaderCellDef>Purpose</th>
-            <td mat-cell *matCellDef="let d">
-              <span class="purpose">{{ d.purpose || 'General' }}</span>
-            </td>
-          </ng-container>
-
-          <!-- Consent Column -->
-          <ng-container matColumnDef="consent">
-            <th mat-header-cell *matHeaderCellDef>Consent</th>
-            <td mat-cell *matCellDef="let d">
-              <mat-icon [color]="d.consent ? 'primary' : 'warn'">
-                {{ d.consent ? 'check_circle' : 'cancel' }}
-              </mat-icon>
-            </td>
-          </ng-container>
-
-          <!-- Date Column -->
-          <ng-container matColumnDef="date">
-            <th mat-header-cell *matHeaderCellDef>Date</th>
-            <td mat-cell *matCellDef="let d">
-              {{ d.disclosed_at | date:'medium' }}
-            </td>
-          </ng-container>
-
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-        </table>
-
-        <!-- Export Button -->
-        <div class="actions" *ngIf="disclosures.length > 0">
-          <button mat-raised-button color="accent" (click)="exportDisclosures()">
-            <mat-icon>download</mat-icon>
-            Download Disclosure Report (JSON)
-          </button>
-        </div>
-      </mat-card-content>
-    </mat-card>
   `,
   styles: [`
     .disclosures-header {
@@ -304,11 +321,41 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     }
 
     .muted { color: #64748b; }
+
+      .table-scroll {
+      max-height: 420px;        // controls vertical size
+      overflow-y: auto;
+      overflow-x: auto;
+      border-radius: 8px;
+    }
+
+    /* Sticky header (very important for audit tables) */
+    .disclosure-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--mat-sys-surface, #fff);
+      z-index: 2;
+    }
+
+    /* Subtle scrollbar (Chrome / Edge / Safari) */
+    .table-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .table-scroll::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+
+    .table-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
   `]
 })
 export class DisclosuresComponent implements OnInit {
   disclosures: any[] = [];
-  displayedColumns: string[] = ['verifier', 'claim', 'purpose', 'consent', 'date'];
+  displayedColumns: string[] = ['verifier', 'claim', 'context', 'purpose', 'consent', 'date'];
   loading = false;
   connecting = false;
   copied = false;

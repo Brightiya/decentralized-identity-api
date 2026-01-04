@@ -8,12 +8,12 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
-    /* -------------------------------------------------
-    Advanced / Diagnostic DID endpoints
-    (Legacy – used only in Advanced tools)
+  /* -------------------------------------------------
+     Advanced / Diagnostic DID endpoints
+     (Legacy – used only in Advanced tools)
   -------------------------------------------------- */
-    
-    /**
+
+  /**
    * Register a DID on-chain (advanced / legacy flow)
    */
   registerDID(payload: {
@@ -48,7 +48,6 @@ export class ApiService {
     );
   }
 
-
   /* -------------------------------------------------
      VC endpoints (Hybrid / GDPR-aware)
   -------------------------------------------------- */
@@ -70,7 +69,7 @@ export class ApiService {
     return this.http.post(`${this.base}/api/vc/issue`, payload);
   }
 
-    /**
+  /**
    * Verify VC with enforced disclosure
    * (purpose + consent + verifier DID required)
    */
@@ -78,32 +77,34 @@ export class ApiService {
     subject: string;
     verifierDid: string;
     purpose: string;
+    context: string;
     consent: boolean;
-    credentials: { cid: string; claimId: string }[];   // ← array of credentials
+    credentials: { cid: string; claimId: string }[];
   }) {
     return this.http.post(`${this.base}/api/vc/verify`, payload);
   }
-    
-    /* -------------------------------------------------
-    Consent endpoints (GDPR-compliant)
+
+  /* -------------------------------------------------
+     Consent endpoints (GDPR-compliant)
   -------------------------------------------------- */
 
   /**
    * Fetch active consents for a DID (per context)
    */
-  getActiveConsents(subjectDid: string, context?: string) {
-    const ctx = context
-      ? `?context=${encodeURIComponent(context)}`
-      : '';
-    return this.http.get(
-      `${this.base}/api/consent/${encodeURIComponent(subjectDid)}${ctx}`
+  getActiveConsents(owner: string, context: string) {
+    return this.http.get<any[]>(
+      `${this.base}/api/consent/active/${encodeURIComponent(owner)}/${encodeURIComponent(context)}`
     );
   }
 
-    grantConsent(payload: {
+  /**
+   * Grant consent (context REQUIRED)
+   */
+  grantConsent(payload: {
     owner: string;
     claimId: string;
     purpose: string;
+    context: string;
     expiresAt?: string;
   }) {
     return this.http.post(
@@ -112,13 +113,15 @@ export class ApiService {
     );
   }
 
-
   /**
-   * Revoke a specific consent (on-chain)
+   * Revoke a specific consent
+   * (context-aware, purpose optional)
    */
   revokeConsent(payload: {
     owner: string;
     claimId: string;
+    context?: string;
+    purpose?: string;
   }) {
     return this.http.post(
       `${this.base}/api/consent/revoke`,
@@ -136,13 +139,13 @@ export class ApiService {
     );
   }
 
-    /* -------------------------------------------------
-    Profile endpoints (Context-aware)
+  /* -------------------------------------------------
+     Profile endpoints (Context-aware)
   -------------------------------------------------- */
 
   /**
    * Fetch profile attributes filtered by context
-   * (e.g. personal, professional, legal)
+   * (e.g. identity, medical, professional)
    */
   getProfileByContext(address: string, context: string) {
     return this.http.get(
@@ -155,7 +158,7 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
-     Disclosure audit & GDPR rights (NEW)
+     Disclosure audit & GDPR rights
   -------------------------------------------------- */
 
   /**
@@ -168,7 +171,7 @@ export class ApiService {
     );
   }
 
-    /**
+  /**
    * GDPR Art.17 – Right to Erasure
    */
   eraseProfile(payload: { did: string }) {
@@ -179,6 +182,6 @@ export class ApiService {
   }
 
   validateRawVC(vc: any) {
-  return this.http.post(`${this.base}/api/vc/validate`, vc);
+    return this.http.post(`${this.base}/api/vc/validate`, vc);
   }
 }

@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { fetchJSON, uploadJSON, unpinCID } from "../utils/pinata.js";
+import { pool } from "../utils/db.js";
 
 /**
  * GDPR Art.17 – Right to Erasure (Logical + Best-effort Physical)
@@ -26,7 +27,11 @@ export const eraseProfile = async (req, res) => {
     (profile.credentials || []).forEach(c => c.cid && cidsToUnpin.add(c.cid));
 
     for (const c of cidsToUnpin) {
-      try { await unpinCID(c); } catch {}
+      try {
+        await unpinCID(c);
+      } catch {
+        // best-effort only
+      }
     }
 
     // 3️⃣ Create tombstone profile
@@ -45,13 +50,36 @@ export const eraseProfile = async (req, res) => {
     const tx = await globalThis.registry.setProfileCID(address, erasedCid);
     await tx.wait();
 
-    // 5️⃣ Erasure proof
+    // 5️⃣ Erasure proof (cryptographic accountability)
     const erasureProof = ethers.keccak256(
       ethers.toUtf8Bytes(JSON.stringify({
         did,
         erasedCid,
         timestamp: new Date().toISOString()
       }))
+    );
+
+    // 6️⃣ ✅ Log GDPR erasure in disclosures audit log
+    await pool.query(
+      `
+      INSERT INTO disclosures (
+        subject_did,
+        verifier_did,
+        claim_id,
+        purpose,
+        consent,
+        context,
+        disclosed_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `,
+      [
+        address,
+        "SYSTEM:GDPR",
+        "GDPR_ERASURE",
+        "Right to Erasure (Article 17)",
+        true,
+        "compliance"
+      ]
     );
 
     return res.json({
@@ -63,6 +91,6 @@ export const eraseProfile = async (req, res) => {
 
   } catch (err) {
     console.error("❌ GDPR erase error:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };

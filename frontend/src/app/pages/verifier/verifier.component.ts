@@ -336,6 +336,7 @@ export class VerifierComponent {
       subject: this.form.value.subject,
       verifierDid: this.form.value.verifierDid,
       purpose: this.form.value.purpose,
+      context: this.form.value.context,
       consent: this.form.value.consent,
       credentials: this.credentialsArray.value
     };

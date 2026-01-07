@@ -1,6 +1,20 @@
-import { Component, signal, computed, inject, PLATFORM_ID, OnInit, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  signal,
+  computed,
+  inject,
+  PLATFORM_ID,
+  OnInit,
+  ChangeDetectorRef
+} from '@angular/core';
 import { isPlatformBrowser, CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import {
+  RouterOutlet,
+  RouterLink,
+  RouterLinkActive,
+  Router,
+  NavigationEnd
+} from '@angular/router';
 
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
@@ -10,7 +24,9 @@ import { MatListModule } from '@angular/material/list';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
+
 import { WalletService } from './services/wallet.service';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -30,21 +46,38 @@ import { WalletService } from './services/wallet.service';
     MatBadgeModule
   ],
   template: `
-    <mat-sidenav-container class="container" [class.dark]="darkMode()" [class.mini]="miniSidebar()">
+  <mat-sidenav-container
+    class="container"
+    [class.dark]="darkMode()"
+    [class.mini]="miniSidebar()">
 
-      <!-- Sidebar -->
-      <mat-sidenav #sidenav mode="side" opened fixedInViewport class="sidenav">
-        <div class="logo" (click)="toggleMini()">
-          <div class="logo-icon-wrapper">
-            <mat-icon class="logo-icon">shield</mat-icon>
-          </div>
-          <div class="logo-text" [class.hidden]="miniSidebar()">
-            <div class="logo-title">PIMV</div>
-            <div class="logo-subtitle">Identity Vault</div>
-          </div>
+    <!-- ========================= -->
+    <!-- Sidebar (AUTH ONLY) -->
+    <!-- ========================= -->
+    <mat-sidenav
+      *ngIf="auth.isAuthenticated()"
+      mode="side"
+      opened
+      fixedInViewport
+      class="sidenav">
+
+      <div class="logo" (click)="toggleMini()">
+        <div class="logo-icon-wrapper">
+          <mat-icon class="logo-icon">shield</mat-icon>
         </div>
+        <div class="logo-text" [class.hidden]="miniSidebar()">
+          <div class="logo-title">PIMV</div>
+          <div class="logo-subtitle">Identity Vault</div>
+        </div>
+      </div>
 
-        <mat-nav-list class="nav-list">
+      <mat-nav-list class="nav-list">
+
+        <!-- ===================== -->
+        <!-- USER NAVIGATION -->
+        <!-- ===================== -->
+        <ng-container *ngIf="auth.role() === 'USER'">
+
           <a mat-list-item routerLink="/vault" routerLinkActive="active">
             <mat-icon matListItemIcon>lock_outline</mat-icon>
             <span matListItemTitle>Vault</span>
@@ -70,102 +103,118 @@ import { WalletService } from './services/wallet.service';
             <span matListItemTitle>Disclosures</span>
           </a>
 
-          <!-- GDPR - always visible -->
           <a mat-list-item routerLink="/gdpr" routerLinkActive="active">
             <mat-icon matListItemIcon>policy</mat-icon>
             <span matListItemTitle>GDPR</span>
           </a>
 
-          <!-- Advanced - always visible -->
+        </ng-container>
+
+        <!-- ===================== -->
+        <!-- ADMIN NAVIGATION -->
+        <!-- ===================== -->
+        <ng-container *ngIf="auth.role() === 'ADMIN'">
+
           <a mat-list-item routerLink="/advanced" routerLinkActive="active">
             <mat-icon matListItemIcon>settings_suggest</mat-icon>
             <span matListItemTitle>Advanced</span>
           </a>
 
-          <!-- Verifier - always visible -->
+        </ng-container>
+
+        <!-- ===================== -->
+        <!-- VERIFIER NAVIGATION -->
+        <!-- ===================== -->
+        <ng-container *ngIf="auth.role() === 'VERIFIER'">
+
           <a mat-list-item routerLink="/verifier" routerLinkActive="active">
             <mat-icon matListItemIcon>verified_user</mat-icon>
             <span matListItemTitle>Verifier</span>
           </a>
-        </mat-nav-list>
-      </mat-sidenav>
 
-      <!-- Main Content -->
-      <mat-sidenav-content>
-        <!-- Top Toolbar -->
-        <mat-toolbar color="primary" class="toolbar">
-          <button mat-icon-button (click)="toggleMini()" class="menu-btn">
-            <mat-icon>menu</mat-icon>
+        </ng-container>
+
+      </mat-nav-list>
+    </mat-sidenav>
+
+    <!-- ========================= -->
+    <!-- Main Content -->
+    <!-- ========================= -->
+    <mat-sidenav-content>
+
+      <mat-toolbar color="primary" class="toolbar">
+        <button mat-icon-button (click)="toggleMini()">
+          <mat-icon>menu</mat-icon>
+        </button>
+
+        <div class="breadcrumb">{{ breadcrumb() }}</div>
+        <span class="spacer"></span>
+
+        <!-- Role Badge -->
+        <div
+          class="role-badge"
+          *ngIf="auth.isAuthenticated() && wallet.address"
+          [ngClass]="{
+            'user': auth.role() === 'USER',
+            'admin': auth.role() === 'ADMIN',
+            'verifier': auth.role() === 'VERIFIER'
+          }">
+          {{ displayRole() }}
+        </div>
+
+        <!-- Wallet -->
+        <div class="wallet-info" *ngIf="wallet.address; else connectBtn">
+          <code class="address">
+            {{ wallet.address | slice:0:6 }}...{{ wallet.address | slice:-4 }}
+          </code>
+          <button mat-icon-button (click)="copyAddress()">
+            <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+
+        <ng-template #connectBtn>
+          <button mat-stroked-button (click)="connectWallet()">
+            <mat-icon>wallet</mat-icon>
+            Connect Wallet
+          </button>
+        </ng-template>
+
+        <!-- Dark Mode -->
+        <mat-slide-toggle
+          class="dark-toggle"
+          [checked]="darkMode()"
+          (change)="toggleDarkMode()">
+          <mat-icon>{{ darkMode() ? 'dark_mode' : 'light_mode' }}</mat-icon>
+        </mat-slide-toggle>
+
+        <!-- User Menu -->
+        <ng-container *ngIf="wallet.address">
+          <button mat-icon-button [matMenuTriggerFor]="userMenu">
+            <mat-icon>account_circle</mat-icon>
           </button>
 
-          <div class="breadcrumb">
-            <span>{{ breadcrumb() }}</span>
-          </div>
-
-          <span class="spacer"></span>
-
-          <!-- Role Badge -->
-          <div class="role-badge"
-               [ngClass]="{
-                 'user':     role() === 'USER',
-                 'gdpr':     role() === 'GDPR',
-                 'admin':    role() === 'ADMIN',
-                 'verifier': role() === 'VERIFIER'
-               }"
-               *ngIf="wallet.address">
-            {{ role() }}
-          </div>
-
-          <!-- Wallet Address / Connect -->
-          <div class="wallet-info" *ngIf="wallet.address; else connectBtn">
-            <code class="address">{{ wallet.address | slice:0:6 }}...{{ wallet.address | slice:-4 }}</code>
-            <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
-              <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-            </button>
-          </div>
-
-          <ng-template #connectBtn>
-            <button mat-stroked-button (click)="connectWallet()">
-              <mat-icon>wallet</mat-icon>
-              Connect Wallet
-            </button>
-          </ng-template>
-
-          <!-- Dark Mode Toggle -->
-          <mat-slide-toggle
-            class="dark-toggle"
-            [checked]="darkMode()"
-            (change)="toggleDarkMode()">
-            <mat-icon>{{ darkMode() ? 'dark_mode' : 'light_mode' }}</mat-icon>
-          </mat-slide-toggle>
-
-          <!-- User Menu – only shown when connected -->
-          <ng-container *ngIf="wallet.address">
-            <button mat-icon-button [matMenuTriggerFor]="userMenu">
-              <mat-icon>account_circle</mat-icon>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item routerLink="/profile">
+              <mat-icon>person</mat-icon>
+              <span>Profile</span>
             </button>
 
-            <mat-menu #userMenu="matMenu">
-              <button mat-menu-item routerLink="/profile">
-                <mat-icon>person</mat-icon>
-                <span>Profile</span>
-              </button>
-              <button mat-menu-item (click)="disconnectWallet()">
-                <mat-icon>logout</mat-icon>
-                <span>Disconnect Wallet</span>
-              </button>
-            </mat-menu>
-          </ng-container>
-        </mat-toolbar>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Logout</span>
+            </button>
+          </mat-menu>
+        </ng-container>
+      </mat-toolbar>
 
-        <!-- Page Content -->
-        <main class="content">
-          <router-outlet></router-outlet>
-        </main>
-      </mat-sidenav-content>
+      <main class="content">
+        <router-outlet></router-outlet>
+      </main>
 
-    </mat-sidenav-container>
-  `,
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+`,
+
   styles: [`
     :host {
       display: block;
@@ -292,19 +341,13 @@ import { WalletService } from './services/wallet.service';
       color: #1e293b;
     }
 
-    /* GDPR */
-    .role-badge.gdpr {
-      background: #dcfce7;
-      color: #166534;
-    }
-
     /* ADMIN */
     .role-badge.admin {
       background: #fee2e2;
       color: #991b1b;
     }
 
-    /* VERIFIER (new) */
+    /* VERIFIER */
     .role-badge.verifier {
       background: #e0f2fe;
       color: #0c4a6e;
@@ -380,16 +423,21 @@ import { WalletService } from './services/wallet.service';
     }
   `]
 })
-export class AppComponent {
+
+export class AppComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);
   private isBrowser = isPlatformBrowser(this.platformId);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
   wallet = inject(WalletService);
+  auth = inject(AuthService);
 
-  // Reactive current URL signal
   private currentUrl = signal<string>(this.router.url);
+
+  miniSidebar = signal(false);
+  darkMode = signal(this.isBrowser && localStorage.getItem('darkMode') === 'true');
+  copied = false;
 
   constructor() {
     this.router.events.subscribe(event => {
@@ -399,40 +447,20 @@ export class AppComponent {
     });
   }
 
-  /* Role */
-  role = computed<'USER' | 'GDPR' | 'ADMIN' | 'VERIFIER'>(() => {
-    const url = this.currentUrl();
+  ngOnInit() {
+    if (this.darkMode()) {
+      document.documentElement.classList.add('dark');
+    }
+  }
 
-    if (url.includes('/gdpr'))     return 'GDPR';
-    if (url.includes('/advanced')) return 'ADMIN';
-    if (url.includes('/verifier')) return 'VERIFIER';
-
-    return 'USER';
-  });
-
-  isAdmin = computed(() => this.role() === 'ADMIN');
-  isGdpr  = computed(() => this.role() === 'GDPR' || this.role() === 'ADMIN');
-
-  // Visibility flags (kept but no longer used)
-  showGdprTab = computed(() => true);
-  showAdvancedTab = computed(() => true);
-  showVerifierTab = computed(() => true);
-
-  /* Mini Sidebar */
-  miniSidebar = signal(false);
   toggleMini() {
     this.miniSidebar.update(v => !v);
   }
 
-  /* Breadcrumb */
   breadcrumb = computed(() => {
-    const url = this.router.url;
-    const segment = url.split('/').pop() || 'Dashboard';
+    const segment = this.router.url.split('/').pop() || 'Dashboard';
     return segment.charAt(0).toUpperCase() + segment.slice(1);
   });
-
-  /* Dark Mode */
-  darkMode = signal(this.isBrowser && localStorage.getItem('darkMode') === 'true');
 
   toggleDarkMode() {
     this.darkMode.update(v => !v);
@@ -442,27 +470,27 @@ export class AppComponent {
     }
   }
 
-  copied = false;
-
-  ngOnInit() {
-    if (this.darkMode()) {
-      document.documentElement.classList.add('dark');
-    }
-  }
-
   async connectWallet() {
     try {
       await this.wallet.connect();
       this.cdr.detectChanges();
     } catch (e: any) {
-      alert(e.message || 'Connection failed');
+      alert(e.message || 'Wallet connection failed');
     }
   }
 
-  disconnectWallet() {
-    this.wallet.disconnect();
-    this.cdr.detectChanges(); // Force UI update after disconnect
+  logout() {
+    this.auth.logout();
+    this.cdr.detectChanges();
   }
+
+  displayRole = computed(() => {
+    switch (this.auth.role()) {
+      case 'ADMIN': return 'Admin / Auditor';
+      case 'VERIFIER': return 'Verifier';
+      default: return 'User';
+    }
+  });
 
   copyAddress() {
     if (!this.wallet.address) return;

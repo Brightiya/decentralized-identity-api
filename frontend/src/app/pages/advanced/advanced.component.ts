@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
-import { WalletService } from '../../services/wallet.service'; // ← Add this import
+import { WalletService } from '../../services/wallet.service';
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -28,6 +28,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatTabsModule,
     MatTooltipModule,
     MatProgressSpinnerModule
+    
   ],
   template: `
     <div class="advanced-header">

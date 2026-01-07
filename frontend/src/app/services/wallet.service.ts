@@ -3,8 +3,6 @@ import { isPlatformBrowser } from '@angular/common';
 import { BrowserProvider, JsonRpcSigner, Eip1193Provider } from 'ethers';
 import { BehaviorSubject } from 'rxjs';
 
-
-
 declare const window: any;
 
 @Injectable({ providedIn: 'root' })
@@ -20,11 +18,25 @@ export class WalletService {
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
 
-    // ✅ Restore wallet ONLY in browser
+    // ✅ Restore wallet address ONLY in browser
     if (this.isBrowser) {
       const saved = localStorage.getItem('walletAddress');
       if (saved) {
         this.addressSubject.next(saved);
+      }
+
+      // 🔄 Keep address in sync with MetaMask
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', (accounts: string[]) => {
+          if (!accounts || accounts.length === 0) {
+            this.disconnect();
+          } else {
+            const addr = accounts[0];
+            this.addressSubject.next(addr);
+            localStorage.setItem('walletAddress', addr);
+            this.signer = null; // force re-bind
+          }
+        });
       }
     }
   }
@@ -59,9 +71,35 @@ export class WalletService {
   }
 
   async signMessage(message: string) {
-    if (!this.signer) {
-      throw new Error('Not connected');
+    if (!this.isBrowser) {
+      throw new Error('Signing only available in browser');
     }
+
+    if (!window.ethereum) {
+      throw new Error('MetaMask not found');
+    }
+
+    // 🔁 Lazy-init provider
+    if (!this.provider) {
+      this.provider = new BrowserProvider(
+        window.ethereum as Eip1193Provider
+      );
+    }
+
+    // 🔁 Lazy-init signer
+    if (!this.signer) {
+      this.signer = await this.provider.getSigner();
+    }
+
+    const signerAddress = await this.signer.getAddress();
+
+    if (
+      this.address &&
+      signerAddress.toLowerCase() !== this.address.toLowerCase()
+    ) {
+      throw new Error('Active MetaMask account does not match connected wallet');
+    }
+
     return this.signer.signMessage(message);
   }
 

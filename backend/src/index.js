@@ -1,7 +1,13 @@
+// backend/src/index.js
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-//import identityRoutes from "./routes/didRoutes.js";
+import morgan from "morgan"; // optional: nice request logging
+
+// Controllers
+import { getChallenge, verifySignature } from './controllers/authController.js';
+
+// Routes
 import vcRoutes from "./routes/vcRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import didRoutes from "./routes/didRoutes.js";
@@ -10,23 +16,94 @@ import disclosureRoutes from "./routes/disclosureRoutes.js";
 import erasureRoutes from "./routes/erasureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 
+
+// Middleware
+//import { authMiddleware } from "./middleware/auth.js";
+import { authMiddleware } from "../middleware/auth.js";
+//import adminRoutes from './routes/adminRoutes.js';
+
+
+
+
+
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// ────────────────────────────────────────────────
+// Middleware Setup
+// ────────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:4200', // ← restrict in prod
+  credentials: true,
+}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// Optional: request logging (great for dev)
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev')); // tiny, colorful logs
+}
 
-// API routes
-//app.use("/api/identity", identityRoutes);
-app.use("/api/vc", vcRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/did", didRoutes);
-app.use("/api/gdpr", gdprRoutes);
-app.use("/api/disclosures", disclosureRoutes);
-app.use("/api/erasure", erasureRoutes);
-app.use("/api/consent", consentRoutes);
+// ────────────────────────────────────────────────
+// Public Routes (no auth required)
+// ────────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  });
+});
 
+app.get('/api/health', (req, res) => res.sendStatus(200));
 
+// Auth endpoints (public - anyone can request challenge / verify)
+app.get('/api/auth/challenge', getChallenge);
+app.post('/api/auth/verify', verifySignature);
+
+// ────────────────────────────────────────────────
+// Protected API Routes (JWT auth required)
+// ────────────────────────────────────────────────
+const apiRouter = express.Router();
+apiRouter.use(authMiddleware); // ← applies to all below
+
+apiRouter.use("/vc", vcRoutes);
+apiRouter.use("/profile", profileRoutes);
+apiRouter.use("/did", didRoutes);
+apiRouter.use("/gdpr", gdprRoutes);
+apiRouter.use("/disclosures", disclosureRoutes);
+apiRouter.use("/erasure", erasureRoutes);
+apiRouter.use("/consent", consentRoutes);
+
+// Mount protected APIs under /api
+app.use("/api", apiRouter);
+
+// ────────────────────────────────────────────────
+// Global Error Handler (last middleware)
+// ────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error('❌ Global error:', err.stack || err.message);
+  
+  const status = err.status || 500;
+  const message = status === 500 
+    ? 'Internal server error' 
+    : (err.message || 'Something went wrong');
+
+  res.status(status).json({
+    error: message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
+});
+
+// ────────────────────────────────────────────────
+// Start Server
+// ────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ PIMV Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Auth endpoints: /api/auth/challenge, /api/auth/verify`);
+  console.log(`Protected APIs: /api/vc, /api/profile, etc.`);
+});

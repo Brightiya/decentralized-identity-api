@@ -1,56 +1,132 @@
-import { ethers } from "ethers";
+// backend/src/middleware/auth.js
+import jwt from 'jsonwebtoken';
+import { ethers } from 'ethers';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
 
 /**
- * Wallet-based authentication middleware
- *
- * Requires headers:
- *  - x-did: did:ethr:<address>
- *  - x-signature: signed message proving DID ownership
- *
- * Message format (must match frontend):
- *  "Authorize GDPR action for <did>"
+ * JWT-based authentication middleware (primary method)
+ * 
+ * Expects:
+ *   Authorization: Bearer <token>
+ * 
+ * Optionally supports legacy header-based auth (x-did + x-signature)
+ * for backward compatibility during migration.
+ * 
+ * On success, attaches:
+ *   req.user = { ethAddress, role, userId, ... }
  */
 export const authMiddleware = async (req, res, next) => {
   try {
-    const did = req.headers["x-did"];
-    const signature = req.headers["x-signature"];
+    // ────────────────────────────────────────────────
+    // 1. Preferred: Bearer Token (JWT from SIWE login)
+    // ────────────────────────────────────────────────
+    const authHeader = req.headers.authorization;
 
-    if (!did || !signature) {
-      return res.status(401).json({
-        error: "Authentication required (DID + signature)"
-      });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+
+        // Basic sanity check
+        if (!decoded.ethAddress || !ethers.isAddress(decoded.ethAddress)) {
+          return res.status(401).json({ error: 'Invalid token payload' });
+        }
+
+        // Attach full user context
+        req.user = {
+          ethAddress: decoded.ethAddress.toLowerCase(),
+          address: decoded.ethAddress.toLowerCase(), // alias for compatibility
+          did: `did:ethr:${decoded.ethAddress.toLowerCase()}`,
+          role: decoded.role || 'USER',
+          userId: decoded.userId,
+          iat: decoded.iat,
+          exp: decoded.exp
+        };
+
+        return next();
+      } catch (jwtErr) {
+        // If JWT is invalid/expired → fall through to legacy check (or fail)
+        if (jwtErr.name === 'TokenExpiredError') {
+          return res.status(401).json({ error: 'Token has expired' });
+        }
+        if (jwtErr.name === 'JsonWebTokenError') {
+          return res.status(401).json({ error: 'Invalid token' });
+        }
+        throw jwtErr;
+      }
     }
 
-    // Extract Ethereum address from DID
-    const address = did.split(":").pop();
-    if (!ethers.isAddress(address)) {
-      return res.status(400).json({
-        error: "Invalid DID format"
-      });
+    // ────────────────────────────────────────────────
+    // 2. Fallback: Legacy header-based auth (x-did + x-signature)
+    //    → Keep temporarily during migration, then remove
+    // ────────────────────────────────────────────────
+    const did = req.headers['x-did'];
+    const signature = req.headers['x-signature'];
+
+    if (did && signature) {
+      console.warn('⚠️ Using deprecated x-did / x-signature auth – migrate to Bearer JWT');
+
+      // Extract Ethereum address from DID
+      const address = did.split(':').pop()?.toLowerCase();
+      if (!address || !ethers.isAddress(address)) {
+        return res.status(400).json({ error: 'Invalid DID format' });
+      }
+
+      // Expected signed message (must match what frontend signs)
+      const message = `Authorize GDPR action for ${did}`;
+
+      // Recover signer
+      const recovered = ethers.verifyMessage(message, signature);
+
+      if (recovered.toLowerCase() !== address) {
+        return res.status(403).json({ error: 'Signature verification failed' });
+      }
+
+      // Attach minimal context (no role in legacy mode)
+      req.user = {
+        ethAddress: address,
+        address,
+        did,
+        role: 'USER' // assume default – upgrade to JWT for roles
+      };
+
+      return next();
     }
 
-    // Expected signed message
-    const message = `Authorize GDPR action for ${did}`;
-
-    // Recover signer from signature
-    const recovered = ethers.verifyMessage(message, signature);
-
-    if (recovered.toLowerCase() !== address.toLowerCase()) {
-      return res.status(403).json({
-        error: "Signature verification failed"
-      });
-    }
-
-    // Attach auth context to request
-    req.auth = {
-      did,
-      address
-    };
-
-    next();
+    // ────────────────────────────────────────────────
+    // No valid auth found
+    // ────────────────────────────────────────────────
+    return res.status(401).json({
+      error: 'Authentication required (Bearer token or legacy headers)'
+    });
 
   } catch (err) {
-    console.error("❌ Auth middleware error:", err);
-    return res.status(500).json({ error: "Authentication failed" });
+    console.error('❌ Auth middleware error:', err.message || err);
+    return res.status(500).json({ error: 'Authentication processing failed' });
   }
+};
+
+/**
+ * Optional: Role-based access control middleware factory
+ * Usage: app.use('/admin/*', requireRole('ADMIN'))
+ */
+export const requireRole = (requiredRole) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (req.user.role !== requiredRole) {
+      return res.status(403).json({
+        error: `Insufficient permissions – ${requiredRole} role required`
+      });
+    }
+
+    next();
+  };
 };

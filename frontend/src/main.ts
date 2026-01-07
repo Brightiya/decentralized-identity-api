@@ -1,46 +1,26 @@
-
+// src/main.ts (client-side bootstrap)
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideRouter, Routes } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideClientHydration } from '@angular/platform-browser';
 import { importProvidersFrom } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { authInterceptor } from './app/pages/interceptors/auth.interceptor';
+
+
 import { AppComponent } from './app/app.component';
 
-// NEW PAGES (hybrid)
-import { VaultComponent } from './app/pages/vault.component';
-import { ContextsComponent } from './app/pages/contexts.component';
-import { ConsentComponent } from './app/pages/consent.component';
-import { CredentialsComponent } from './app/pages/credentials.component';
-import { GdprComponent } from './app/pages/gdpr.component';
-import { AdvancedComponent } from './app/pages/advanced/advanced.component';
-import { DisclosuresComponent } from './app/pages/disclosures.component';
-import { VerifierComponent } from './app/pages/verifier/verifier.component';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async'; 
-
-const routes: Routes = [
-  { path: '', redirectTo: 'vault', pathMatch: 'full' },
-
-  { path: 'vault', component: VaultComponent },
-  { path: 'contexts', component: ContextsComponent },
-  { path: 'consent', component: ConsentComponent },
-  { path: 'credentials', component: CredentialsComponent },
-  { path: 'gdpr', component: GdprComponent },
-  { path: 'advanced', component: AdvancedComponent },
-  { path: 'disclosures', component: DisclosuresComponent },
-  { path: 'verifier', component: VerifierComponent },
-  {
-  path: 'profile',
-  loadComponent: () => import('./app/pages/profile.component').then(m => m.ProfileComponent)
-  },
-
-  { path: '**', redirectTo: 'vault' }
-];
+// Reuse the shared routes (same as server, single source of truth)
+import { routes } from './app/app.routes';
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideRouter(routes),
+    provideClientHydration(),                      // ← added: enables hydration for SSR compatibility
     provideHttpClient(withFetch()),
-    importProvidersFrom(FormsModule, ReactiveFormsModule), provideAnimationsAsync()
+    provideHttpClient(withInterceptors([authInterceptor])),
+    importProvidersFrom(FormsModule, ReactiveFormsModule),
+    provideAnimationsAsync()                       // keeps Material animations async-loaded
   ]
-}).catch(err => console.error(err));
-
+}).catch(err => console.error('Bootstrap failed:', err));

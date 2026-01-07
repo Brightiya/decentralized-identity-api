@@ -1,48 +1,30 @@
+// src/main.server.ts
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideServerRendering } from '@angular/platform-server';
-import { provideRouter, Routes } from '@angular/router';
+import { provideClientHydration } from '@angular/platform-browser';
+import { provideRouter, withDebugTracing } from '@angular/router';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { importProvidersFrom } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { AppComponent } from './app/app.component';
 
-// SAME pages as client
-import { VaultComponent } from './app/pages/vault.component';
-import { ContextsComponent } from './app/pages/contexts.component';
-import { ConsentComponent } from './app/pages/consent.component';
-import { CredentialsComponent } from './app/pages/credentials.component';
-import { GdprComponent } from './app/pages/gdpr.component';
-import { AdvancedComponent } from './app/pages/advanced/advanced.component';
-import { DisclosuresComponent } from './app/pages/disclosures.component';
-import { VerifierComponent } from './app/pages/verifier/verifier.component';
+// Reuse the shared client routes (single source of truth, avoids duplication)
+import { routes } from './app/app.routes';
 
-const routes: Routes = [
-  { path: '', redirectTo: 'vault', pathMatch: 'full' },
-
-  { path: 'vault', component: VaultComponent },
-  { path: 'contexts', component: ContextsComponent },
-  { path: 'consent', component: ConsentComponent },
-  { path: 'credentials', component: CredentialsComponent },
-  { path: 'gdpr', component: GdprComponent },
-  { path: 'advanced', component: AdvancedComponent },
-  { path: 'disclosures', component: DisclosuresComponent },
-  { path: 'verifier', component: VerifierComponent },
-  {
-  path: 'profile',
-  loadComponent: () => import('./app/pages/profile.component').then(m => m.ProfileComponent)
-  },
-
-  { path: '**', redirectTo: 'vault' }
-];
+const isDevMode = process.env['NODE_ENV'] !== 'production';
 
 export default async function bootstrap() {
   return bootstrapApplication(AppComponent, {
     providers: [
       provideServerRendering(),
-      provideRouter(routes),
+      provideClientHydration(),               // ← added: required for SSR hydration
+      provideRouter(routes),                  // ← uses shared routes
       provideHttpClient(withFetch()),
-      importProvidersFrom(FormsModule, ReactiveFormsModule)
+      importProvidersFrom(FormsModule, ReactiveFormsModule),
+
+      // Optional: only enable route tracing in development
+      ...(isDevMode ? [provideRouter(routes, withDebugTracing())] : [])
     ]
   });
 }

@@ -48,6 +48,8 @@ Example endpoints
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
  4. test with:
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db
+// Generate a strong JWT_SECRET:
+     openssl rand -base64 48
 
 did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  name
@@ -56,4 +58,4 @@ did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  email
 Qmf2wTrBDXXBTnn4DXMeBM9ebj739Efwewe8bRAaoSki1C
 
-QmXdtBiZRNeKuKSn4HfKD4VScxR1Y4zwzpJHn5jxR8EHUL
+QmWKKCBNBevWCwgE1zuU4cac51So9LUDBHZjtFSEVafF8S

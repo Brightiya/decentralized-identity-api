@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +16,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { ThemeService } from '../services/theme.service';
 
 @Component({
   selector: 'app-consent',
@@ -35,450 +36,534 @@ import { MatDividerModule } from '@angular/material/divider';
     MatDividerModule
   ],
   template: `
-  <div class="consent-header">
-    <h1>Consent Management</h1>
-    <p class="subtitle">
-      Control exactly which personal attributes you share and with whom. Your explicit consent is required for any disclosure.
-    </p>
-  </div>
+  <div class="consent-container" [class.dark]="darkMode()">
+    <div class="consent-header">
+      <h1>Consent Management</h1>
+      <p class="subtitle">
+        Control exactly which personal attributes you share and with whom. Your explicit consent is required for any disclosure.
+      </p>
+    </div>
 
-  <!-- Wallet Connection -->
-  <mat-card class="card elevated" appearance="outlined">
-    <mat-card-header>
-      <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-      <mat-card-title>Wallet Connection</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <ng-container *ngIf="wallet.address; else connectPrompt">
-        <div class="connected-state">
-          <div class="address-row">
-            <code class="address">{{ wallet.address }}</code>
-            <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
-              <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-            </button>
-          </div>
-          <p class="status success">
-            <mat-icon inline>check_circle</mat-icon>
-            Wallet connected successfully
-          </p>
-        </div>
-      </ng-container>
-      <ng-template #connectPrompt>
-        <p class="muted">
-          Connect your wallet to manage consent for attribute disclosure.
-        </p>
-        <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting">
-          <mat-icon *ngIf="!connecting">wallet</mat-icon>
-          <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-        </button>
-      </ng-template>
-    </mat-card-content>
-  </mat-card>
-
-  <!-- Consent Flow -->
-  <ng-container *ngIf="wallet.address">
-    <!-- Context Selection -->
+    <!-- Wallet Connection -->
     <mat-card class="card elevated" appearance="outlined">
       <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
-        <mat-card-title>Select Context</mat-card-title>
+        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+        <mat-card-title>Wallet Connection</mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Disclosure Context</mat-label>
-          <mat-select [(ngModel)]="context" (selectionChange)="onContextChange()">
-            <mat-option value="">-- Choose a context --</mat-option>
-            <mat-option *ngFor="let c of contexts" [value]="c">
-              {{ c | titlecase }}
-            </mat-option>
-          </mat-select>
-        </mat-form-field>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Attribute Selection -->
-    <mat-card class="card elevated" appearance="outlined" *ngIf="context">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
-        <mat-card-title>Attributes to Share</mat-card-title>
-        <div class="badge" *ngIf="!loadingAttributes && attributes.length > 0">
-          {{ selectedAttributes.length }} selected
-        </div>
-      </mat-card-header>
-
-      <mat-card-content>
-        <div class="loading-state" *ngIf="loadingAttributes">
-          <mat-spinner diameter="40"></mat-spinner>
-          <p>Loading attributes...</p>
-        </div>
-
-        <!-- ✅ UPDATED: attribute list with active-consent lock -->
-        <div class="attributes-list" *ngIf="!loadingAttributes && attributes.length > 0">
-          <div *ngFor="let attr of attributes" class="attribute-row">
-            <mat-checkbox
-              [checked]="selectedAttributes.includes(attr)"
-              [disabled]="hasActiveConsent(attr)"
-              (change)="toggleAttribute(attr)">
-              {{ attr | titlecase }}
-            </mat-checkbox>
-
-            <!-- 🔒 Already consented label -->
-            <span
-              class="small muted"
-              *ngIf="hasActiveConsent(attr)">
-              (Already consented)
-            </span>
+        <ng-container *ngIf="wallet.address; else connectPrompt">
+          <div class="connected-state">
+            <div class="address-row">
+              <code class="address">{{ wallet.address | slice:0:6 }}…{{ wallet.address | slice:-4 }}</code>
+              <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
+                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+            <p class="status success">
+              <mat-icon inline>check_circle</mat-icon>
+              Wallet connected successfully
+            </p>
           </div>
-        </div>
-
-        <div class="empty-state" *ngIf="!loadingAttributes && attributes.length === 0">
-          <mat-icon class="empty-icon">inbox</mat-icon>
-          <h3>No attributes available</h3>
+        </ng-container>
+        <ng-template #connectPrompt>
           <p class="muted">
-            No credentials have been issued for the <strong>{{ context | titlecase }}</strong> context yet.
-            Go to <a routerLink="/credentials">Credentials</a> to issue one.
+            Connect your wallet to manage consent for attribute disclosure.
           </p>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Purpose & Explicit Consent -->
-    <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
-      <mat-card-header>
-        <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
-        <mat-card-title>Purpose & Explicit Consent</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Purpose of Disclosure</mat-label>
-          <input matInput [(ngModel)]="purpose" required />
-          <mat-hint>The specific purpose for which this data will be used</mat-hint>
-        </mat-form-field>
-
-        <mat-checkbox
-          [checked]="explicitConsent"
-          (change)="explicitConsent = $event.checked">
-          <strong>I explicitly consent</strong> to sharing the selected attributes from my
-          <strong>{{ context | titlecase }}</strong> context for the purpose:
-          <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
-        </mat-checkbox>
-
-        <div class="actions">
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="grantConsent()"
-            [disabled]="!explicitConsent || !purpose.trim() || loading">
-            <mat-icon *ngIf="!loading">task_alt</mat-icon>
-            <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
-            <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
+          <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting">
+            <mat-icon *ngIf="!connecting">wallet</mat-icon>
+            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
           </button>
-        </div>
+        </ng-template>
       </mat-card-content>
     </mat-card>
 
-    <!-- Active Consents -->
-    <mat-card class="card elevated" appearance="outlined" *ngIf="context">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>gavel</mat-icon>
-        <mat-card-title>Active Consents for {{ context | titlecase }}</mat-card-title>
-      </mat-card-header>
+    <!-- Consent Flow -->
+    <ng-container *ngIf="wallet.address">
+      <!-- Context Selection -->
+      <mat-card class="card elevated" appearance="outlined">
+        <mat-card-header>
+          <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
+          <mat-card-title>Select Context</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Disclosure Context</mat-label>
+            <mat-select [(ngModel)]="context" (selectionChange)="onContextChange()">
+              <mat-option value="">-- Choose a context --</mat-option>
+              <mat-option *ngFor="let c of contexts" [value]="c">
+                {{ c | titlecase }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
 
-      <mat-card-content>
-        <div class="loading-state" *ngIf="loadingConsents">
-          <mat-spinner diameter="40"></mat-spinner>
-        </div>
+      <!-- Attribute Selection -->
+      <mat-card class="card elevated" appearance="outlined" *ngIf="context">
+        <mat-card-header>
+          <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
+          <mat-card-title>Attributes to Share</mat-card-title>
+          <div class="badge" *ngIf="!loadingAttributes && attributes.length > 0">
+            {{ selectedAttributes.length }} selected
+          </div>
+        </mat-card-header>
 
-        <div class="empty-state" *ngIf="!loadingConsents && activeConsents.length === 0">
-          <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
-          <h3>No active consents</h3>
-        </div>
+        <mat-card-content>
+          <div class="loading-state" *ngIf="loadingAttributes">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Loading attributes...</p>
+          </div>
 
-        <div *ngIf="!loadingConsents && activeConsents.length > 0">
-          <div class="consent-entry" *ngFor="let consent of activeConsents">
-            <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
-            <p><strong>Consent ID:</strong> <code>{{ consent.claimId }}</code></p>
+          <!-- Attribute list with active-consent lock -->
+          <div class="attributes-list" *ngIf="!loadingAttributes && attributes.length > 0">
+            <div *ngFor="let attr of attributes" class="attribute-row">
+              <mat-checkbox
+                [checked]="selectedAttributes.includes(attr)"
+                [disabled]="hasActiveConsent(attr)"
+                (change)="toggleAttribute(attr)">
+                {{ attr | titlecase }}
+              </mat-checkbox>
 
-            <p class="small muted">
-              Issued on: {{ consent.grantedAt | date:'medium' }}
+              <!-- Already consented label -->
+              <span class="small muted" *ngIf="hasActiveConsent(attr)">
+                (Already consented)
+              </span>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="!loadingAttributes && attributes.length === 0">
+            <mat-icon class="empty-icon">inbox</mat-icon>
+            <h3>No attributes available</h3>
+            <p class="muted">
+              No credentials have been issued for the <strong>{{ context | titlecase }}</strong> context yet.
+              Go to <a routerLink="/credentials">Credentials</a> to issue one.
             </p>
+          </div>
+        </mat-card-content>
+      </mat-card>
 
-            <p class="small"
-               *ngIf="getExpiryLabel(consent.expiresAt)"
-               [class.warn]="getExpiryLabel(consent.expiresAt) === 'Expired'">
-              {{ getExpiryLabel(consent.expiresAt) }}
-            </p>
+      <!-- Purpose & Explicit Consent -->
+      <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
+        <mat-card-header>
+          <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
+          <mat-card-title>Purpose & Explicit Consent</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Purpose of Disclosure</mat-label>
+            <input matInput [(ngModel)]="purpose" required />
+            <mat-hint>The specific purpose for which this data will be used</mat-hint>
+          </mat-form-field>
 
+          <mat-checkbox
+            [checked]="explicitConsent"
+            (change)="explicitConsent = $event.checked">
+            <strong>I explicitly consent</strong> to sharing the selected attributes from my
+            <strong>{{ context | titlecase }}</strong> context for the purpose:
+            <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
+          </mat-checkbox>
+
+          <div class="actions">
             <button
               mat-raised-button
-              color="warn"
-              (click)="revokeConsent(consent)"
-              [disabled]="loading">
-              <mat-icon>delete_forever</mat-icon>
-              Revoke Consent
+              color="primary"
+              (click)="grantConsent()"
+              [disabled]="!explicitConsent || !purpose.trim() || loading">
+              <mat-icon *ngIf="!loading">task_alt</mat-icon>
+              <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+              <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
             </button>
-
-            <mat-divider class="my-2"></mat-divider>
           </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-  </ng-container>
+        </mat-card-content>
+      </mat-card>
 
-  <pre class="debug" *ngIf="result">{{ result | json }}</pre>
-`
-,
-  styles: [`
-      .consent-header {
-        text-align: center;
-        margin-bottom: 40px;
-      }
+      <!-- Active Consents – now scrollable -->
+      <mat-card class="card elevated" appearance="outlined" *ngIf="context">
+        <mat-card-header>
+          <mat-icon class="header-icon" mat-card-avatar>gavel</mat-icon>
+          <mat-card-title>Active Consents for {{ context | titlecase }}</mat-card-title>
+        </mat-card-header>
 
-      h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0 0 12px 0;
-      }
+        <mat-card-content>
+          <div class="loading-state" *ngIf="loadingConsents">
+            <mat-spinner diameter="40"></mat-spinner>
+          </div>
 
-      .subtitle {
-        color: #64748b;
-        font-size: 1.1rem;
-        max-width: 720px;
-        margin: 0 auto;
-      }
+          <div class="empty-state" *ngIf="!loadingConsents && activeConsents.length === 0">
+            <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
+            <h3>No active consents</h3>
+          </div>
 
-      .card {
-        margin-bottom: 24px;
-        max-width: 760px;
-        transition: all 0.3s ease;
-      }
+          <!-- Scrollable container for consents -->
+          <div class="consents-scroll-container" *ngIf="!loadingConsents && activeConsents.length > 0">
+            <div class="consent-entry" *ngFor="let consent of activeConsents">
+              <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
+              <p><strong>Consent ID:</strong> <code>{{ consent.claimId }}</code></p>
 
-      .elevated {
-        box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-      }
+              <p class="small muted">
+                Issued on: {{ consent.grantedAt | date:'medium' }}
+              </p>
 
-      .card:hover {
-        transform: translateY(-4px);
-      }
+              <p class="small"
+                 *ngIf="getExpiryLabel(consent.expiresAt)"
+                 [class.warn]="getExpiryLabel(consent.expiresAt) === 'Expired'">
+                {{ getExpiryLabel(consent.expiresAt) }}
+              </p>
 
-      mat-card-header {
-        align-items: center;
-      }
+              <button
+                mat-raised-button
+                color="warn"
+                (click)="revokeConsent(consent)"
+                [disabled]="loading">
+                <mat-icon>delete_forever</mat-icon>
+                Revoke Consent
+              </button>
 
-      .header-icon {
-        background: rgba(99, 102, 241, 0.1);
-        color: #6366f1;
-        border-radius: 12px;
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
+              <mat-divider class="my-3"></mat-divider>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </ng-container>
 
-      .badge {
-        margin-left: auto;
-        padding: 4px 12px;
-        background: #eef2ff;
-        color: #6366f1;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-      }
+    <pre class="debug" *ngIf="result">{{ result | json }}</pre>
+  </div>
+`,
 
-      .full-width {
-        width: 100%;
-      }
+styles: [`
+  :host {
+    display: block;
+    min-height: 100%;
+  }
 
-      .hint {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #64748b;
-        font-size: 0.9rem;
-        margin-top: 12px;
-      }
+  .consent-container {
+    padding: 32px 40px 80px;
+    max-width: 960px;
+    margin: 0 auto;
+    transition: background 0.4s ease;
+  }
 
-      .address-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
+  .consent-container.dark {
+    background: #0f0f1a;
+    color: #e2e8f0;
+  }
 
-      .address {
-        flex: 1;
-        background: #f1f5f9;
-        padding: 10px 14px;
-        border-radius: 10px;
-        font-family: 'Courier New', monospace;
-        font-size: 0.95rem;
-        color: #1e40af;
-      }
+  /* Header */
+  .consent-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
 
-      .status.success {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #166534;
-        background: #f0fdf4;
-        padding: 12px;
-        border-radius: 10px;
-      }
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 16px;
+    letter-spacing: -0.6px;
+  }
 
-      .attributes-list {
-        display: grid;
-        gap: 12px;
-        margin: 16px 0;
-      }
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
 
-      .warning-box {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #fffbeb;
-        border: 1px solid #fed7aa;
-        color: #9a3412;
-        padding: 12px;
-        border-radius: 10px;
-        margin-top: 16px;
-      }
+  /* Cards */
+  .card {
+    background: var(--card-bg, white);
+    border-radius: 20px;
+    margin-bottom: 32px;
+    border: 1px solid var(--card-border, #e2e8f0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 
-      .actions {
-        margin-top: 24px;
-        text-align: right;
-      }
+  .consent-container.dark .card {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: #2d2d44;
+    backdrop-filter: blur(10px);
+  }
 
-      .revoke-card {
-        border-left: 4px solid #ef4444;
-      }
+  .elevated {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
+  }
 
-      .empty-state {
-        text-align: center;
-        padding: 48px 24px;
-      }
+  .consent-container.dark .elevated {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
 
-      .empty-icon {
-        font-size: 64px;
-        width: 80px;
-        height: 80px;
-        color: #cbd5e1;
-        margin-bottom: 16px;
-      }
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.14);
+  }
 
-      .empty-state h3 {
-        color: #475569;
-        margin: 16px 0;
-      }
+  .consent-container.dark .card:hover {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  }
 
-      .empty-state a {
-        color: #6366f1;
-        text-decoration: underline;
-      }
+  mat-card-header {
+    align-items: center;
+    margin-bottom: 24px;
+  }
 
-      .debug {
-        background: #1e1e1e;
-        color: #9cdcfe;
-        padding: 16px;
-        border-radius: 12px;
-        margin-top: 32px;
-        font-size: 0.9rem;
-        overflow-x: auto;
-      }
+  .header-icon {
+    font-size: 32px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg, rgba(99,102,241,0.12));
+    border-radius: 14px;
+    color: #6366f1;
+  }
 
-      .small { font-size: 0.9rem; }
-      .muted { color: #64748b; }
+  .consent-container.dark .header-icon {
+    background: rgba(99,102,241,0.28);
+    color: #a5b4fc;
+  }
 
-      .loading-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 60px 20px;
-        padding: 40px 0;
-        color: #64748b;
-        min-height: 200px;
-      }
+  .badge {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: var(--badge-bg, #eef2ff);
+    color: #6366f1;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
 
-      .loading-state p {
-      margin-top: 16px;
-      font-size: 1rem;
+  .consent-container.dark .badge {
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+  }
+
+  /* Connected State */
+  .address-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .address {
+    flex: 1;
+    background: var(--code-bg, #f1f5f9);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    color: #1d4ed8;
+  }
+
+  .consent-container.dark .address {
+    background: rgba(30,41,59,0.6);
+    color: #c7d2fe;
+  }
+
+  .status.success {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--success-bg, #f0fdf4);
+    border: 1px solid #bbf7d0;
+    color: var(--success-text, #166534);
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .consent-container.dark .status.success {
+    background: rgba(34,197,94,0.18);
+    border-color: rgba(34,197,94,0.45);
+    color: #86efac;
+  }
+
+  /* Attribute List */
+  .attributes-list {
+    display: grid;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .attribute-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--row-bg, rgba(0,0,0,0.02));
+  }
+
+  .consent-container.dark .attribute-row {
+    background: rgba(255,255,255,0.04);
+  }
+
+  .attribute-row .small.muted {
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  /* Purpose & Consent */
+  .actions {
+    margin-top: 28px;
+    text-align: right;
+  }
+
+  /* Active Consents – Scrollable Section */
+  .consents-scroll-container {
+    max-height: 420px;                  /* Adjust this value to taste (400–500px is good) */
+    overflow-y: auto;
+    padding-right: 8px;                 /* Prevent scrollbar overlap with content */
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar styling (modern & subtle) */
+  .consents-scroll-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .consents-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  .consents-scroll-container::-webkit-scrollbar-thumb {
+    background: #9ca3af;                /* Light gray in light mode */
+    border-radius: 10px;
+  }
+
+  .consent-container.dark .consents-scroll-container::-webkit-scrollbar-thumb {
+    background: #6b7280;                /* Medium gray in dark mode */
+  }
+
+  .consents-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;                /* Accent color on hover */
+  }
+
+  /* Active Consents entries */
+  .consent-entry {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--card-border, #e2e8f0);
+  }
+
+  .consent-container.dark .consent-entry {
+    border-bottom-color: #2d2d44;
+  }
+
+  .consent-entry p {
+    margin: 8px 0;
+    font-size: 1rem;
+  }
+
+  .consent-entry code {
+    background: var(--code-bg, #f1f5f9);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+
+  .consent-container.dark .consent-entry code {
+    background: rgba(30,41,59,0.6);
+  }
+
+  /* Empty / Loading States */
+  .empty-state {
+    text-align: center;
+    padding: 64px 32px;
+  }
+
+  .empty-icon {
+    font-size: 80px;
+    width: 100px;
+    height: 100px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  .empty-state h3 {
+    color: var(--text-primary);
+    margin: 0 0 16px;
+    font-size: 1.6rem;
+  }
+
+  .empty-state p {
+    max-width: 560px;
+    margin: 0 auto;
+    font-size: 1.05rem;
+  }
+
+  .empty-state a {
+    color: #6366f1;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+
+  .consent-container.dark .empty-state a {
+    color: #a5b4fc;
+  }
+
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+    color: var(--text-secondary);
+    min-height: 240px;
+  }
+
+  .consent-container.dark .loading-state {
+    color: #cbd5e1;
+  }
+
+  /* Hints & Misc */
+  .muted { color: var(--text-secondary); }
+  .small { font-size: 0.9rem; }
+
+  /* Dark mode Material form & checkbox fixes */
+  .consent-container.dark {
+    .mat-mdc-form-field-label,
+    .mat-mdc-form-field-hint,
+    .mat-mdc-select-placeholder,
+    .mat-mdc-input-element::placeholder {
+      color: #94a3b8 !important;
+      opacity: 1 !important;
     }
 
-    .loading-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 20px;
-      color: #64748b;
-      min-height: 200px;
+    .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
+      color: #a5b4fc !important;
     }
 
-    .loading-state p {
-      margin-top: 16px;
-      font-size: 1rem;
+    .mat-mdc-input-element,
+    .mat-mdc-checkbox-label,
+    .mat-mdc-checkbox-label span {
+      color: #f1f5f9 !important;
     }
 
-    .empty-state {
-      text-align: center;
-      padding: 48px 24px;
+    .mat-mdc-select-arrow,
+    .mat-mdc-select-value-text {
+      color: #f1f5f9 !important;
     }
 
-    .empty-icon {
-      font-size: 64px;
-      width: 80px;
-      height: 80px;
-      color: #cbd5e1;
-      margin-bottom: 16px;
+    .mat-mdc-form-field-underline,
+    .mat-mdc-form-field-ripple {
+      background-color: #6366f1 !important;
     }
 
-    .empty-state h3 {
-      color: #475569;
-      margin: 16px 0;
+    .mat-mdc-checkbox-checked .mat-mdc-checkbox-background,
+    .mat-mdc-checkbox-indeterminate .mat-mdc-checkbox-background {
+      background-color: #6366f1 !important;
     }
 
-    .consent-entry {
-      padding: 16px 0;
+    .mat-mdc-form-field-disabled .mat-mdc-form-field-label,
+    .mat-mdc-form-field-disabled .mat-mdc-input-element {
+      color: #6b7280 !important;
     }
-
-    .consent-entry p {
-      margin: 8px 0;
-    }
-
-    .consent-entry button {
-      margin-top: 12px;
-    }
-
-        /* Base small text (already used elsewhere, reinforced here) */
-    .small {
-      font-size: 0.85rem;
-      line-height: 1.4;
-    }
-
-    /* Expiry label – default (active consent) */
-    .small:not(.warn) {
-      color: #4caf50;            /* Material green */
-      font-weight: 500;
-    }
-
-    /* ⚠️ Expired consent */
-    .small.warn {
-      color: #f44336;            /* Material red */
-      font-weight: 600;
-    }
-
-    /* Optional: subtle icon spacing if you add one later */
-    .small mat-icon {
-      font-size: 16px;
-      vertical-align: middle;
-      margin-right: 4px;
-    }
-
-  `]
+  }
+`]
 })
 export class ConsentComponent implements OnInit {
   walletAddress: string | null = null;
@@ -504,6 +589,9 @@ export class ConsentComponent implements OnInit {
   }[] = [];
 
   result: any = null;
+
+  private themeService = inject(ThemeService);
+  darkMode = this.themeService.darkMode;   // readonly signal
 
   constructor(
     public wallet: WalletService,
@@ -560,20 +648,22 @@ export class ConsentComponent implements OnInit {
       return;
     }
 
+    // Reset loading states
+    this.loadingAttributes = true;
+    this.loadingConsents = true;
+    // Trigger both loads in parallel — no filtering needed
     this.loadAttributesForContext();
     this.loadActiveConsents();
   }
 
   private loadAttributesForContext() {
-    this.loadingAttributes = true;
     this.attributes = [];
 
     this.api.getProfileByContext(this.wallet.address!, this.context).subscribe({
       next: (res: any) => {
         this.attributes = Object.keys(res.attributes || {});
         this.loadingAttributes = false;
-        // ✅ NEW: reconcile consents after attributes load
-        this.filterConsentsByAttributes();
+        
       },
       error: () => {
         this.attributes = [];
@@ -583,8 +673,6 @@ export class ConsentComponent implements OnInit {
   }
 
   private loadActiveConsents() {
-    this.loadingConsents = true;
-    this.activeConsents = [];
 
     this.api.getActiveConsents(this.wallet.address!, this.context).subscribe({
       next: (consents: any[]) => {
@@ -594,28 +682,20 @@ export class ConsentComponent implements OnInit {
           grantedAt: c.grantedAt,
           expiresAt: c.expiresAt ?? null
         }));
-          // ✅ NEW: reconcile with attributes
-        this.filterConsentsByAttributes();
+         
         this.loadingConsents = false;
+        // NEW: Filter only AFTER both API calls have finished
+       // this.filterConsentsByAttributes();
       },
       error: (err) => {
         console.error('Failed to load active consents', err);
         this.activeConsents = [];
         this.loadingConsents = false;
+      
       }
     });
   }
 
-  private filterConsentsByAttributes() {
-  if (!this.attributes.length) {
-    this.activeConsents = [];
-    return;
-  }
-
-  this.activeConsents = this.activeConsents.filter(consent =>
-    this.attributes.includes(consent.claimId)
-  );
-}
 
 
   /** ✅ NEW: check if attribute already has an active consent */

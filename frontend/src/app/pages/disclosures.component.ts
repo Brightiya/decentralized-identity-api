@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
@@ -10,6 +10,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCardModule } from '@angular/material/card';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ThemeService } from '../services/theme.service';
 
 @Component({
   selector: 'app-disclosures',
@@ -24,334 +25,483 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatTooltipModule
   ],
   template: `
+  <div class="disclosures-container" [class.dark]="darkMode()">
     <div class="disclosures-header">
-  <h1>Disclosure History</h1>
-  <p class="subtitle">
-    View all past verifiable credential disclosures, including who accessed your data and for what purpose.
-  </p>
-</div>
+      <h1>Disclosure History</h1>
+      <p class="subtitle">
+        View all past verifiable credential disclosures, including who accessed your data and for what purpose.
+      </p>
+    </div>
 
-<!-- Wallet Connection Card -->
-<mat-card class="card elevated" appearance="outlined">
-  <mat-card-header>
-    <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-    <mat-card-title>Identity</mat-card-title>
-  </mat-card-header>
+    <!-- Wallet Connection Card -->
+    <mat-card class="card elevated" appearance="outlined">
+      <mat-card-header>
+        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+        <mat-card-title>Identity</mat-card-title>
+      </mat-card-header>
 
-  <mat-card-content>
-    <ng-container *ngIf="wallet.address; else connectPrompt">
-      <div class="connected-state">
-        <div class="did-display">
-          <strong>Subject DID:</strong>
-          <code>did:ethr:{{ wallet.address }}</code>
-          <button mat-icon-button (click)="copyDid()" matTooltip="Copy DID">
-            <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+      <mat-card-content>
+        <ng-container *ngIf="wallet.address; else connectPrompt">
+          <div class="connected-state">
+            <div class="did-display">
+              <strong>Subject DID:</strong>
+              <code>did:ethr:{{ wallet.address }}</code>
+              <button mat-icon-button (click)="copyDid()" matTooltip="Copy DID">
+                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
+            <p class="status success">
+              <mat-icon inline>check_circle</mat-icon>
+              Wallet connected — disclosure log loaded
+            </p>
+          </div>
+        </ng-container>
+
+        <ng-template #connectPrompt>
+          <p class="muted">
+            Connect your wallet to view your disclosure history.
+          </p>
+          <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
+            <mat-icon *ngIf="!connecting">wallet</mat-icon>
+            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
+          </button>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Disclosure Table -->
+    <mat-card class="card elevated table-card" appearance="outlined" *ngIf="wallet.address">
+      <mat-card-header>
+        <mat-icon class="header-icon" mat-card-avatar>history</mat-icon>
+        <mat-card-title>Disclosure Records</mat-card-title>
+        <div class="badge" *ngIf="disclosures.length > 0">
+          {{ disclosures.length }} record{{ disclosures.length === 1 ? '' : 's' }}
+        </div>
+      </mat-card-header>
+
+      <mat-card-content>
+        <!-- Loading State -->
+        <div class="loading-state" *ngIf="loading">
+          <mat-spinner diameter="48"></mat-spinner>
+          <p>Loading disclosure history...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!loading && disclosures.length === 0">
+          <mat-icon class="empty-icon">privacy_tip</mat-icon>
+          <h3>No disclosures yet</h3>
+          <p class="muted">
+            Your data has not been shared with any verifier. Privacy preserved!
+          </p>
+        </div>
+
+        <!-- Scrollable Table Wrapper -->
+        <div class="table-scroll" *ngIf="!loading && disclosures.length > 0">
+          <table mat-table [dataSource]="disclosures" class="disclosure-table">
+
+            <!-- Verifier Column -->
+            <ng-container matColumnDef="verifier">
+              <th mat-header-cell *matHeaderCellDef>Verifier</th>
+              <td mat-cell *matCellDef="let d">
+                <code class="verifier-did">{{ d.verifier_did || 'Unknown' }}</code>
+              </td>
+            </ng-container>
+
+            <!-- Claim Column -->
+            <ng-container matColumnDef="claim">
+              <th mat-header-cell *matHeaderCellDef>Claim</th>
+              <td mat-cell *matCellDef="let d">
+                {{ d.claim_id || '—' }}
+              </td>
+            </ng-container>
+
+            <!-- Context Column -->
+            <ng-container matColumnDef="context">
+              <th mat-header-cell *matHeaderCellDef>Context</th>
+              <td mat-cell *matCellDef="let d">
+                <span class="context-badge">{{ d.context }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Purpose Column -->
+            <ng-container matColumnDef="purpose">
+              <th mat-header-cell *matHeaderCellDef>Purpose</th>
+              <td mat-cell *matCellDef="let d">
+                <span class="purpose">{{ d.purpose || 'General' }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Consent Column -->
+            <ng-container matColumnDef="consent">
+              <th mat-header-cell *matHeaderCellDef>Consent</th>
+              <td mat-cell *matCellDef="let d">
+                <mat-icon
+                  [color]="d.consent ? 'primary' : 'warn'"
+                  matTooltip="{{ d.consent ? 'Consent granted' : 'Consent denied' }}">
+                  {{ d.consent ? 'check_circle' : 'cancel' }}
+                </mat-icon>
+              </td>
+            </ng-container>
+
+            <!-- Date Column -->
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let d">
+                {{ d.disclosed_at | date:'medium' }}
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </div>
+
+        <!-- Export Button -->
+        <div class="actions" *ngIf="disclosures.length > 0">
+          <button mat-raised-button color="accent" (click)="exportDisclosures()">
+            <mat-icon>download</mat-icon>
+            Download Disclosure Report (JSON)
           </button>
         </div>
-        <p class="status success">
-          <mat-icon inline>check_circle</mat-icon>
-          Wallet connected — disclosure log loaded
-        </p>
-      </div>
-    </ng-container>
+      </mat-card-content>
+    </mat-card>
+  </div>
+`,
 
-    <ng-template #connectPrompt>
-      <p class="muted">
-        Connect your wallet to view your disclosure history.
-      </p>
-      <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
-        <mat-icon *ngIf="!connecting">wallet</mat-icon>
-        <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-      </button>
-    </ng-template>
-  </mat-card-content>
-</mat-card>
+styles: [`
+  :host {
+    display: block;
+    min-height: 100%;
+  }
 
-<!-- Disclosure Table -->
-<mat-card
-  class="card elevated table-card"
-  appearance="outlined"
-  *ngIf="wallet.address">
+  .disclosures-container {
+    padding: 32px 40px 80px;
+    max-width: 1200px;
+    margin: 0 auto;
+    transition: background 0.4s ease;
+  }
 
-  <mat-card-header>
-    <mat-icon class="header-icon" mat-card-avatar>history</mat-icon>
-    <mat-card-title>Disclosure Records</mat-card-title>
-    <div class="badge" *ngIf="disclosures.length > 0">
-      {{ disclosures.length }} record{{ disclosures.length === 1 ? '' : 's' }}
-    </div>
-  </mat-card-header>
+  .disclosures-container.dark {
+    background: #0f0f1a;
+    color: #e2e8f0;
+  }
 
-  <mat-card-content>
-    <!-- Loading State -->
-    <div class="loading-state" *ngIf="loading">
-      <mat-spinner diameter="48"></mat-spinner>
-      <p>Loading disclosure history...</p>
-    </div>
+  /* Header */
+  .disclosures-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
 
-    <!-- Empty State -->
-    <div class="empty-state" *ngIf="!loading && disclosures.length === 0">
-      <mat-icon class="empty-icon">privacy_tip</mat-icon>
-      <h3>No disclosures yet</h3>
-      <p class="muted">
-        Your data has not been shared with any verifier. Privacy preserved!
-      </p>
-    </div>
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 16px;
+    letter-spacing: -0.6px;
+  }
 
-    <!-- Scrollable Table Wrapper -->
-    <div class="table-scroll" *ngIf="!loading && disclosures.length > 0">
-      <table mat-table [dataSource]="disclosures" class="disclosure-table">
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
 
-        <!-- Verifier Column -->
-        <ng-container matColumnDef="verifier">
-          <th mat-header-cell *matHeaderCellDef>Verifier</th>
-          <td mat-cell *matCellDef="let d">
-            <code class="verifier-did">{{ d.verifier_did || 'Unknown' }}</code>
-          </td>
-        </ng-container>
+  /* Cards */
+  .card {
+    background: var(--card-bg, white);
+    border-radius: 20px;
+    margin-bottom: 32px;
+    border: 1px solid var(--card-border, #e2e8f0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 
-        <!-- Claim Column -->
-        <ng-container matColumnDef="claim">
-          <th mat-header-cell *matHeaderCellDef>Claim</th>
-          <td mat-cell *matCellDef="let d">
-            {{ d.claim_id || '—' }}
-          </td>
-        </ng-container>
+  .disclosures-container.dark .card {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: #2d2d44;
+    backdrop-filter: blur(10px);
+  }
 
-        <!-- Context Column -->
-        <ng-container matColumnDef="context">
-          <th mat-header-cell *matHeaderCellDef>Context</th>
-          <td mat-cell *matCellDef="let d">
-            <span class="context-badge">{{ d.context }}</span>
-          </td>
-        </ng-container>
+  .elevated {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
+  }
 
-        <!-- Purpose Column -->
-        <ng-container matColumnDef="purpose">
-          <th mat-header-cell *matHeaderCellDef>Purpose</th>
-          <td mat-cell *matCellDef="let d">
-            <span class="purpose">{{ d.purpose || 'General' }}</span>
-          </td>
-        </ng-container>
+  .disclosures-container.dark .elevated {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
 
-        <!-- Consent Column -->
-        <ng-container matColumnDef="consent">
-          <th mat-header-cell *matHeaderCellDef>Consent</th>
-          <td mat-cell *matCellDef="let d">
-            <mat-icon
-              [color]="d.consent ? 'primary' : 'warn'"
-              matTooltip="{{ d.consent ? 'Consent granted' : 'Consent denied' }}">
-              {{ d.consent ? 'check_circle' : 'cancel' }}
-            </mat-icon>
-          </td>
-        </ng-container>
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.14);
+  }
 
-        <!-- Date Column -->
-        <ng-container matColumnDef="date">
-          <th mat-header-cell *matHeaderCellDef>Date</th>
-          <td mat-cell *matCellDef="let d">
-            {{ d.disclosed_at | date:'medium' }}
-          </td>
-        </ng-container>
+  .disclosures-container.dark .card:hover {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  }
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
-    </div>
+  mat-card-header {
+    align-items: center;
+    margin-bottom: 24px;
+  }
 
-    <!-- Export Button -->
-    <div class="actions" *ngIf="disclosures.length > 0">
-      <button mat-raised-button color="accent" (click)="exportDisclosures()">
-        <mat-icon>download</mat-icon>
-        Download Disclosure Report (JSON)
-      </button>
-    </div>
-  </mat-card-content>
-</mat-card>
+  .header-icon {
+    font-size: 32px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg, rgba(99,102,241,0.12));
+    border-radius: 14px;
+    color: #6366f1;
+  }
 
-  `,
-  styles: [`
-    .disclosures-header {
-      text-align: center;
-      margin-bottom: 40px;
+  .disclosures-container.dark .header-icon {
+    background: rgba(99,102,241,0.28);
+    color: #a5b4fc;
+  }
+
+  .badge {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: var(--badge-bg, #eef2ff);
+    color: #6366f1;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .disclosures-container.dark .badge {
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+  }
+
+  /* Connected State */
+  .did-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    padding: 14px 18px;
+    background: var(--code-bg, #f1f5f9);
+    border-radius: 14px;
+    font-size: 1rem;
+  }
+
+  .disclosures-container.dark .did-display {
+    background: rgba(30,41,59,0.6);
+  }
+
+  .did-display code {
+    flex: 1;
+    color: #1d4ed8;
+    font-family: 'Courier New', monospace;
+  }
+
+  .disclosures-container.dark .did-display code {
+    color: #c7d2fe;
+  }
+
+  .status.success {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--success-bg, #f0fdf4);
+    border: 1px solid #bbf7d0;
+    color: var(--success-text, #166534);
+    padding: 14px;
+    border-radius: 12px;
+    margin: 16px 0;
+  }
+
+  .disclosures-container.dark .status.success {
+    background: rgba(34,197,94,0.18);
+    border-color: rgba(34,197,94,0.45);
+    color: #86efac;
+  }
+
+  /* Table Card */
+  .table-card {
+    overflow: hidden;
+  }
+
+  .table-scroll {
+    max-height: 500px;                    /* Adjust as needed — 500px is comfortable */
+    overflow-y: auto;
+    overflow-x: auto;
+    border-radius: 12px;
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar styling */
+  .table-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .table-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 10px;
+  }
+
+  .disclosures-container.dark .table-scroll::-webkit-scrollbar-thumb {
+    background: #6b7280;
+  }
+
+  .table-scroll::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+  }
+
+  /* Table */
+  .disclosure-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .disclosure-table th {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--card-bg, white);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.92rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .disclosures-container.dark .disclosure-table th {
+    background: rgba(30,41,59,0.85);
+    color: #f1f5f9;
+    border-bottom-color: #2d2d44;
+  }
+
+  .disclosure-table td {
+    padding: 14px 16px;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--card-border);
+    vertical-align: middle;
+  }
+
+  .disclosures-container.dark .disclosure-table td {
+    border-bottom-color: #2d2d44;
+  }
+
+  .verifier-did {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #1d4ed8;
+    word-break: break-all;
+  }
+
+  .disclosures-container.dark .verifier-did {
+    color: #c7d2fe;
+  }
+
+  .context-badge,
+  .purpose {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .context-badge {
+    background: var(--badge-bg, #eef2ff);
+    color: #6366f1;
+  }
+
+  .disclosures-container.dark .context-badge {
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+  }
+
+  .purpose {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+
+  .disclosures-container.dark .purpose {
+    background: rgba(255,255,255,0.08);
+    color: #cbd5e1;
+  }
+
+  /* Actions */
+  .actions {
+    margin-top: 24px;
+    text-align: right;
+  }
+
+  /* Empty / Loading States */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 80px 0;
+    color: var(--text-secondary);
+    min-height: 300px;
+  }
+
+  .disclosures-container.dark .loading-state {
+    color: #cbd5e1;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 32px;
+  }
+
+  .empty-icon {
+    font-size: 80px;
+    width: 100px;
+    height: 100px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  .empty-state h3 {
+    color: var(--text-primary);
+    margin: 0 0 16px;
+    font-size: 1.6rem;
+  }
+
+  .empty-state p {
+    max-width: 560px;
+    margin: 0 auto;
+    font-size: 1.05rem;
+  }
+
+  /* Misc */
+  .muted { color: var(--text-secondary); }
+
+  /* Dark mode Material fixes */
+  .disclosures-container.dark {
+    .mat-mdc-form-field-label,
+    .mat-mdc-form-field-hint,
+    .mat-mdc-input-element::placeholder {
+      color: #94a3b8 !important;
+      opacity: 1 !important;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin: 0 0 12px 0;
+    .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
+      color: #a5b4fc !important;
     }
 
-    .subtitle {
-      color: #64748b;
-      font-size: 1.1rem;
-      max-width: 720px;
-      margin: 0 auto;
+    .mat-mdc-input-element {
+      color: #f1f5f9 !important;
     }
-
-    .card {
-      margin-bottom: 24px;
-      max-width: 960px;
-      transition: all 0.3s ease;
-    }
-
-    .elevated {
-      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
-    }
-
-    .card:hover {
-      transform: translateY(-4px);
-    }
-
-    mat-card-header {
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .header-icon {
-      background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
-      border-radius: 12px;
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .badge {
-      margin-left: auto;
-      padding: 4px 12px;
-      background: #eef2ff;
-      color: #6366f1;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .did-display {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 16px 0;
-      padding: 12px;
-      background: #f8fafc;
-      border-radius: 12px;
-      font-size: 0.95rem;
-    }
-
-    .did-display code {
-      color: #1e40af;
-      font-family: 'Courier New', monospace;
-      flex: 1;
-    }
-
-    .status.success {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #166534;
-      background: #f0fdf4;
-      padding: 12px;
-      border-radius: 10px;
-    }
-
-    .loading-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      padding: 48px 0;
-      color: #64748b;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 64px 24px;
-    }
-
-    .empty-icon {
-      font-size: 80px;
-      width: 100px;
-      height: 100px;
-      color: #cbd5e1;
-      margin-bottom: 24px;
-    }
-
-    .empty-state h3 {
-      color: #475569;
-      margin: 16px 0;
-    }
-
-    .disclosure-table {
-      width: 100%;
-    }
-
-    .disclosure-table th {
-      font-weight: 600;
-      color: #374151;
-      font-size: 0.9rem;
-    }
-
-    .disclosure-table td {
-      font-size: 0.9rem;
-      padding: 12px 8px;
-    }
-
-    .verifier-did {
-      font-family: 'Courier New', monospace;
-      font-size: 0.85rem;
-      color: #1e40af;
-      word-break: break-all;
-    }
-
-    .purpose {
-      padding: 4px 10px;
-      background: #f3f4f6;
-      border-radius: 12px;
-      font-size: 0.85rem;
-      color: #4b5563;
-    }
-
-    .actions {
-      margin-top: 24px;
-      text-align: right;
-    }
-
-    .muted { color: #64748b; }
-
-      .table-scroll {
-      max-height: 420px;        // controls vertical size
-      overflow-y: auto;
-      overflow-x: auto;
-      border-radius: 8px;
-    }
-
-    /* Sticky header (very important for audit tables) */
-    .disclosure-table thead th {
-      position: sticky;
-      top: 0;
-      background: var(--mat-sys-surface, #fff);
-      z-index: 2;
-    }
-
-    /* Subtle scrollbar (Chrome / Edge / Safari) */
-    .table-scroll::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    .table-scroll::-webkit-scrollbar-thumb {
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 4px;
-    }
-
-    .table-scroll::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-  `]
+  }
+`]
 })
 export class DisclosuresComponent implements OnInit {
   disclosures: any[] = [];
@@ -359,6 +509,9 @@ export class DisclosuresComponent implements OnInit {
   loading = false;
   connecting = false;
   copied = false;
+
+  private themeService = inject(ThemeService);
+  darkMode = this.themeService.darkMode;   // readonly signal
 
   constructor(
     public wallet: WalletService,

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WalletService } from '../services/wallet.service';
@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
+import { ThemeService } from '../services/theme.service';
 
 @Component({
   selector: 'app-credentials',
@@ -33,6 +34,7 @@ import { MatCardModule } from '@angular/material/card';
     MatCardModule
   ],
   template: `
+  <div class="credentials-container" [class.dark]="darkMode()">
     <div class="credentials-header">
       <h1>Credentials</h1>
       <p class="subtitle">
@@ -51,7 +53,7 @@ import { MatCardModule } from '@angular/material/card';
         <ng-container *ngIf="address; else connectPrompt">
           <div class="connected-state">
             <div class="address-row">
-              <code class="address">{{ address }}</code>
+              <code class="address">{{ address | slice:0:6 }}…{{ address | slice:-4 }}</code>
               <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
                 <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
               </button>
@@ -61,7 +63,8 @@ import { MatCardModule } from '@angular/material/card';
               Connected successfully
             </p>
             <p class="did-display">
-              <strong>Subject DID:</strong> <code>did:ethr:{{ address }}</code>
+              <strong>Subject DID:</strong> 
+              <code>did:ethr:{{ address }}</code>
             </p>
           </div>
         </ng-container>
@@ -126,17 +129,16 @@ import { MatCardModule } from '@angular/material/card';
                 </div>
               </div>
 
-                      <!-- Purpose (GDPR-required) -->
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Purpose</mat-label>
-          <input
-            matInput
-            [(ngModel)]="purpose"
-            placeholder="e.g. account verification, onboarding"
-          />
-          <mat-hint>Required for consent-based disclosure</mat-hint>
-        </mat-form-field>
-
+              <!-- Purpose (GDPR-required) -->
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Purpose</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="purpose"
+                  placeholder="e.g. account verification, onboarding"
+                />
+                <mat-hint>Required for consent-based disclosure</mat-hint>
+              </mat-form-field>
 
               <!-- Claim Details -->
               <mat-form-field appearance="outline" class="full-width">
@@ -177,7 +179,6 @@ import { MatCardModule } from '@angular/material/card';
           </mat-card>
         </div>
       </mat-tab>
-
     </mat-tab-group>
 
     <!-- Result Display -->
@@ -201,175 +202,310 @@ import { MatCardModule } from '@angular/material/card';
         Connect your wallet above to issue or verify credentials.
       </p>
     </mat-card>
-  `,
-  styles: [`
-    .credentials-header {
-      text-align: center;
-      margin-bottom: 40px;
+  </div>
+`,
+
+styles: [`
+  :host {
+    display: block;
+    min-height: 100%;
+  }
+
+  .credentials-container {
+    padding: 32px 40px 80px;
+    max-width: 960px;
+    margin: 0 auto;
+    transition: background 0.4s ease;
+  }
+
+  .credentials-container.dark {
+    background: #0f0f1a;
+    color: #e2e8f0;
+  }
+
+  /* Header */
+  .credentials-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 16px;
+    letter-spacing: -0.6px;
+  }
+
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card-bg, white);
+    border-radius: 20px;
+    margin-bottom: 32px;
+    border: 1px solid var(--card-border, #e2e8f0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .credentials-container.dark .card {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: #2d2d44;
+    backdrop-filter: blur(10px);
+  }
+
+  .elevated {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
+  }
+
+  .credentials-container.dark .elevated {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
+
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.14);
+  }
+
+  .credentials-container.dark .card:hover {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  }
+
+  mat-card-header {
+    align-items: center;
+    margin-bottom: 24px;
+  }
+
+  .header-icon {
+    background: var(--icon-bg, rgba(99,102,241,0.12));
+    color: #6366f1;
+    border-radius: 14px;
+    width: 52px;
+    height: 52px;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .credentials-container.dark .header-icon {
+    background: rgba(99,102,241,0.28);
+    color: #a5b4fc;
+  }
+
+  /* Wallet Connected State */
+  .address-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .address {
+    flex: 1;
+    background: var(--code-bg, #f1f5f9);
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    color: #1d4ed8;
+  }
+
+  .credentials-container.dark .address {
+    background: rgba(30,41,59,0.6);
+    color: #c7d2fe;
+  }
+
+  .status.success {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--success-bg, #f0fdf4);
+    border: 1px solid #bbf7d0;
+    color: var(--success-text, #166534);
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+
+  .credentials-container.dark .status.success {
+    background: rgba(34,197,94,0.18);
+    border-color: rgba(34,197,94,0.45);
+    color: #86efac;
+  }
+
+  .did-display {
+    margin-top: 12px;
+    font-size: 0.98rem;
+  }
+
+  .did-display strong {
+    color: var(--text-primary);
+  }
+
+  .credentials-container.dark .did-display strong {
+    color: #f1f5f9;
+  }
+
+  .did-display code {
+    background: var(--code-bg, #f1f5f9);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .credentials-container.dark .did-display code {
+    background: rgba(30,41,59,0.6);
+  }
+
+  /* Form Fields */
+  .full-width {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .context-section {
+    margin-bottom: 28px;
+  }
+
+  .add-context-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-top: 12px;
+  }
+
+  .new-context-field {
+    flex: 1;
+  }
+
+  /* Buttons */
+  .issue-btn {
+    padding: 14px 40px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    transition: all 0.25s ease;
+  }
+
+  .issue-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(99,102,241,0.4);
+  }
+
+  /* Tabs & Tab Content */
+  .tab-content {
+    padding: 32px 0;
+  }
+
+  .tabs ::ng-deep .mat-mdc-tab-body-content {
+    padding: 0;
+  }
+
+  /* Result Card */
+  .result-card pre {
+    background: var(--code-bg, #1e1e1e);
+    color: #9cdcfe;
+    padding: 20px;
+    border-radius: 14px;
+    overflow-x: auto;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .credentials-container.dark .result-card pre {
+    background: #0d1117;
+    color: #c9d1d9;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 32px;
+    border-radius: 20px;
+  }
+
+  .empty-icon {
+    font-size: 96px;
+    width: 120px;
+    height: 120px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+  }
+
+  .empty-state h3 {
+    color: var(--text-primary);
+    margin: 0 0 16px;
+    font-size: 1.6rem;
+  }
+
+  /* Misc */
+  .muted {
+    color: var(--text-secondary);
+  }
+
+  .validation-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #9a3412;
+    font-size: 0.95rem;
+    margin-top: 16px;
+  }
+
+  .credentials-container.dark .validation-hint {
+    color: #fca5a5;
+  }
+
+    /* Dark mode Material form fixes */
+  .credentials-container.dark {
+    .mat-mdc-form-field-label,
+    .mat-mdc-form-field-hint,
+    .mat-mdc-select-placeholder,
+    .mat-mdc-input-element::placeholder {
+      color: #94a3b8 !important;
+      opacity: 1 !important;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin: 0 0 12px 0;
+    .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
+      color: #a5b4fc !important;
     }
 
-    .subtitle {
-      color: #64748b;
-      font-size: 1.1rem;
-      max-width: 720px;
-      margin: 0 auto;
+    .mat-mdc-input-element,
+    textarea.mat-mdc-input-element {
+      color: #f1f5f9 !important;
     }
 
-    .card {
-      margin-bottom: 24px;
-      max-width: 800px;
-      transition: all 0.3s ease;
+    .mat-mdc-select-arrow,
+    .mat-mdc-select-value-text {
+      color: #f1f5f9 !important;
     }
 
-    .elevated {
-      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    .mat-mdc-form-field-underline,
+    .mat-mdc-form-field-ripple {
+      background-color: #6366f1 !important;
     }
 
-    .card:hover {
-      transform: translateY(-4px);
+    .mat-mdc-form-field-disabled .mat-mdc-form-field-label,
+    .mat-mdc-form-field-disabled .mat-mdc-input-element {
+      color: #6b7280 !important;
     }
 
-    mat-card-header {
-      align-items: center;
-      margin-bottom: 16px;
+    .mat-mdc-form-field-invalid .mat-mdc-form-field-label,
+    .mat-mdc-form-field-invalid .mat-mdc-form-field-hint {
+      color: #fca5a5 !important;
     }
-
-    .header-icon {
-      background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
-      border-radius: 12px;
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .address-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .address {
-      flex: 1;
-      background: #f1f5f9;
-      padding: 10px 14px;
-      border-radius: 10px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.95rem;
-      color: #1e40af;
-    }
-
-    .status.success {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #166534;
-      background: #f0fdf4;
-      padding: 10px;
-      border-radius: 10px;
-    }
-
-    .did-display {
-      margin: 16px 0;
-      padding: 12px;
-      background: #f8fafc;
-      border-radius: 10px;
-      font-size: 0.95rem;
-    }
-
-    .did-display code {
-      color: #1e40af;
-      font-family: 'Courier New', monospace;
-    }
-
-    .context-section {
-      margin-bottom: 24px;
-    }
-
-    .full-width {
-      width: 100%;
-      margin-bottom: 16px;
-    }
-
-    .add-context-row {
-      display: flex;
-      gap: 12px;
-      align-items: end;
-      margin-top: 8px;
-    }
-
-    .new-context-field {
-      flex: 1;
-    }
-
-    .issue-actions {
-      text-align: right;
-      margin-top: 24px;
-    }
-
-    .issue-btn {
-      padding: 12px 32px;
-      font-size: 1.1rem;
-    }
-
-    .validation-hint {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #9a3412;
-      font-size: 0.9rem;
-      margin-top: 12px;
-    }
-
-    .tab-content {
-      padding: 24px 0;
-    }
-
-    .tabs ::ng-deep .mat-mdc-tab-body-content {
-      padding: 16px 0;
-    }
-
-    .result-card pre {
-      background: #1e1e1e;
-      color: #9cdcfe;
-      padding: 16px;
-      border-radius: 12px;
-      overflow-x: auto;
-      font-size: 0.9rem;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 64px 24px;
-    }
-
-    .empty-icon {
-      font-size: 80px;
-      width: 100px;
-      height: 100px;
-      color: #cbd5e1;
-      margin-bottom: 24px;
-    }
-
-    .empty-state h3 {
-      color: #475569;
-      margin: 16px 0;
-    }
-
-    .muted { color: #64748b; }
-  `]
+  }
+`]
 })
 
 export class CredentialsComponent implements OnInit {
@@ -395,6 +531,9 @@ export class CredentialsComponent implements OnInit {
   // UI state
   issuing = false;
   result: any | null = null;
+
+  private themeService = inject(ThemeService);
+  darkMode = this.themeService.darkMode;   // readonly signal
 
   constructor(
     private wallet: WalletService,

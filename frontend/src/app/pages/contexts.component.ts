@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../services/api.service';
@@ -14,6 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ThemeService } from '../services/theme.service';
 
 @Component({
   selector: 'app-contexts',
@@ -31,6 +32,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatTooltipModule
   ],
   template: `
+  <div class="contexts-container" [class.dark]="darkMode()">
     <div class="contexts-header">
       <h1>Contexts</h1>
       <p class="subtitle">
@@ -126,7 +128,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       <h3>No attributes yet</h3>
       <p class="muted">
         This context is empty. Issue a credential in the
-        <a routerLink="/credentials">Credentials</a> tab and assign it to
+        <a routerLink="/credentials">Credentials</a> page and assign it to
         <strong>{{ currentContext }}</strong> to see attributes here.
       </p>
     </section>
@@ -148,182 +150,301 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       <mat-spinner diameter="48"></mat-spinner>
       <p>Loading context attributes...</p>
     </div>
-  `,
-  styles: [`
-    .contexts-header {
-      text-align: center;
-      margin-bottom: 40px;
+  </div>
+`,
+
+styles: [`
+  :host {
+    display: block;
+    min-height: 100%;
+  }
+
+  .contexts-container {
+    padding: 32px 40px 80px;
+    max-width: 960px;
+    margin: 0 auto;
+    transition: background 0.4s ease;
+  }
+
+  .contexts-container.dark {
+    background: #0f0f1a;
+    color: #e2e8f0;
+  }
+
+  /* Header */
+  .contexts-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 16px;
+    letter-spacing: -0.6px;
+  }
+
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card-bg, white);
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 32px;
+    border: 1px solid var(--card-border, #e2e8f0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .contexts-container.dark .card {
+    background: rgba(30, 41, 59, 0.65);
+    border-color: #2d2d44;
+    backdrop-filter: blur(10px);
+  }
+
+  .elevated {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
+  }
+
+  .contexts-container.dark .elevated {
+    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+  }
+
+  .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.14);
+  }
+
+  .contexts-container.dark .card:hover {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .header-icon {
+    font-size: 32px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg, rgba(99,102,241,0.12));
+    border-radius: 14px;
+    color: #6366f1;
+  }
+
+  .contexts-container.dark .header-icon {
+    background: rgba(99,102,241,0.28);
+    color: #a5b4fc;
+  }
+
+  .card-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary, #1e293b);
+  }
+
+  .contexts-container.dark .card-header h3 {
+    color: #f1f5f9;
+  }
+
+  .badge {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: var(--badge-bg, #eef2ff);
+    color: #6366f1;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .contexts-container.dark .badge {
+    background: rgba(99,102,241,0.2);
+    color: #a5b4fc;
+  }
+
+  /* Form Fields */
+  .full-width {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .add-context-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .add-context-row mat-form-field {
+    flex: 1;
+    min-width: 300px;
+  }
+
+  /* Attributes Grid */
+  .attributes-grid {
+    display: grid;
+    gap: 20px;
+  }
+
+  .attribute-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .attribute-label {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .contexts-container.dark .attribute-label {
+    color: #cbd5e1;
+  }
+
+  .attribute-value {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--code-bg, #f8fafc);
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid var(--card-border, #e2e8f0);
+  }
+
+  .contexts-container.dark .attribute-value {
+    background: rgba(30,41,59,0.6);
+    border-color: #4b5563;
+  }
+
+  .attribute-value code {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    color: #1d4ed8;
+    word-break: break-all;
+    font-size: 0.98rem;
+  }
+
+  .contexts-container.dark .attribute-value code {
+    color: #c7d2fe;
+  }
+
+  /* Empty States */
+  .empty-state {
+    text-align: center;
+    padding: 64px 32px;
+    border-radius: 20px;
+  }
+
+  .empty-icon {
+    font-size: 80px;
+    width: 100px;
+    height: 100px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  .empty-state h3 {
+    color: var(--text-primary);
+    margin: 0 0 16px;
+    font-size: 1.6rem;
+  }
+
+  .empty-state p {
+    max-width: 560px;
+    margin: 0 auto 16px;
+    font-size: 1.05rem;
+  }
+
+  .empty-state a {
+    color: #6366f1;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+
+  .contexts-container.dark .empty-state a {
+    color: #a5b4fc;
+  }
+
+  /* Loading Overlay */
+  .loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 64px 0;
+    color: var(--text-secondary);
+  }
+
+  .contexts-container.dark .loading-overlay {
+    color: #cbd5e1;
+  }
+
+  /* Hints & Misc */
+  .hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-top: 12px;
+  }
+
+  .small { font-size: 0.9rem; }
+  .muted { color: var(--text-secondary); }
+
+  /* Dark mode Material form fixes (labels, hints, inputs, select) */
+  .contexts-container.dark {
+    .mat-mdc-form-field-label,
+    .mat-mdc-form-field-hint,
+    .mat-mdc-select-placeholder,
+    .mat-mdc-input-element::placeholder {
+      color: #94a3b8 !important;
+      opacity: 1 !important;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin: 0 0 12px 0;
+    .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
+      color: #a5b4fc !important;
     }
 
-    .subtitle {
-      color: #64748b;
-      font-size: 1.1rem;
-      max-width: 680px;
-      margin: 0 auto;
+    .mat-mdc-input-element,
+    textarea.mat-mdc-input-element {
+      color: #f1f5f9 !important;
     }
 
-    .card {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 24px;
-      max-width: 720px;
-      transition: all 0.3s ease;
+    .mat-mdc-select-arrow,
+    .mat-mdc-select-value-text {
+      color: #f1f5f9 !important;
     }
 
-    .elevated {
-      box-shadow: 0 8px 28px rgba(0,0,0,0.08);
+    .mat-mdc-form-field-underline,
+    .mat-mdc-form-field-ripple {
+      background-color: #6366f1 !important;
     }
 
-    .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    .mat-mdc-form-field-disabled .mat-mdc-form-field-label,
+    .mat-mdc-form-field-disabled .mat-mdc-input-element {
+      color: #6b7280 !important;
     }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .header-icon {
-      font-size: 28px;
-      width: 48px;
-      height: 48px;
-      background: rgba(99, 102, 241, 0.1);
-      color: #6366f1;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .card-header h3 {
-      margin: 0;
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .badge {
-      margin-left: auto;
-      padding: 4px 12px;
-      background: #eef2ff;
-      color: #6366f1;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .full-width {
-      width: 100%;
-    }
-
-    .hint {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #64748b;
-      font-size: 0.9rem;
-      margin-top: 8px;
-    }
-
-    .add-context-row {
-      display: flex;
-      gap: 16px;
-      align-items: end;
-      flex-wrap: wrap;
-    }
-
-    .add-context-row mat-form-field {
-      flex: 1;
-      min-width: 260px;
-    }
-
-    .attributes-grid {
-      display: grid;
-      gap: 16px;
-    }
-
-    .attribute-item {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .attribute-label {
-      font-size: 0.9rem;
-      color: #64748b;
-      font-weight: 500;
-    }
-
-    .attribute-value {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #f8fafc;
-      padding: 12px 16px;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
-    }
-
-    .attribute-value code {
-      flex: 1;
-      font-family: 'Courier New', monospace;
-      color: #1e40af;
-      word-break: break-all;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 48px 24px;
-    }
-
-    .empty-icon {
-      font-size: 64px;
-      width: 80px;
-      height: 80px;
-      color: #cbd5e1;
-      margin-bottom: 16px;
-    }
-
-    .empty-state h3 {
-      color: #475569;
-      margin: 16px 0;
-    }
-
-    .empty-state p {
-      max-width: 500px;
-      margin: 0 auto 16px auto;
-    }
-
-    .empty-state a {
-      color: #6366f1;
-      text-decoration: underline;
-    }
-
-    .loading-overlay {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      padding: 40px;
-      color: #64748b;
-    }
-
-    .small { font-size: 0.9rem; }
-    .muted { color: #64748b; }
-  `]
+  }
+`]
 })
 export class ContextsComponent implements OnInit, OnDestroy {
   contexts: string[] = [];
@@ -332,6 +453,8 @@ export class ContextsComponent implements OnInit, OnDestroy {
   profile: any = null;
   loading = false;
   copiedKey: string | null = null;
+  private themeService = inject(ThemeService);
+  darkMode = this.themeService.darkMode;   // readonly signal
 
   constructor(
     private api: ApiService,

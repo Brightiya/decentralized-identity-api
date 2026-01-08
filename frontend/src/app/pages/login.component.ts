@@ -200,12 +200,12 @@ styles: [`
   mat-card-title {
     font-size: 2.2rem;
     font-weight: 800;
-    color: #194ea4ff;
+    color: var(--text-primary, #255cb4ff);
     letter-spacing: -0.5px;
   }
 
   mat-card-subtitle {
-    color: #194ea4ff;
+    color: var(--text-primary, #255cb4ff);
     font-size: 1.05rem;
     margin-top: 8px;
   }

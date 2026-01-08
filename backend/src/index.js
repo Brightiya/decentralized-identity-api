@@ -13,7 +13,6 @@ import profileRoutes from "./routes/profileRoutes.js";
 import didRoutes from "./routes/didRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
-import erasureRoutes from "./routes/erasureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 
 
@@ -74,7 +73,6 @@ apiRouter.use("/profile", profileRoutes);
 apiRouter.use("/did", didRoutes);
 apiRouter.use("/gdpr", gdprRoutes);
 apiRouter.use("/disclosures", disclosureRoutes);
-apiRouter.use("/erasure", erasureRoutes);
 apiRouter.use("/consent", consentRoutes);
 
 // Mount protected APIs under /api

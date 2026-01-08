@@ -18,6 +18,18 @@ export function app(): express.Express {
   server.set('view engine', 'html');
   server.set('views', browserDistFolder);
 
+  // In app() function, before the server.get('**', ...) catch-all
+
+server.get('/favicon.ico', (req, res) => {
+  const faviconPath = join(browserDistFolder, 'favicon.ico');
+  res.sendFile(faviconPath, (err) => {
+    if (err) {
+      console.error('Favicon not found:', err);
+      res.status(404).send('Favicon not found');
+    }
+  });
+});
+
   // Serve static files from /browser
   server.get('**', express.static(browserDistFolder, {
     maxAge: '1y',

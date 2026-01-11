@@ -171,7 +171,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .disclosures-container {
@@ -193,7 +193,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -501,6 +501,168 @@ styles: [`
       color: #f1f5f9 !important;
     }
   }
+    /***********************
+ * <= 960px (Tablet / Small Laptop)
+ ***********************/
+@media (max-width: 960px) {
+  .disclosures-container {
+    padding: 24px 24px 60px;
+    max-width: 1000px;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+  }
+
+  .table-scroll {
+    max-height: 420px;
+  }
+}
+
+/***********************
+ * <= 480px (Phones)
+ ***********************/
+@media (max-width: 480px) {
+  /* Remove hover transforms */
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .disclosures-container {
+    padding: 20px 18px 56px;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    max-width: 100%;
+  }
+
+  .header-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 28px;
+  }
+
+  .badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+  }
+
+  .did-display {
+    flex-direction: column;
+    align-items: stretch;
+    font-size: 0.9rem;
+  }
+
+  .status.success {
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+
+  .table-scroll {
+    max-height: 320px;
+  }
+
+  .disclosure-table th,
+  .disclosure-table td {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .verifier-did {
+    font-size: 0.8rem;
+  }
+
+  .context-badge,
+  .purpose {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+  }
+
+  .actions {
+    text-align: center;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+
+  .empty-state {
+    padding: 60px 20px;
+  }
+
+  .empty-icon {
+    font-size: 64px;
+    width: 82px;
+    height: 82px;
+  }
+}
+
+/***********************
+ * <= 320px (Very small phones)
+ ***********************/
+@media (max-width: 320px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .header-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+  }
+
+  .did-display {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+
+  .status.success {
+    padding: 10px;
+    font-size: 0.82rem;
+  }
+
+  .disclosure-table th,
+  .disclosure-table td {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+
+  .verifier-did {
+    font-size: 0.7rem;
+  }
+
+  .context-badge,
+  .purpose {
+    font-size: 0.7rem;
+  }
+
+  .empty-icon {
+    font-size: 52px;
+    width: 64px;
+    height: 64px;
+  }
+}
+
 `]
 })
 export class DisclosuresComponent implements OnInit {

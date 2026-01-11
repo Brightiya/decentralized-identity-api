@@ -15,7 +15,8 @@ import {
   Router,
   NavigationEnd
 } from '@angular/router';
-
+import { Title } from '@angular/platform-browser';
+import { filter } from 'rxjs/operators';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatIconModule } from '@angular/material/icon';
@@ -223,11 +224,11 @@ import { ThemeService } from './services/theme.service';
 styles: [`
   :host {
     display: block;
-    height: 100vh;
+    min-height: 100vh;
   }
 
   .container {
-    height: 100%;
+    min-height: 100vh;
     background: #f8fafc;
     transition: background 0.3s ease;
   }
@@ -342,10 +343,17 @@ styles: [`
 
   /* ── Toolbar ── */
   .toolbar {
-    height: 72px;
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     padding: 0 28px;
     z-index: 10;
+    flex-wrap: nowrap !important;        /* no wrapping */
+    overflow-x: auto !important;         /* scroll if truly too narrow (rare) */
+    justify-content: space-between !important;     /* better distribution */
+    align-items: center;
+    
   }
 
   .breadcrumb {
@@ -401,6 +409,7 @@ styles: [`
   .sidenav-content {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
     min-height: 100vh;
   }
 
@@ -553,6 +562,111 @@ styles: [`
   .dark .footer-link:hover {
     color: #c7d2fe;
   }
+
+  /* Force profile/user menu icon to always be white on toolbar (primary background) */
+.toolbar mat-icon {
+  color: white !important;
+}
+  /* ─────────────────────────────────────────────
+   RESPONSIVE MEDIA QUERIES
+   Scales cleanly down: 960 → 480 → 320 → below
+──────────────────────────────────────────────*/
+
+/* Tablets & smaller laptops (≤960px) */
+@media (max-width: 960px) {
+  .sidenav {
+    width: 200px;
+  }
+
+  .container.mini .sidenav {
+    width: 64px;
+  }
+
+  .content {
+    padding: 28px;
+  }
+
+  .app-footer {
+    padding: 28px 32px;
+  }
+
+  .footer-content {
+    gap: 16px;
+  }
+}
+
+/* Phones (≤480px) */
+@media (max-width: 480px) {
+  /* Sidebar collapses fully */
+  .sidenav {
+    width: 0;
+    position: absolute;
+    z-index: 50;
+  }
+
+  .container.mini .sidenav {
+    width: 0 !important;
+  }
+
+  /* Toolbar fits mobile better */
+  .toolbar {
+    padding: 0 16px;
+    flex-wrap: nowrap;
+  }
+
+  .breadcrumb {
+    font-size: 1rem;
+  }
+
+  .wallet-info {
+    display: none;
+  }
+
+  .dark-toggle {
+    margin: 0;
+  }
+
+  .content {
+    padding: 20px;
+  }
+
+  /* Footer stacks vertically */
+  .footer-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .footer-right {
+    gap: 20px;
+  }
+}
+
+/* Very small phones (≤320px) */
+@media (max-width: 320px) {
+  .breadcrumb {
+    font-size: 0.85rem;
+  }
+
+  .role-badge {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .footer-logo {
+    font-size: 16px;
+  }
+
+  .footer-name,
+  .footer-link {
+    font-size: 13px;
+  }
+
+  .content {
+    padding: 16px;
+  }
+}
+
 `]
 })
 
@@ -560,6 +674,7 @@ export class AppComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);
   private isBrowser = isPlatformBrowser(this.platformId);
   private router = inject(Router);
+  private titleService = inject(Title);
   private cdr = inject(ChangeDetectorRef);
   private themeService = inject(ThemeService);
 
@@ -583,6 +698,38 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
     this.themeService.initialize();  // ensure <html> class is set on load
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      let title = 'PIMV – Identity Vault'; // fallback
+
+      // Get the current route snapshot (last child)
+      let currentRoute = this.router.routerState.snapshot.root;
+      while (currentRoute.firstChild) {
+        currentRoute = currentRoute.firstChild;
+      }
+
+      // Use route data.title if set, or fallback to capitalized path
+      const routeTitle = currentRoute.data?.['title'];
+      if (routeTitle) {
+        title = `${routeTitle} • PIMV`;
+      } else {
+        // Fallback: capitalize last URL segment
+        const path = currentRoute.url.map(segment => segment.path).join(' ');
+        if (path) {
+          title = `${this.capitalize(path)} • PIMV`;
+        }
+      }
+
+      this.titleService.setTitle(title);
+    });
+  }
+
+  private capitalize(str: string): string {
+    return str
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   toggleMini() {

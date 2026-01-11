@@ -159,7 +159,7 @@ interface ProfileResponse {
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .vault-container {
@@ -181,7 +181,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -191,7 +191,7 @@ styles: [`
   }
 
   .subtitle {
-    font-size: 1.15rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     color: var(--text-secondary, #94a3b8);
     max-width: 720px;
     margin: 0 auto;
@@ -458,6 +458,156 @@ styles: [`
     font-size: 0.95rem;
     margin: 6px 0 0;
   }
+    /* ==========================================
+   Tablet (≤ 960px)
+   ========================================== */
+@media (max-width: 960px) {
+  .vault-container {
+    padding: 20px 24px 48px;
+  }
+
+  .vault-header {
+    margin-bottom: 36px;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 3vw + 1rem, 2.4rem);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    max-width: 600px;
+  }
+
+  .card {
+    padding: 28px;
+  }
+
+  .card-header h3 {
+    font-size: 1.35rem;
+  }
+
+  .actions {
+    gap: 12px;
+  }
+}
+
+/* ==========================================
+   Phones (≤ 480px)
+   ========================================== */
+@media (max-width: 480px) {
+  .vault-container {
+    padding: 16px 16px 48px;
+  }
+
+  .vault-header {
+    margin-bottom: 28px;
+  }
+
+  h1 {
+    font-size: clamp(1.4rem, 4vw + 1rem, 2rem);
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    max-width: 100%;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .card {
+    padding: 22px;
+    border-radius: 16px;
+  }
+
+  .card:hover {
+    transform: none; /* avoid jumpiness on touch */
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .card-header h3 {
+    font-size: 1.2rem;
+    text-align: left;
+  }
+
+  .address-row {
+    flex-direction: column;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .actions button,
+  .btn-primary,
+  .btn-secondary,
+  .connect-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .status mat-icon {
+    font-size: 28px;
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* ==========================================
+   Very Small Phones (≤ 320px)
+   ========================================== */
+@media (max-width: 320px) {
+  h1 {
+    font-size: 1.3rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .connect-btn {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+
+  .status {
+    padding: 10px;
+  }
+
+  .status mat-icon {
+    font-size: 24px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .address-input,
+  .did {
+    font-size: 0.9rem;
+  }
+}
+
+    
 `]
 })
 export class VaultComponent implements OnInit, OnDestroy {

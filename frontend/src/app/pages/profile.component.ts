@@ -142,7 +142,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .profile-container {
@@ -164,7 +164,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.4rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -174,7 +174,7 @@ styles: [`
   }
 
   .subtitle {
-    font-size: 1.15rem;
+    font-size: clamp(0.95rem, 2.5vw + 0.4rem, 1.15rem);
     color: var(--text-secondary, #94a3b8);
     max-width: 760px;
     margin: 0 auto;
@@ -273,7 +273,7 @@ styles: [`
     font-family: 'Courier New', monospace;
     color: #1d4ed8;
     word-break: break-all;
-    font-size: 0.98rem;
+    font-size: clamp(0.85rem, 1.8vw + 0.5rem, 0.98rem);
   }
 
   .profile-container.dark .value code {
@@ -376,6 +376,83 @@ styles: [`
       color: #f1f5f9 !important;
     }
   }
+    /* Universal scalable responsive layer */
+@media (max-width: 960px) {
+  .profile-container {
+    padding: 28px 32px 60px;
+  }
+}
+  
+@media (max-width: 600px) {
+  .profile-container {
+    padding: 24px 20px 48px;
+  }
+
+  /* Stop card hover on touch devices */
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .profile-header {
+    margin-bottom: 32px;
+  }
+
+  .identity-info {
+    gap: 20px;
+  }
+
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-grid button {
+    width: 100%;
+    justify-content: center;
+    font-size: 0.95rem;
+    height: 52px;
+  }
+
+  .empty-state {
+    padding: 36px 16px;
+  }
+
+  .feature-list {
+    margin-left: 0;
+    padding-left: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .profile-container {
+    padding: 20px 16px 40px;
+  }
+
+  h1 {
+    letter-spacing: -0.3px;
+  }
+
+  .actions-grid button {
+    height: 48px;
+    font-size: 0.9rem;
+  }
+
+  .value {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+
+  .value code {
+    font-size: 0.88rem;
+  }
+
+  .empty-icon {
+    font-size: 52px;
+    width: 64px;
+    height: 64px;
+  }
+}
+
 `]
 })
 export class ProfileComponent {

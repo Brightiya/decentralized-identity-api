@@ -167,7 +167,7 @@ import { ThemeService } from '../../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .verifier-container {
@@ -189,7 +189,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -370,6 +370,166 @@ styles: [`
       color: #6b7280 !important;
     }
   }
+   /* ==========================================
+   Tablet (≤ 960px)
+   ========================================== */
+@media (max-width: 960px) {
+  .verifier-container {
+    padding: 24px 28px 64px;
+  }
+
+  .verifier-header {
+    margin-bottom: 40px;
+  }
+
+  h1 {
+    font-size: clamp(1.5rem, 3vw + 1rem, 2.4rem);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    max-width: 620px;
+  }
+
+  .card {
+    border-radius: 18px;
+  }
+
+  .connect-card {
+    margin: 60px auto;
+  }
+
+  .wallet-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+  }
+
+  .connect-content h2 {
+    font-size: 1.6rem;
+  }
+}
+
+/* ==========================================
+   Phones (≤ 480px)
+   ========================================== */
+@media (max-width: 480px) {
+  .verifier-container {
+    padding: 16px 16px 48px;
+  }
+
+  .verifier-header {
+    margin-bottom: 28px;
+  }
+
+  h1 {
+    font-size: clamp(1.3rem, 4vw + 1rem, 2rem);
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    line-height: 1.5;
+    text-align: center;
+    max-width: 100%;
+  }
+
+  .card {
+    border-radius: 16px;
+  }
+
+  .card:hover {
+    transform: none; /* disable hover float on touch */
+  }
+
+  .connect-card {
+    margin: 40px auto;
+  }
+
+  .connect-content {
+    padding: 32px 20px;
+  }
+
+  .wallet-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 24px;
+  }
+
+  .connect-content h2 {
+    font-size: 1.4rem;
+  }
+
+  .credential-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .actions {
+    text-align: center;
+  }
+
+  .actions button,
+  .btn-primary,
+  .btn-secondary,
+  .add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .result {
+    font-size: 0.9rem;
+    padding: 16px;
+  }
+}
+
+/* ==========================================
+   Very Small Phones (≤ 320px)
+   ========================================== */
+@media (max-width: 320px) {
+  h1 {
+    font-size: 1.2rem;
+    letter-spacing: -0.4px;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .connect-content {
+    padding: 24px 14px;
+  }
+
+  .wallet-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .connect-content h2 {
+    font-size: 1.2rem;
+  }
+
+  .credential-row {
+    padding: 8px 10px;
+  }
+
+  .result {
+    font-size: 0.85rem;
+    padding: 12px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .add-btn {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+}
+
 `]
 })
 export class VerifierComponent {

@@ -211,7 +211,7 @@ import { ThemeService } from '../../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .advanced-container {
@@ -479,6 +479,221 @@ styles: [`
       color: #6b7280 !important;
     }
   }
+    /* ==========================================
+   Tablet (≤ 960px)
+   ========================================== */
+@media (max-width: 960px) {
+  .advanced-container {
+    padding: 24px 28px 64px;
+  }
+
+  .advanced-header {
+    margin-bottom: 40px;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 3vw + 1rem, 2.4rem);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    max-width: 620px;
+  }
+
+  .card {
+    border-radius: 18px;
+  }
+
+  .connect-card {
+    margin: 60px auto;
+  }
+
+  .connect-content h2 {
+    font-size: 1.6rem;
+  }
+
+  .wallet-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+  }
+
+  .hint-box {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .empty-state {
+    padding: 64px 24px;
+  }
+
+  .empty-state h3 {
+    font-size: 1.4rem;
+  }
+
+  .empty-state p {
+    font-size: 1rem;
+    max-width: 480px;
+  }
+}
+
+/* ==========================================
+   Phones (≤ 480px)
+   ========================================== */
+@media (max-width: 480px) {
+  .advanced-container {
+    padding: 16px 16px 48px;
+  }
+
+  .advanced-header {
+    margin-bottom: 28px;
+  }
+
+  h1 {
+    font-size: clamp(1.4rem, 4vw + 1rem, 2rem);
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    text-align: center;
+    line-height: 1.5;
+    max-width: 100%;
+  }
+
+  .card {
+    border-radius: 16px;
+  }
+
+  .card:hover {
+    transform: none; /* disable hover translate on touch */
+  }
+
+  .connect-card {
+    margin: 40px auto;
+  }
+
+  .connect-content {
+    padding: 32px 20px;
+  }
+
+  .wallet-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 24px;
+  }
+
+  .connect-content h2 {
+    font-size: 1.4rem;
+  }
+
+  .actions {
+    text-align: center;
+  }
+
+  .actions button,
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .result-card pre {
+    font-size: 0.9rem;
+    padding: 16px;
+  }
+
+  .hint-box {
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .hint-box ol {
+    padding-left: 20px;
+    margin-top: 8px;
+  }
+
+  .empty-state {
+    padding: 48px 16px;
+  }
+
+  .empty-icon {
+    font-size: 64px;
+    width: 80px;
+    height: 80px;
+  }
+
+  .empty-state h3 {
+    font-size: 1.3rem;
+  }
+
+  .empty-state p {
+    font-size: 0.95rem;
+    max-width: 400px;
+  }
+
+  .hint {
+    margin-bottom: 16px;
+  }
+}
+
+/* ==========================================
+   Very Small Phones (≤ 320px)
+   ========================================== */
+@media (max-width: 320px) {
+  h1 {
+    font-size: 1.3rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .connect-content {
+    padding: 24px 14px;
+  }
+
+  .connect-content h2 {
+    font-size: 1.2rem;
+  }
+
+  .wallet-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .hint-box {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+
+  .hint-box code {
+    font-size: 0.85rem;
+  }
+
+  .result-card pre {
+    font-size: 0.85rem;
+    padding: 12px;
+  }
+
+  .empty-state h3 {
+    font-size: 1.15rem;
+  }
+
+  .empty-state p {
+    font-size: 0.9rem;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+}
+
 `]
 })
 export class AdvancedComponent {  // ← renamed class to match typical naming

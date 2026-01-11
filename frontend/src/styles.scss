@@ -42,5 +42,10 @@ button { margin: 6px 0; padding: 8px 12px; border-radius:6px; }
 input, textarea { width: 100%; padding: 8px; margin:6px 0; box-sizing: border-box; }
 pre { background:#f7f7f7; padding:12px; border-radius:6px; }
 
-html, body { height: 100%; }
+html, body { 
+  height: 100%; 
+  touch-action: manipulation;     /* improves touch scrolling */
+  overscroll-behavior: none; 
+
+}
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }

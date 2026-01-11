@@ -208,7 +208,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .credentials-container {
@@ -230,7 +230,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -505,6 +505,129 @@ styles: [`
       color: #fca5a5 !important;
     }
   }
+    /* Tablet / Small Laptop */
+@media (max-width: 960px) {
+  .credentials-container {
+    padding: 24px 24px 64px;
+  }
+  h1 {
+    font-size: 2.2rem;
+  }
+  .subtitle {
+    font-size: 1.05rem;
+  }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  /* Disable hover transforms */
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .credentials-container {
+    padding: 20px 18px 56px;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    max-width: 100%;
+  }
+
+  .header-icon {
+    width: 46px;
+    height: 46px;
+    font-size: 28px;
+  }
+
+  .address-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .address {
+    font-size: 0.9rem;
+  }
+
+  .add-context-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .issue-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
+
+  .result-card pre {
+    font-size: 0.85rem;
+    padding: 16px;
+  }
+
+  .empty-state {
+    padding: 56px 20px;
+  }
+
+  .empty-icon {
+    font-size: 72px;
+    width: 90px;
+    height: 90px;
+  }
+}
+
+/* Very small phones (320px and below) */
+@media (max-width: 320px) {
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .header-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+
+  button,
+  .issue-btn {
+    font-size: 0.85rem;
+    padding: 8px 14px;
+  }
+
+  .address {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+
+  .status.success {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+
+  .result-card pre {
+    font-size: 0.75rem;
+    padding: 12px;
+  }
+
+  .empty-icon {
+    font-size: 60px;
+    width: 72px;
+    height: 72px;
+  }
+}
+
 `]
 })
 

@@ -233,7 +233,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .consent-container {
@@ -255,7 +255,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -563,6 +563,98 @@ styles: [`
       color: #6b7280 !important;
     }
   }
+    
+  /* Base (desktops & large screens) */
+.consent-container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(12px, 4vw, 32px) clamp(12px, 4vw, 40px) 80px;
+}
+
+.consent-header h1 {
+  font-size: clamp(1.4rem, 4vw, 2.8rem);
+}
+
+.subtitle {
+  font-size: clamp(0.9rem, 1.8vw, 1.15rem);
+  max-width: min(760px, 100%);
+}
+
+.card {
+  margin-bottom: clamp(20px, 4vw, 32px);
+  border-radius: clamp(12px, 2vw, 20px);
+}
+
+/* Make content flexible */
+.address-row,
+.attribute-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(6px, 1.5vw, 12px);
+}
+
+.address {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  padding: clamp(8px, 1.5vw, 12px) clamp(8px, 2vw, 16px);
+}
+
+.empty-state p,
+.consent-entry p {
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
+}
+
+.empty-icon {
+  font-size: clamp(40px, 10vw, 80px);
+}
+
+/* Stepped breakpoints */
+@media (max-width: 960px) {
+  .consent-container {
+    padding-bottom: 60px;
+  }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .card:hover {
+    transform: none;
+  }
+  .actions {
+    text-align: center;
+  }
+  .actions button {
+    width: 100%;
+  }
+  .full-width,
+  mat-form-field {
+    width: 100% !important;
+  }
+  .consents-scroll-container {
+    max-height: 300px;
+  }
+}
+
+/* Very small phones (320 and below) */
+@media (max-width: 320px) {
+  button,
+  .actions button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+  .badge {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+  }
+  .consents-scroll-container {
+    max-height: 240px;
+  }
+}
+
+
+
 `]
 })
 export class ConsentComponent implements OnInit {

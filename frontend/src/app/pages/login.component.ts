@@ -198,7 +198,7 @@ styles: [`
   }
 
   mat-card-title {
-    font-size: 2.2rem;
+    font-size: clamp(1.4rem, 4vw + 0.5rem, 2.2rem);
     font-weight: 800;
     color: var(--text-primary, #255cb4ff);
     letter-spacing: -0.5px;
@@ -216,7 +216,7 @@ styles: [`
   }
 
   h3 {
-    font-size: 1.4rem;
+    font-size: clamp(1.05rem, 3vw + 0.4rem, 1.4rem);
     font-weight: 700;
     color: var(--text-primary, #255cb4ff);
     margin-bottom: 12px;
@@ -228,7 +228,7 @@ styles: [`
 
   .muted {
     color: var(--text-secondary, #64748b);
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.5vw + 0.3rem, 1rem);
     margin-bottom: 24px;
   }
 
@@ -254,7 +254,7 @@ styles: [`
 
   .secondary-btn {
     margin-top: 16px;
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.5vw + 0.3rem, 1rem);
     color: var(--text-secondary);
   }
 
@@ -325,7 +325,7 @@ styles: [`
 
   .role-hint {
     margin-top: 20px;
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.5vw + 0.3rem, 1rem);
     color: var(--text-primary);
     padding: 12px 20px;
     background: var(--hint-bg, rgba(99,102,241,0.08));
@@ -369,6 +369,71 @@ styles: [`
     color: var(--text-secondary);
     font-size: 0.9rem;
   }
+    /* Universal scalable responsive layer */
+@media (max-width: 960px) {
+  .login-card {
+    max-width: 440px;
+  }
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    max-width: 100%;
+  }
+
+  mat-card-header {
+    padding: 32px 24px 20px;
+  }
+
+  .step {
+    padding: 24px 28px;
+  }
+
+  .primary-btn {
+    width: 100%;
+    min-width: 0;
+    height: 52px;
+    font-size: 1rem;
+  }
+
+  .secondary-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .wallet-info {
+    max-width: 100%;
+  }
+
+  .role-toggle {
+    flex-wrap: wrap;
+    padding: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .primary-btn {
+    height: 48px;
+    font-size: 0.9rem;
+  }
+
+  .role-toggle ::ng-deep .mat-mdc-button-toggle {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  .step {
+    padding: 20px 20px;
+  }
+
+  mat-card-header {
+    padding: 24px 16px 16px;
+  }
+}
+
+   
 `]
 })
 export class LoginComponent {

@@ -152,7 +152,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .gdpr-container {
@@ -174,7 +174,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -429,6 +429,76 @@ styles: [`
       color: #6b7280 !important;
     }
   }
+    /* Single scalable responsive layer */
+@media (max-width: 960px) {
+  .gdpr-container {
+    padding: 24px 28px 60px;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+  }
+}
+
+@media (max-width: 600px) {
+  .gdpr-container {
+    padding: 20px 20px 48px;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .actions {
+    text-align: center;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+
+  mat-form-field,
+  .full-width {
+    width: 100% !important;
+  }
+
+  .did-display,
+  .warning-box,
+  .status.success {
+    font-size: 0.95rem;
+    padding: 12px 14px;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 6vw, 2rem);
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 360px) {
+  button,
+  .actions button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+  }
+
+  .consents-scroll-container {
+    max-height: 240px;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+}
+
 `]
 })
 

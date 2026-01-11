@@ -156,7 +156,7 @@ import { ThemeService } from '../services/theme.service';
 styles: [`
   :host {
     display: block;
-    min-height: 100%;
+    min-height: 100vh;
   }
 
   .contexts-container {
@@ -178,7 +178,7 @@ styles: [`
   }
 
   h1 {
-    font-size: 2.8rem;
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
     font-weight: 800;
     background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
     -webkit-background-clip: text;
@@ -444,6 +444,119 @@ styles: [`
       color: #6b7280 !important;
     }
   }
+    /* Stepped responsive scaling for 960 → 480 → 320 */
+
+/* Tablets & small laptops (≤960px) */
+@media (max-width: 960px) {
+  .contexts-container {
+    padding-bottom: 60px;
+  }
+
+  .add-context-row mat-form-field {
+    min-width: 200px; /* so they don’t overflow */
+  }
+}
+
+/* Phones (≤480px) */
+@media (max-width: 480px) {
+  /* Disable hover transforms on touch */
+  .card:hover {
+    transform: none;
+  }
+
+  .contexts-container {
+    padding: 24px 20px 60px;
+  }
+
+  .card {
+    padding: 20px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .badge {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+
+  /* Form controls stack cleanly */
+  .add-context-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .add-context-row mat-form-field {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .full-width,
+  mat-form-field {
+    width: 100% !important;
+  }
+
+  /* Attributes grid becomes compact */
+  .attributes-grid {
+    gap: 12px;
+  }
+
+  .attribute-value {
+    padding: 10px 12px;
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+  }
+
+  .empty-state p {
+    font-size: 1rem;
+  }
+
+  /* Typography scale down slightly */
+  h1 {
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
+  }
+
+  .subtitle {
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
+  }
+}
+
+/* Very small phones (≤320px) */
+@media (max-width: 320px) {
+  button,
+  .badge {
+    font-size: 0.8rem;
+  }
+
+  .header-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
+  }
+
+  .empty-state {
+    padding: 32px 12px;
+  }
+
+  .attribute-value code {
+    font-size: 0.85rem;
+  }
+}
+
 `]
 })
 export class ContextsComponent implements OnInit, OnDestroy {

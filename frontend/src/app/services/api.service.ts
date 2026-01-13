@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -8,71 +10,47 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
+  // ────────────────────────────────────────────────
+  // Helper: Headers with optional Accept-Language
+  // ────────────────────────────────────────────────
+  private getHeaders(acceptLanguage = 'en'): HttpHeaders {
+    return new HttpHeaders({
+      'Accept': 'application/json',
+      'Accept-Language': acceptLanguage
+    });
+  }
+
   /* -------------------------------------------------
-     Advanced / Diagnostic DID endpoints
-     (Legacy – used only in Advanced tools)
+     Advanced / Diagnostic DID endpoints (Legacy)
   -------------------------------------------------- */
 
-  /**
-   * Register a DID on-chain (advanced / legacy flow)
-   */
-  registerDID(payload: {
-    address: string;
-  }) {
-    return this.http.post(
-      `${this.base}/api/did/register`,
-      payload
-    );
+  registerDID(payload: { address: string }): Observable<any> {
+    return this.http.post(`${this.base}/api/did/register`, payload);
   }
 
-  /**
-   * Resolve a DID document (diagnostic / advanced)
-   */
-  resolveDID(didOrAddress: string) {
-    return this.http.get(
-      `${this.base}/api/did/${encodeURIComponent(didOrAddress)}`
-    );
+  resolveDID(didOrAddress: string): Observable<any> {
+    return this.http.get(`${this.base}/api/did/${encodeURIComponent(didOrAddress)}`);
   }
 
-  /**
-   * Verify DID ownership via signature challenge
-   * (Advanced / non-VC flow)
-   */
-  verifyDID(payload: {
-    address: string;
-    signature: string;
-  }) {
-    return this.http.post(
-      `${this.base}/api/did/verify`,
-      payload
-    );
+  verifyDID(payload: { address: string; signature: string }): Observable<any> {
+    return this.http.post(`${this.base}/api/did/verify`, payload);
   }
 
   /* -------------------------------------------------
      VC endpoints (Hybrid / GDPR-aware)
   -------------------------------------------------- */
 
-  /**
-   * Issue a context-aware Verifiable Credential
-   */
   issueVC(payload: {
     issuer: string;
     subject: string;
     claimId: string;
     claim: any;
     context?: string;
-    consent?: {
-      purpose?: string;
-      expiresAt?: string;
-    };
-  }) {
+    consent?: { purpose?: string; expiresAt?: string };
+  }): Observable<any> {
     return this.http.post(`${this.base}/api/vc/issue`, payload);
   }
 
-  /**
-   * Verify VC with enforced disclosure
-   * (purpose + consent + verifier DID required)
-   */
   verifyVC(payload: {
     subject: string;
     verifierDid: string;
@@ -80,108 +58,106 @@ export class ApiService {
     context: string;
     consent: boolean;
     credentials: { cid: string; claimId: string }[];
-  }) {
+  }): Observable<any> {
     return this.http.post(`${this.base}/api/vc/verify`, payload);
+  }
+
+  validateRawVC(vc: any): Observable<any> {
+    return this.http.post(`${this.base}/api/vc/validate`, vc);
   }
 
   /* -------------------------------------------------
      Consent endpoints (GDPR-compliant)
   -------------------------------------------------- */
 
-  /**
-   * Fetch active consents for a DID (per context)
-   */
-  getActiveConsents(owner: string, context: string) {
+  getActiveConsents(owner: string, context: string): Observable<any[]> {
     return this.http.get<any[]>(
       `${this.base}/api/consent/active/${encodeURIComponent(owner)}/${encodeURIComponent(context)}`
     );
   }
 
-  /**
-   * Grant consent (context REQUIRED)
-   */
   grantConsent(payload: {
     owner: string;
     claimId: string;
     purpose: string;
     context: string;
     expiresAt?: string;
-  }) {
-    return this.http.post(
-      `${this.base}/api/consent/grant`,
-      payload
-    );
+  }): Observable<any> {
+    return this.http.post(`${this.base}/api/consent/grant`, payload);
   }
 
-  /**
-   * Revoke a specific consent
-   * (context-aware, purpose optional)
-   */
   revokeConsent(payload: {
     owner: string;
     claimId: string;
     context?: string;
     purpose?: string;
-  }) {
-    return this.http.post(
-      `${this.base}/api/consent/revoke`,
-      payload
-    );
+  }): Observable<any> {
+    return this.http.post(`${this.base}/api/consent/revoke`, payload);
   }
 
   /* -------------------------------------------------
-     Profile endpoints
-  -------------------------------------------------- */
-
-  getProfile(address: string) {
-    return this.http.get(
-      `${this.base}/api/profile/${encodeURIComponent(address)}`
-    );
-  }
-
-  /* -------------------------------------------------
-     Profile endpoints (Context-aware)
+     Profile endpoints (UPDATED & COMPATIBLE)
   -------------------------------------------------- */
 
   /**
-   * Fetch profile attributes filtered by context
-   * (e.g. identity, medical, professional)
+   * Primary: Get profile (supports optional context)
    */
-  getProfileByContext(address: string, context: string) {
+  getProfile(address: string, context?: string, acceptLanguage = 'en'): Observable<any> {
+    let params = new HttpParams();
+    if (context) {
+      params = params.set('context', context);
+    }
+
     return this.http.get(
-      `${this.base}/api/profile/${encodeURIComponent(address)}?context=${encodeURIComponent(context)}`
+      `${this.base}/api/profile/${encodeURIComponent(address)}`,
+      { headers: this.getHeaders(acceptLanguage), params }
+    ).pipe(
+      catchError(err => {
+        console.error('getProfile error:', err);
+        return throwError(() => new Error('Failed to load profile'));
+      })
     );
   }
 
-  createProfile(payload: any) {
+  /**
+   * Legacy alias: Restore original method name for compatibility
+   * (used in consent.component.ts, contexts.component.ts, etc.)
+   */
+  getProfileByContext(address: string, context: string): Observable<any> {
+    return this.getProfile(address, context);
+  }
+
+  /**
+   * Create or update profile (merged strategy)
+   */
+  createProfile(payload: any): Observable<any> {
     return this.http.post(`${this.base}/api/profile`, payload);
+  }
+
+  /**
+   * NEW: Partial update profile (recommended for edit form)
+   */
+  updateProfile(address: string, payload: any): Observable<any> {
+    return this.http.put(
+      `${this.base}/api/profile/${encodeURIComponent(address)}`,
+      payload
+    );
   }
 
   /* -------------------------------------------------
      Disclosure audit & GDPR rights
   -------------------------------------------------- */
 
-  /**
-   * Fetch disclosure history for a subject DID
-   * (GDPR Art. 15 – Right of Access)
-   */
-  getDisclosuresForSubject(subjectDid: string) {
+  getDisclosuresForSubject(subjectDid: string): Observable<any> {
     return this.http.get(
       `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`
     );
   }
 
-  /**
-   * GDPR Art.17 – Right to Erasure
-   */
-  eraseProfile(payload: { did: string }) {
+  eraseProfile(payload: { did: string }): Observable<any> {
     return this.http.delete(
       `${this.base}/api/gdpr/erase`,
       { body: payload }
     );
-  }
-
-  validateRawVC(vc: any) {
-    return this.http.post(`${this.base}/api/vc/validate`, vc);
   }
 }

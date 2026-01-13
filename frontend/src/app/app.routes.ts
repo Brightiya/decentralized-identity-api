@@ -2,7 +2,7 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from './guards/role.guard';
 
-// Page components
+// Page components (direct imports for public/simple routes)
 import { VaultComponent } from './pages/vault.component';
 import { ContextsComponent } from './pages/contexts.component';
 import { ConsentComponent } from './pages/consent.component';
@@ -12,7 +12,7 @@ import { DisclosuresComponent } from './pages/disclosures.component';
 import { AdvancedComponent } from './pages/advanced/advanced.component';
 import { VerifierComponent } from './pages/verifier/verifier.component';
 import { LoginComponent } from './pages/login.component';
-//import { AdminUsersComponent } from './pages/admin-users/admin-users.component';
+// import { AdminUsersComponent } from './pages/admin-users/admin-users.component';
 
 export const routes: Routes = [
   // =========================================
@@ -86,13 +86,39 @@ export const routes: Routes = [
   },
 
   // =========================================
-  // Profile (all authenticated roles)
+  // Profile (all authenticated roles) + Child Routes
   // =========================================
   {
     path: 'profile',
     loadComponent: () =>
       import('./pages/profile.component').then(m => m.ProfileComponent),
-    canActivate: [roleGuard('USER', 'ADMIN', 'VERIFIER')]
+    canActivate: [roleGuard('USER', 'ADMIN', 'VERIFIER')],
+    children: [
+      // Default child → Overview
+      {
+        path: '',
+        redirectTo: 'overview',
+        pathMatch: 'full'
+      },
+      // Overview tab
+      {
+        path: 'overview',
+        loadComponent: () =>
+          import('./pages/profile/profile-overview/profile-overview.component').then(m => m.ProfileOverviewComponent)
+      },
+      // Edit Profile tab
+      {
+        path: 'edit',
+        loadComponent: () =>
+          import('./pages/profile/profile-edit/profile-edit.component').then(m => m.ProfileEditComponent)
+      },
+      // Privacy & Consents tab
+      {
+        path: 'privacy',
+        loadComponent: () =>
+          import('./pages/profile/profile-privacy/profile-privacy.component').then(m => m.ProfilePrivacyComponent)
+      }
+    ]
   },
 
   // =========================================

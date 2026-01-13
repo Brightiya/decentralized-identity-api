@@ -1,28 +1,19 @@
-import { Component, OnInit, OnDestroy, Signal, inject } from '@angular/core';
+// src/app/pages/vault/vault.component.ts
+import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Inject, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { WalletService } from '../services/wallet.service';
-import { ApiService } from '../services/api.service';
+import { isPlatformBrowser } from '@angular/common';
+import { Inject, PLATFORM_ID } from '@angular/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { ThemeService } from '../services/theme.service';
-
-interface ProfileResponse {
-  did: string;
-  context?: string;
-  attributes: any;
-  credentials: any[];
-  // Tombstone fields
-  erased?: boolean;
-  erasedAt?: string;
-  gdpr?: { article: string; action: string };
-  credentialSubject?: { id: string };
-}
+import { WalletService } from '../services/wallet.service';
+import { ApiService } from '../services/api.service';
+import { ProfileStateService } from '../services/profile-state.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-vault',
@@ -33,128 +24,136 @@ interface ProfileResponse {
     RouterModule,
     MatIconModule,
     MatButtonModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatSnackBarModule
   ],
   template: `
-  <div class="vault-container" [class.dark]="darkMode()">
-    <div class="vault-header">
-      <h1>Identity Vault</h1>
-      <p class="subtitle">
-        Your sovereign digital identity starts here. Connect your wallet to manage credentials, contexts, and consents.
-      </p>
-    </div>
-
-    <!-- Wallet Connection Card -->
-    <section class="card elevated">
-      <div class="card-header">
-        <mat-icon class="header-icon">account_balance_wallet</mat-icon>
-        <h3>Wallet Connection</h3>
-      </div>
-
-      <div class="wallet-info" *ngIf="wallet.address; else connectPrompt">
-        <div class="address-row">
-          <input class="address-input" [value]="wallet.address!" disabled />
-          <button mat-icon-button class="copy-btn" (click)="copyAddress()">
-            <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-          </button>
-        </div>
-
-        <div class="did-display">
-          <span class="label">Decentralized Identifier (DID)</span>
-          <code class="did">did:ethr:{{ wallet.address }}</code>
-        </div>
-
-        <p class="status success">
-          <mat-icon inline>check_circle</mat-icon>
-          Wallet connected successfully
+    <div class="vault-container" [class.dark]="darkMode()">
+      <div class="vault-header">
+        <h1>Identity Vault</h1>
+        <p class="subtitle">
+          Your sovereign digital identity starts here. Connect your wallet to manage credentials, contexts, and consents.
         </p>
       </div>
 
-      <ng-template #connectPrompt>
-        <p class="muted">
-          Connect your Ethereum wallet to access your personal identity vault.
-        </p>
-        <button class="connect-btn" (click)="connect()" [disabled]="loading">
-          <mat-icon *ngIf="!loading">wallet</mat-icon>
-          <span>{{ loading ? 'Connecting...' : 'Connect Wallet' }}</span>
-        </button>
-      </ng-template>
-    </section>
+      <!-- Wallet Connection Card -->
+      <section class="card elevated">
+        <div class="card-header">
+          <mat-icon class="header-icon">account_balance_wallet</mat-icon>
+          <h3>Wallet Connection</h3>
+        </div>
 
-    <!-- Profile Status Card -->
-    <section class="card elevated" *ngIf="wallet.address || isErased">
-      <div class="card-header">
-        <mat-icon class="header-icon">shield</mat-icon>
-        <h3>Vault Profile</h3>
-      </div>
-
-      <div class="profile-content">
-        <ng-container *ngIf="loading; else profileLoaded">
-          <div class="loading-state">
-            <mat-spinner diameter="32"></mat-spinner>
-            <p class="muted">Checking vault status...</p>
-          </div>
-        </ng-container>
-
-        <ng-template #profileLoaded>
-          <!-- Erased State -->
-          <ng-container *ngIf="isErased">
-            <div class="status erased">
-              <mat-icon inline color="warn">privacy_tip</mat-icon>
-              <div>
-                <strong>Your identity has been permanently erased</strong>
-                <p class="muted small">
-                  You exercised your Right to be Forgotten on {{ erasedAt | date:'medium' }}.
-                </p>
-                <p class="muted small">
-                  No credentials or personal data are accessible. This is cryptographically proven on-chain.
-                </p>
-              </div>
-            </div>
-          </ng-container>
-
-          <!-- Active Profile -->
-          <ng-container *ngIf="!isErased && profileExists">
-            <div class="status success">
-              <mat-icon>verified</mat-icon>
-              <div>
-                <strong>Your identity vault is active</strong>
-                <p class="muted small">All credentials and contexts are ready.</p>
-              </div>
-            </div>
-
-            <div class="actions">
-              <a routerLink="/contexts" class="btn-primary">
-                <mat-icon>layers</mat-icon>
-                Manage Contexts
-              </a>
-              <a routerLink="/credentials" class="btn-secondary">
-                <mat-icon>badge</mat-icon>
-                Issue Credential
-              </a>
-            </div>
-          </ng-container>
-
-          <!-- No Profile -->
-          <ng-container *ngIf="!isErased && !profileExists">
-            <div class="status warning">
-              <mat-icon>info</mat-icon>
-              <div>
-                <strong>No vault profile found</strong>
-                <p class="muted small">Create one to start issuing and managing credentials.</p>
-              </div>
-            </div>
-
-            <button class="btn-primary" (click)="createProfile()" [disabled]="loading">
-              <mat-icon *ngIf="!loading">add_box</mat-icon>
-              <span>{{ loading ? 'Creating...' : 'Create Vault Profile' }}</span>
+        <div class="wallet-info" *ngIf="wallet.address$ | async as address; else connectPrompt">
+          <div class="address-row">
+            <input class="address-input" [value]="address" disabled />
+            <button mat-icon-button class="copy-btn" (click)="copyAddress(address)">
+              <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
             </button>
-          </ng-container>
+          </div>
+
+          <div class="did-display">
+            <span class="label">Decentralized Identifier (DID)</span>
+            <code class="did">did:ethr:{{ address }}</code>
+          </div>
+
+          <p class="status success">
+            <mat-icon inline>check_circle</mat-icon>
+            Wallet connected successfully
+          </p>
+        </div>
+
+        <ng-template #connectPrompt>
+          <p class="muted">
+            Connect your Ethereum wallet to access your personal identity vault.
+          </p>
+          <button class="connect-btn" (click)="connect()" [disabled]="loading()">
+            <mat-icon *ngIf="!loading()">wallet</mat-icon>
+            <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
+          </button>
         </ng-template>
-      </div>
-    </section>
-  </div>
-`,
+      </section>
+
+      <!-- Profile Status Card -->
+      <section class="card elevated" *ngIf="wallet.address$ | async">
+        <div class="card-header">
+          <mat-icon class="header-icon">shield</mat-icon>
+          <h3>Vault Profile</h3>
+        </div>
+
+        <div class="profile-content">
+          <ng-container *ngIf="loading(); else profileLoaded">
+            <div class="loading-state">
+              <mat-spinner diameter="32"></mat-spinner>
+              <p class="muted">Checking vault status...</p>
+            </div>
+          </ng-container>
+
+          <ng-template #profileLoaded>
+            <!-- Erased State -->
+            <ng-container *ngIf="isErased()">
+              <div class="status erased">
+                <mat-icon inline color="warn">privacy_tip</mat-icon>
+                <div>
+                  <strong>Your identity has been permanently erased</strong>
+                  <p class="muted small">
+                    You exercised your Right to be Forgotten on {{ erasedAt() | date:'medium' }}.
+                  </p>
+                  <p class="muted small">
+                    No credentials or personal data are accessible. This is cryptographically proven on-chain.
+                  </p>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Active Profile -->
+            <ng-container *ngIf="!isErased() && profileExists()">
+              <div class="status success">
+                <mat-icon>verified</mat-icon>
+                <div>
+                  <strong>Your identity vault is active</strong>
+                  <p class="muted small">All credentials and contexts are ready.</p>
+                </div>
+              </div>
+
+              <div class="actions">
+                <a routerLink="/contexts" class="btn-primary">
+                  <mat-icon>layers</mat-icon>
+                  Manage Contexts
+                </a>
+                <a routerLink="/credentials" class="btn-secondary">
+                  <mat-icon>badge</mat-icon>
+                  Issue Credential
+                </a>
+              </div>
+            </ng-container>
+
+            <!-- No Profile -->
+            <ng-container *ngIf="!isErased() && !profileExists()">
+              <div class="status warning">
+                <mat-icon>info</mat-icon>
+                <div>
+                  <strong>No vault profile found</strong>
+                  <p class="muted small">Create one to start issuing and managing credentials.</p>
+                </div>
+              </div>
+
+              <button class="btn-primary" (click)="createProfile()" [disabled]="loading()">
+                <mat-icon *ngIf="!loading()">add_box</mat-icon>
+                <span>{{ loading() ? 'Creating...' : 'Create Vault Profile' }}</span>
+              </button>
+            </ng-container>
+
+            <!-- Refresh Button -->
+            <div class="refresh">
+              <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
+                <mat-icon>refresh</mat-icon> Refresh Status
+              </button>
+            </div>
+          </ng-template>
+        </div>
+      </section>
+    </div>
+  `,
 
 styles: [`
   :host {
@@ -191,7 +190,7 @@ styles: [`
   }
 
   .subtitle {
-    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
+    font-size: 1.15rem;
     color: var(--text-secondary, #94a3b8);
     max-width: 720px;
     margin: 0 auto;
@@ -458,6 +457,10 @@ styles: [`
     font-size: 0.95rem;
     margin: 6px 0 0;
   }
+    .refresh {
+      text-align: center;
+      margin-top: 24px;
+    }
     /* ==========================================
    Tablet (≤ 960px)
    ========================================== */
@@ -607,130 +610,137 @@ styles: [`
   }
 }
 
-    
 `]
 })
 export class VaultComponent implements OnInit, OnDestroy {
-  loading = false;
-  profileExists = false;
-  copied = false;
-  isErased = false;
-  erasedAt: string | null = null;
-  currentProfile: any = null;
+  loading = signal(false);
+  copied = signal(false);
+  private lastErrorShown: number | null = null; // Prevent spam snackbars
+
   private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;  // ← readonly signal
+  darkMode = this.themeService.darkMode;
+
+  public wallet = inject(WalletService);
+  private api = inject(ApiService);
+  private snackBar = inject(MatSnackBar);
+  private profileState = inject(ProfileStateService); // ← NEW: shared state
+
+  profileExists = this.profileState.profileExists;
+  isErased = this.profileState.isErased;
+  erasedAt = this.profileState.erasedAt;
 
   private sub?: Subscription;
- 
 
-  constructor(
-    public wallet: WalletService,
-    private api: ApiService,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
 
   ngOnInit() {
     const isBrowser = isPlatformBrowser(this.platformId);
-      
-     if (isBrowser) {
-    const erasedDid = sessionStorage.getItem('erasedDid');
-    const erasedAt = sessionStorage.getItem('erasedAt');
+
+    if (isBrowser) {
+      const erasedDid = sessionStorage.getItem('erasedDid');
+      const erasedAt = sessionStorage.getItem('erasedAt');
 
       if (erasedDid) {
-        this.isErased = true;
-        this.profileExists = false;
-        this.erasedAt = erasedAt;
-        this.loading = false;
+        this.profileState.setProfileStatus(false, true, erasedAt);
       }
     }
+
+    // React to wallet changes
     this.sub = this.wallet.address$.subscribe(address => {
       if (address) {
-         sessionStorage.removeItem('erasedDid');
+        if (isBrowser) {
+          sessionStorage.removeItem('erasedDid');
           sessionStorage.removeItem('erasedAt');
-          this.checkProfile();
-      } 
+        }
+        this.checkProfile();
+      } else {
+        // Wallet disconnected → reset state
+        this.profileState.reset();
+      }
     });
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
   }
-/** 
-  private resetState() {
-    this.profileExists = false;
-    this.isErased = false;
-    this.erasedAt = null;
-    this.currentProfile = null;
-  }
-  */
 
-  async checkProfile() {
-  if (!this.wallet.address) return;
-  this.loading = true;
-
-  try {
-    const profile: any = await firstValueFrom(
-      this.api.getProfile(this.wallet.address)
-    );
-
-    // If we get here, profile exists and is active
-    this.isErased = false;
-    this.profileExists = true;
-    this.erasedAt = null;
-
-  } catch (err: any) {
-    if (err.status === 410) {
-      // ✅ GDPR-erased
-      this.isErased = true;
-      this.profileExists = false;
-      this.erasedAt = err.error?.erasedAt || null;
-    } else if (err.status === 404) {
-      // No profile ever created
-      this.isErased = false;
-      this.profileExists = false;
-      this.erasedAt = null;
-    } else {
-      console.error('Profile check failed', err);
-      this.isErased = false;
-      this.profileExists = false;
+    async checkProfile() {
+    const address = this.wallet.address;
+    if (!address) {
+      this.profileState.reset();
+      return;
     }
-  } finally {
-    this.loading = false;
+
+    // If we already know the state from previous check, skip API call
+    if (this.profileExists() || this.isErased()) {
+      this.loading.set(false);
+      return;
+    }
+
+    this.loading.set(true);
+
+    try {
+      const profile: any = await firstValueFrom(
+        this.api.getProfile(address)
+      );
+
+      // Success → profile exists
+      this.profileState.setProfileStatus(true, false, null);
+
+    } catch (err: any) {
+      if (err.status === 410) {
+        // Erased (expected)
+        this.profileState.setProfileStatus(false, true, err.error?.erasedAt || null);
+      } else if (err.status === 404) {
+        // No profile (expected)
+        this.profileState.setProfileStatus(false, false, null);
+      } else {
+        // Unexpected error → show snackbar only once
+        console.error('Unexpected profile check failed', err);
+        // Optional: only show if not already shown recently
+        if (!this.lastErrorShown || Date.now() - this.lastErrorShown > 10000) {
+          this.snackBar.open('Failed to check vault status', 'Close', { duration: 5000 });
+          this.lastErrorShown = Date.now();
+        }
+      }
+    } finally {
+      this.loading.set(false);
+    }
   }
-}
 
   createProfile() {
-    if (!this.wallet.address || this.isErased) return;
+    const address = this.wallet.address;
+    if (!address || this.isErased()) return;
 
-    this.loading = true;
-    this.api.createProfile({ owner: this.wallet.address }).subscribe({
+    this.loading.set(true);
+
+    this.api.createProfile({ owner: address }).subscribe({
       next: () => {
-        this.profileExists = true;
-        this.isErased = false;
-        this.loading = false;
+        this.profileState.setProfileStatus(true, false, null);
+        this.loading.set(false);
+        this.snackBar.open('Vault profile created successfully!', 'Close', { duration: 4000 });
       },
       error: () => {
-        alert('Failed to create vault profile');
-        this.loading = false;
+        this.snackBar.open('Failed to create vault profile', 'Close', { duration: 5000 });
+        this.loading.set(false);
       }
     });
   }
 
   async connect() {
     try {
-      this.loading = true;
+      this.loading.set(true);
       await this.wallet.connect();
     } catch (e: any) {
-      alert(e.message || 'Wallet connection failed');
+      this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
-      this.loading = false;
+      this.loading.set(false);
     }
   }
 
-  copyAddress() {
-    if (!this.wallet.address) return;
-    navigator.clipboard.writeText(this.wallet.address);
-    this.copied = true;
-    setTimeout(() => this.copied = false, 2000);
+  copyAddress(address: string) {
+    navigator.clipboard.writeText(address);
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), 2000);
   }
 }

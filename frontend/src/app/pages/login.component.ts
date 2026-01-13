@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ThemeService } from '../services/theme.service';
 
 @Component({
@@ -24,7 +25,8 @@ import { ThemeService } from '../services/theme.service';
     MatProgressSpinnerModule,
     MatIconModule,
     MatDividerModule,
-    MatButtonToggleModule
+    MatButtonToggleModule,
+    MatSnackBarModule
   ],
   template: `
   <div class="login-container" [class.dark]="darkMode()">
@@ -40,8 +42,8 @@ import { ThemeService } from '../services/theme.service';
 
       <mat-card-content>
 
-        <!-- STEP 1: Connect Wallet -->
-        <section class="step" *ngIf="!wallet.address">
+        <!-- STEP 1: Connect Wallet (shown when no wallet) -->
+        <section class="step" *ngIf="!(wallet.address$ | async)">
           <h3>Step 1 — Connect Wallet</h3>
           <p class="muted">Connect your Ethereum wallet to continue.</p>
 
@@ -57,78 +59,82 @@ import { ThemeService } from '../services/theme.service';
           </button>
         </section>
 
-        <!-- STEP 2: Select Role -->
-        <section
-          class="step"
-          *ngIf="wallet.address && !auth.isAuthenticated()">
+        <!-- Wallet connected: now show role selection or sign-in -->
+        <ng-container *ngIf="wallet.address$ | async as address">
 
-          <h3>Step 2 — Select Login Mode</h3>
-          <p class="muted">
-            Choose how you want to access the platform.
-          </p>
+          <!-- STEP 2: Select Role (shown when connected but not signed in) -->
+          <section class="step" *ngIf="!auth.isAuthenticated()">
+            <h3>Step 2 — Select Login Mode</h3>
+            <p class="muted">
+              Choose how you want to access the platform.
+            </p>
 
-          <mat-button-toggle-group
-            class="role-toggle"
-            [value]="selectedRole()"
-            (change)="selectRole($event.value)"
-            exclusive>
+            <mat-button-toggle-group
+              class="role-toggle"
+              [value]="selectedRole()"
+              (change)="selectRole($event.value)"
+              exclusive>
 
-            <mat-button-toggle value="USER">
-              <mat-icon>person</mat-icon>
-              User
-            </mat-button-toggle>
+              <mat-button-toggle value="USER">
+                <mat-icon>person</mat-icon>
+                User
+              </mat-button-toggle>
 
-            <mat-button-toggle value="ADMIN">
-              <mat-icon>admin_panel_settings</mat-icon>
-              Admin
-            </mat-button-toggle>
+              <mat-button-toggle value="ADMIN">
+                <mat-icon>admin_panel_settings</mat-icon>
+                Admin
+              </mat-button-toggle>
 
-            <mat-button-toggle value="VERIFIER">
-              <mat-icon>verified</mat-icon>
-              Verifier
-            </mat-button-toggle>
-          </mat-button-toggle-group>
+              <mat-button-toggle value="VERIFIER">
+                <mat-icon>verified</mat-icon>
+                Verifier
+              </mat-button-toggle>
+            </mat-button-toggle-group>
 
-          <div class="role-hint" *ngIf="selectedRole()">
-            {{ roleDescription[selectedRole()!] }}
+            <div class="role-hint" *ngIf="selectedRole()">
+              {{ roleDescription[selectedRole()!] }}
+            </div>
+          </section>
+
+          <!-- STEP 3: Sign Message (shown when role selected and not signed in) -->
+          <section class="step" *ngIf="selectedRole() && !auth.isAuthenticated()">
+            <h3>Step 3 — Sign to Authenticate</h3>
+
+            <div class="wallet-info">
+              <strong>Wallet:</strong>
+              <code>
+                {{ address | slice:0:6 }}…{{ address | slice:-4 }}
+              </code>
+            </div>
+
+            <button
+              mat-raised-button
+              color="primary"
+              class="primary-btn"
+              (click)="signIn()"
+              [disabled]="signing()">
+
+              <mat-icon *ngIf="!signing()">draw</mat-icon>
+              <mat-spinner diameter="20" *ngIf="signing()"></mat-spinner>
+              {{ signing() ? 'Signing…' : 'Sign & Enter' }}
+            </button>
+
+            <button
+              mat-stroked-button
+              class="secondary-btn"
+              (click)="wallet.disconnect()">
+              Use different wallet
+            </button>
+          </section>
+
+          <!-- Hint when connected but no role selected -->
+          <div class="hint" *ngIf="!selectedRole()">
+            <mat-icon>info</mat-icon>
+            Please select a login mode above
           </div>
-        </section>
+        </ng-container>
 
-        <!-- STEP 3: Sign Message -->
-        <section
-          class="step"
-          *ngIf="wallet.address && selectedRole() && !auth.isAuthenticated()">
-
-          <h3>Step 3 — Sign to Authenticate</h3>
-
-          <div class="wallet-info">
-            <strong>Wallet:</strong>
-            <code>
-              {{ wallet.address | slice:0:6 }}…{{ wallet.address | slice:-4 }}
-            </code>
-          </div>
-
-          <button
-            mat-raised-button
-            color="primary"
-            class="primary-btn"
-            (click)="signIn()"
-            [disabled]="signing()">
-
-            <mat-icon *ngIf="!signing()">draw</mat-icon>
-            <mat-spinner diameter="20" *ngIf="signing()"></mat-spinner>
-            {{ signing() ? 'Signing…' : 'Sign & Enter' }}
-          </button>
-
-          <button
-            mat-stroked-button
-            class="secondary-btn"
-            (click)="wallet.disconnect()">
-            Use different wallet
-          </button>
-        </section>
-
-        <!-- ERROR -->
+        <!-- ERROR (always visible when present) -->
         <div class="error-box" *ngIf="error()">
           <mat-icon>error_outline</mat-icon>
           {{ error() }}

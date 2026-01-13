@@ -1,21 +1,24 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { WalletService } from '../services/wallet.service';
-import { ContextService } from '../services/context.service';
-import { ApiService } from '../services/api.service';
+import { RouterModule } from '@angular/router';
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+
+import { WalletService } from '../services/wallet.service';
+import { ContextService } from '../services/context.service';
+import { ApiService } from '../services/api.service';
 import { ThemeService } from '../services/theme.service';
 
 @Component({
@@ -29,206 +32,207 @@ import { ThemeService } from '../services/theme.service';
     MatButtonModule,
     MatSelectModule,
     MatFormFieldModule,
+    MatInputModule,
     MatCheckboxModule,
     MatCardModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatDividerModule
+    MatDividerModule,
+    MatSnackBarModule
   ],
   template: `
-  <div class="consent-container" [class.dark]="darkMode()">
-    <div class="consent-header">
-      <h1>Consent Management</h1>
-      <p class="subtitle">
-        Control exactly which personal attributes you share and with whom. Your explicit consent is required for any disclosure.
-      </p>
-    </div>
+    <div class="consent-container" [class.dark]="darkMode()">
+      <div class="consent-header">
+        <h1>Consent Management</h1>
+        <p class="subtitle">
+          Control exactly which personal attributes you share and with whom. 
+          Your explicit consent is required for any disclosure.
+        </p>
+      </div>
 
-    <!-- Wallet Connection -->
-    <mat-card class="card elevated" appearance="outlined">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-        <mat-card-title>Wallet Connection</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <ng-container *ngIf="wallet.address; else connectPrompt">
-          <div class="connected-state">
-            <div class="address-row">
-              <code class="address">{{ wallet.address | slice:0:6 }}…{{ wallet.address | slice:-4 }}</code>
-              <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
-                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
-            </div>
-            <p class="status success">
-              <mat-icon inline>check_circle</mat-icon>
-              Wallet connected successfully
-            </p>
-          </div>
-        </ng-container>
-        <ng-template #connectPrompt>
-          <p class="muted">
-            Connect your wallet to manage consent for attribute disclosure.
-          </p>
-          <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting">
-            <mat-icon *ngIf="!connecting">wallet</mat-icon>
-            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-          </button>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Consent Flow -->
-    <ng-container *ngIf="wallet.address">
-      <!-- Context Selection -->
-      <mat-card class="card elevated" appearance="outlined">
+      <!-- Wallet Connection -->
+      <mat-card class="card elevated">
         <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
-          <mat-card-title>Select Context</mat-card-title>
+          <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+          <mat-card-title>Wallet Connection</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Disclosure Context</mat-label>
-            <mat-select [(ngModel)]="context" (selectionChange)="onContextChange()">
-              <mat-option value="">-- Choose a context --</mat-option>
-              <mat-option *ngFor="let c of contexts" [value]="c">
-                {{ c | titlecase }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Attribute Selection -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="context">
-        <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
-          <mat-card-title>Attributes to Share</mat-card-title>
-          <div class="badge" *ngIf="!loadingAttributes && attributes.length > 0">
-            {{ selectedAttributes.length }} selected
-          </div>
-        </mat-card-header>
-
-        <mat-card-content>
-          <div class="loading-state" *ngIf="loadingAttributes">
-            <mat-spinner diameter="40"></mat-spinner>
-            <p>Loading attributes...</p>
-          </div>
-
-          <!-- Attribute list with active-consent lock -->
-          <div class="attributes-list" *ngIf="!loadingAttributes && attributes.length > 0">
-            <div *ngFor="let attr of attributes" class="attribute-row">
-              <mat-checkbox
-                [checked]="selectedAttributes.includes(attr)"
-                [disabled]="hasActiveConsent(attr)"
-                (change)="toggleAttribute(attr)">
-                {{ attr | titlecase }}
-              </mat-checkbox>
-
-              <!-- Already consented label -->
-              <span class="small muted" *ngIf="hasActiveConsent(attr)">
-                (Already consented)
-              </span>
+          <ng-container *ngIf="walletAddress(); else connectPrompt">
+            <div class="connected-state">
+              <div class="address-row">
+                <code class="address">{{ walletAddress() | slice:0:6 }}…{{ walletAddress() | slice:-4 }}</code>
+                <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
+                  <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+                </button>
+              </div>
+              <p class="status success">
+                <mat-icon inline>check_circle</mat-icon>
+                Wallet connected successfully
+              </p>
             </div>
-          </div>
-
-          <div class="empty-state" *ngIf="!loadingAttributes && attributes.length === 0">
-            <mat-icon class="empty-icon">inbox</mat-icon>
-            <h3>No attributes available</h3>
+          </ng-container>
+          <ng-template #connectPrompt>
             <p class="muted">
-              No credentials have been issued for the <strong>{{ context | titlecase }}</strong> context yet.
-              Go to <a routerLink="/credentials">Credentials</a> to issue one.
+              Connect your wallet to manage consent for attribute disclosure.
             </p>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Purpose & Explicit Consent -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="selectedAttributes.length > 0">
-        <mat-card-header>
-          <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
-          <mat-card-title>Purpose & Explicit Consent</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Purpose of Disclosure</mat-label>
-            <input matInput [(ngModel)]="purpose" required />
-            <mat-hint>The specific purpose for which this data will be used</mat-hint>
-          </mat-form-field>
-
-          <mat-checkbox
-            [checked]="explicitConsent"
-            (change)="explicitConsent = $event.checked">
-            <strong>I explicitly consent</strong> to sharing the selected attributes from my
-            <strong>{{ context | titlecase }}</strong> context for the purpose:
-            <strong>"{{ purpose.trim() || 'not specified' }}"</strong>.
-          </mat-checkbox>
-
-          <div class="actions">
-            <button
-              mat-raised-button
-              color="primary"
-              (click)="grantConsent()"
-              [disabled]="!explicitConsent || !purpose.trim() || loading">
-              <mat-icon *ngIf="!loading">task_alt</mat-icon>
-              <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
-              <span>{{ loading ? 'Recording...' : 'Grant Consent' }}</span>
+            <button mat-raised-button color="primary" (click)="connectWallet()" [disabled]="connecting()">
+              <mat-icon *ngIf="!connecting()">wallet</mat-icon>
+              <span>{{ connecting() ? 'Connecting...' : 'Connect Wallet' }}</span>
             </button>
-          </div>
+          </ng-template>
         </mat-card-content>
       </mat-card>
 
-      <!-- Active Consents – now scrollable -->
-      <mat-card class="card elevated" appearance="outlined" *ngIf="context">
-        <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>gavel</mat-icon>
-          <mat-card-title>Active Consents for {{ context | titlecase }}</mat-card-title>
-        </mat-card-header>
+      <!-- Consent Flow -->
+      <ng-container *ngIf="walletAddress()">
 
-        <mat-card-content>
-          <div class="loading-state" *ngIf="loadingConsents">
-            <mat-spinner diameter="40"></mat-spinner>
-          </div>
+        <!-- CONTEXT SELECTION -->
+        <mat-card class="card elevated">
+          <mat-card-header>
+            <mat-icon class="header-icon" mat-card-avatar>folder_special</mat-icon>
+            <mat-card-title>Select Context</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Disclosure Context</mat-label>
+              <mat-select
+                [ngModel]="selectedContext()"
+                (ngModelChange)="onContextChange($event)"
+                [disabled]="loadingAttributes() || contexts().length === 0">
+                <mat-option value="">-- Choose a context --</mat-option>
+                <mat-option *ngFor="let c of contexts()" [value]="c">
+                  {{ c | titlecase }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </mat-card-content>
+        </mat-card>
 
-          <div class="empty-state" *ngIf="!loadingConsents && activeConsents.length === 0">
-            <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
-            <h3>No active consents</h3>
-          </div>
+        <!-- ATTRIBUTE SELECTION -->
+        <mat-card class="card elevated" *ngIf="selectedContext()">
+          <mat-card-header>
+            <mat-icon class="header-icon" mat-card-avatar>fact_check</mat-icon>
+            <mat-card-title>Attributes to Share</mat-card-title>
+            <div class="badge" *ngIf="!loadingAttributes() && attributes().length > 0">
+              {{ selectedAttributes().length }} selected
+            </div>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="loading-state" *ngIf="loadingAttributes()">
+              <mat-spinner diameter="40"></mat-spinner>
+              <p>Loading attributes...</p>
+            </div>
 
-          <!-- Scrollable container for consents -->
-          <div class="consents-scroll-container" *ngIf="!loadingConsents && activeConsents.length > 0">
-            <div class="consent-entry" *ngFor="let consent of activeConsents">
-              <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
-              <p><strong>Consent ID:</strong> <code>{{ consent.claimId }}</code></p>
+            <div class="attributes-list" *ngIf="!loadingAttributes() && attributes().length > 0">
+              <div *ngFor="let attr of attributes()" class="attribute-row">
+                <mat-checkbox
+                  [checked]="hasActiveConsent(attr) || selectedAttributes().includes(attr)"
+                  [disabled]="hasActiveConsent(attr)"
+                  (change)="toggleAttribute(attr)">
+                  {{ attr | titlecase }}
+                </mat-checkbox>
+                <span class="small muted" *ngIf="hasActiveConsent(attr)">
+                  (Already consented)
+                </span>
+              </div>
+            </div>
 
-              <p class="small muted">
-                Issued on: {{ consent.grantedAt | date:'medium' }}
+            <div class="empty-state" *ngIf="!loadingAttributes() && attributes().length === 0">
+              <mat-icon class="empty-icon">inbox</mat-icon>
+              <h3>No attributes available</h3>
+              <p class="muted">
+                No credentials issued yet for <strong>{{ selectedContext() | titlecase }}</strong>.
+                Go to <a routerLink="/credentials">Credentials</a> to issue one.
               </p>
+            </div>
+          </mat-card-content>
+        </mat-card>
 
-              <p class="small"
-                 *ngIf="getExpiryLabel(consent.expiresAt)"
-                 [class.warn]="getExpiryLabel(consent.expiresAt) === 'Expired'">
-                {{ getExpiryLabel(consent.expiresAt) }}
-              </p>
+        <!-- PURPOSE & EXPLICIT CONSENT -->
+        <mat-card class="card elevated" *ngIf="selectedAttributes().length > 0">
+          <mat-card-header>
+            <mat-icon class="header-icon" color="warn" mat-card-avatar>privacy_tip</mat-icon>
+            <mat-card-title>Purpose & Explicit Consent</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Purpose of Disclosure</mat-label>
+              <input matInput [(ngModel)]="purposeValue" required />
+            </mat-form-field>
 
+            <mat-checkbox
+              [checked]="explicitConsent()"
+              (change)="explicitConsent.set($event.checked)">
+              <strong>I explicitly consent</strong> to sharing the selected attributes from my
+              <strong>{{ selectedContext() | titlecase }}</strong> context for the purpose:
+              <strong>"{{ purposeValue.trim() || 'not specified' }}"</strong>.
+            </mat-checkbox>
+
+            <div class="actions">
               <button
                 mat-raised-button
-                color="warn"
-                (click)="revokeConsent(consent)"
-                [disabled]="loading">
-                <mat-icon>delete_forever</mat-icon>
-                Revoke Consent
+                color="primary"
+                (click)="grantConsent()"
+                [disabled]="!explicitConsent() || !purposeValue.trim() || loading()">
+                <mat-icon *ngIf="!loading()">task_alt</mat-icon>
+                <mat-spinner diameter="20" *ngIf="loading()"></mat-spinner>
+                <span>{{ loading() ? 'Recording...' : 'Grant Consent' }}</span>
               </button>
-
-              <mat-divider class="my-3"></mat-divider>
             </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </ng-container>
+          </mat-card-content>
+        </mat-card>
 
-    <pre class="debug" *ngIf="result">{{ result | json }}</pre>
-  </div>
-`,
+        <!-- ACTIVE CONSENTS -->
+        <mat-card class="card elevated" *ngIf="selectedContext()">
+          <mat-card-header>
+            <mat-icon class="header-icon" mat-card-avatar>gavel</mat-icon>
+            <mat-card-title>Active Consents for {{ selectedContext() | titlecase }}</mat-card-title>
+            <button 
+              mat-icon-button 
+              (click)="loadActiveConsents()"
+              matTooltip="Refresh consents"
+              [disabled]="loadingConsents()">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="loading-state" *ngIf="loadingConsents()">
+              <mat-spinner diameter="40"></mat-spinner>
+            </div>
+
+            <div class="empty-state" *ngIf="!loadingConsents() && activeConsents().length === 0">
+              <mat-icon class="empty-icon">assignment_turned_in</mat-icon>
+              <h3>No active consents in this context</h3>
+            </div>
+
+            <div class="consents-scroll-container" *ngIf="!loadingConsents() && activeConsents().length > 0">
+              <div class="consent-entry" *ngFor="let consent of activeConsents()">
+                <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
+                <p><strong>Attribute:</strong> <code>{{ consent.claimId }}</code></p>
+                <p class="small muted">
+                  Granted: {{ consent.grantedAt | date:'medium' }}
+                </p>
+                <p class="small" [class.warn]="isExpired(consent.expiresAt)">
+                  {{ getExpiryLabel(consent.expiresAt) }}
+                </p>
+                <button
+                  mat-raised-button
+                  color="warn"
+                  (click)="confirmAndRevoke(consent)"
+                  [disabled]="loading()">
+                  <mat-icon>delete_forever</mat-icon>
+                  Revoke
+                </button>
+                <mat-divider class="my-3"></mat-divider>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </ng-container>
+
+      <pre class="debug" *ngIf="result()">{{ result() | json }}</pre>
+    </div>
+  `,
 
 styles: [`
   :host {
@@ -658,271 +662,265 @@ styles: [`
 `]
 })
 export class ConsentComponent implements OnInit {
-  walletAddress: string | null = null;
-  connecting = false;
-  loading = false;
-  loadingAttributes = false;
-  loadingConsents = false;
-  copied = false;
+  walletAddress = signal<string | null>(null);
+  connecting = signal(false);
+  loading = signal(false);
+  loadingAttributes = signal(false);
+  loadingConsents = signal(false);
+  copied = signal(false);
 
-  contexts: string[] = [];
-  attributes: string[] = [];
+  contexts = signal<string[]>([]);
+  attributes = signal<string[]>([]);
+  selectedContext = signal<string>('');
 
-  context = '';
-  selectedAttributes: string[] = [];
-  purpose = '';
-  explicitConsent = false;
+  purposeValue = '';
 
-  activeConsents: {
-    claimId: string;
-    purpose: string;
-    grantedAt: string;
-    expiresAt?: string | null;
-  }[] = [];
-
-  result: any = null;
+  selectedAttributes = signal<string[]>([]);
+  explicitConsent = signal<boolean>(false);
+  activeConsents = signal<any[]>([]);
+  result = signal<any>(null);
 
   private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;   // readonly signal
+  darkMode = this.themeService.darkMode;
 
-  constructor(
-    public wallet: WalletService,
-    private contextService: ContextService,
-    private api: ApiService
-  ) {}
+  private wallet = inject(WalletService);
+  private contextService = inject(ContextService);
+  private api = inject(ApiService);
+  private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
 
   ngOnInit() {
     this.wallet.address$.subscribe(addr => {
-      this.walletAddress = addr;
+      this.walletAddress.set(addr);
       if (!addr) this.resetForm();
     });
 
     this.contextService.contexts$.subscribe(ctxs => {
-      this.contexts = ctxs.sort();
+      this.contexts.set(ctxs.sort());
     });
   }
 
   private resetForm() {
-    this.context = '';
-    this.selectedAttributes = [];
-    this.purpose = '';
-    this.explicitConsent = false;
-    this.activeConsents = [];
-    this.result = null;
-    this.attributes = [];
+    this.selectedContext.set('');
+    this.selectedAttributes.set([]);
+    this.purposeValue = '';
+    this.explicitConsent.set(false);
+    this.activeConsents.set([]);
+    this.attributes.set([]);
+    this.result.set(null);
   }
 
   async connectWallet() {
-    this.connecting = true;
+    this.connecting.set(true);
     try {
       await this.wallet.connect();
+    } catch (err) {
+      this.snackBar.open('Failed to connect wallet', 'Close', { duration: 5000 });
     } finally {
-      this.connecting = false;
+      this.connecting.set(false);
     }
   }
 
   copyAddress() {
-    if (!this.wallet.address) return;
-    navigator.clipboard.writeText(this.wallet.address);
-    this.copied = true;
-    setTimeout(() => (this.copied = false), 2000);
+    const addr = this.walletAddress();
+    if (!addr) return;
+    navigator.clipboard.writeText(addr);
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), 2000);
+    this.snackBar.open('Address copied!', 'Close', { duration: 2000 });
   }
 
-  onContextChange() {
-    this.selectedAttributes = [];
-    this.purpose = '';
-    this.explicitConsent = false;
-    this.result = null;
+  onContextChange(newValue: string) {
+    this.selectedContext.set(newValue);
+    this.selectedAttributes.set([]);
+    this.purposeValue = '';
+    this.explicitConsent.set(false);
+    this.cdr.detectChanges();
+    this.activeConsents.set([]);
+    this.result.set(null);
 
-    if (!this.context || !this.wallet.address) {
-      this.attributes = [];
-      this.activeConsents = [];
+    if (!newValue || !this.walletAddress()) {
+      this.attributes.set([]);
       return;
     }
 
-    // Reset loading states
-    this.loadingAttributes = true;
-    this.loadingConsents = true;
-    // Trigger both loads in parallel — no filtering needed
     this.loadAttributesForContext();
     this.loadActiveConsents();
   }
 
   private loadAttributesForContext() {
-    this.attributes = [];
+    this.loadingAttributes.set(true);
+    this.attributes.set([]);
 
-    this.api.getProfileByContext(this.wallet.address!, this.context).subscribe({
+    this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
       next: (res: any) => {
-        this.attributes = Object.keys(res.attributes || {});
-        this.loadingAttributes = false;
-        
+        this.attributes.set(Object.keys(res.attributes || {}));
+        this.loadingAttributes.set(false);
       },
       error: () => {
-        this.attributes = [];
-        this.loadingAttributes = false;
+        this.attributes.set([]);
+        this.loadingAttributes.set(false);
+        this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
       }
     });
   }
 
-  private loadActiveConsents() {
+  // 🔥 FIXED: RETURNS A PROMISE SO WE CAN AWAIT UI CONSISTENCY
+  loadActiveConsents(): Promise<void> {
+    this.loadingConsents.set(true);
+    this.activeConsents.set([]);
 
-    this.api.getActiveConsents(this.wallet.address!, this.context).subscribe({
-      next: (consents: any[]) => {
-        this.activeConsents = consents.map(c => ({
-          claimId: c.claimId,
-          purpose: c.purpose,
-          grantedAt: c.grantedAt,
-          expiresAt: c.expiresAt ?? null
-        }));
-         
-        this.loadingConsents = false;
-        // NEW: Filter only AFTER both API calls have finished
-       // this.filterConsentsByAttributes();
-      },
-      error: (err) => {
-        console.error('Failed to load active consents', err);
-        this.activeConsents = [];
-        this.loadingConsents = false;
-      
-      }
+    let ctx = this.selectedContext();
+
+    return new Promise(resolve => {
+      this.api.getActiveConsents(this.walletAddress()!, ctx).subscribe({
+        next: (consents: any[]) => {
+          this.activeConsents.set(
+            consents.map(c => ({
+              claimId: c.claimId,
+              purpose: c.purpose,
+              context: c.context,
+              grantedAt: c.grantedAt,
+              expiresAt: c.expiresAt ?? null
+            }))
+          );
+          this.loadingConsents.set(false);
+          this.cdr.detectChanges();
+          resolve();
+        },
+        error: () => {
+          this.activeConsents.set([]);
+          this.loadingConsents.set(false);
+          this.snackBar.open('Failed to load active consents', 'Close', { duration: 5000 });
+          resolve();
+        }
+      });
     });
   }
 
-
-
-  /** ✅ NEW: check if attribute already has an active consent */
   hasActiveConsent(claimId: string): boolean {
-    return this.activeConsents.some(c =>
+    const ctx = this.selectedContext();
+    return this.activeConsents().some(c =>
       c.claimId === claimId &&
-      this.getExpiryLabel(c.expiresAt) !== 'Expired'
+      c.context === ctx &&
+      !this.isExpired(c.expiresAt)
     );
   }
 
   toggleAttribute(attr: string) {
-    // ⛔ Prevent selecting already-consented attribute
-    if (this.hasActiveConsent(attr)) {
-      return;
-    }
+    if (this.hasActiveConsent(attr)) return;
 
-    if (this.selectedAttributes.includes(attr)) {
-      this.selectedAttributes = this.selectedAttributes.filter(a => a !== attr);
+    const current = this.selectedAttributes();
+    if (current.includes(attr)) {
+      this.selectedAttributes.set(current.filter(a => a !== attr));
     } else {
-      this.selectedAttributes.push(attr);
+      this.selectedAttributes.set([...current, attr]);
     }
-    this.explicitConsent = false;
   }
 
   async grantConsent() {
-    if (this.loading) return;
-    this.loading = true;
+    if (this.loading()) return;
+    this.loading.set(true);
 
     try {
-      if (!this.wallet.address) {
-        alert('Wallet not connected');
+      const addr = this.walletAddress();
+      if (!addr) throw new Error('Wallet not connected');
+
+      if (this.selectedAttributes().length === 0) {
+        this.snackBar.open('Select at least one attribute', 'Close', { duration: 4000 });
         return;
       }
 
-      if (this.selectedAttributes.length === 0) {
-        alert('Select at least one attribute to share');
+      if (!this.purposeValue.trim()) {
+        this.snackBar.open('Please enter a purpose', 'Close', { duration: 4000 });
         return;
       }
 
-      if (!this.purpose.trim()) {
-        alert('Please enter a purpose for disclosure');
+      if (!this.explicitConsent()) {
+        this.snackBar.open('You must explicitly consent', 'Close', { duration: 4000 });
         return;
       }
 
-      if (!this.explicitConsent) {
-        alert('You must explicitly consent to proceed');
-        return;
-      }
-
-      for (const attr of this.selectedAttributes) {
-        // ⛔ Final safety guard
-        if (this.hasActiveConsent(attr)) {
-          alert(`Consent already exists for "${attr}"`);
-          continue;
-        }
-
-        const claimId = attr;
+      for (const attr of this.selectedAttributes()) {
+        if (this.hasActiveConsent(attr)) continue;
 
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30); // ⏳ 30 days
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
         await this.api.grantConsent({
-          owner: this.wallet.address,
-          claimId,
-          purpose: this.purpose.trim(),
-          context: this.context,
+          owner: addr,
+          claimId: attr,
+          purpose: this.purposeValue.trim(),
+          context: this.selectedContext(),
           expiresAt: expiresAt.toISOString()
         }).toPromise();
       }
 
-      alert('Consent granted successfully!');
+      // 🔥 FIX: WAIT UNTIL SERVER DATA IS LOADED BEFORE UI RESETS
+      await this.loadActiveConsents();
 
-      this.selectedAttributes = [];
-      this.purpose = '';
-      this.explicitConsent = false;
+      this.selectedAttributes.set([]);
+      this.purposeValue = '';
+      this.explicitConsent.set(false);
 
-      this.loadActiveConsents();
+      this.cdr.detectChanges();              // Force immediate update
+      setTimeout(() => this.cdr.detectChanges(), 0);
 
-    } catch (err) {
-      console.error('❌ grantConsent failed:', err);
-      alert(
-        'Failed to record consent: ' +
-        ((err as any)?.message || 'Unknown error')
+      this.loadAttributesForContext();
+
+      this.snackBar.open('Consent granted successfully!', 'Close', { duration: 5000 });
+
+    } catch (err: any) {
+      console.error('Grant consent failed:', err);
+      this.snackBar.open(
+        err.error?.error || 'Failed to record consent',
+        'Close',
+        { duration: 6000 }
       );
     } finally {
-      this.loading = false;
+      this.loading.set(false);
+      this.cdr.detectChanges();
     }
   }
 
-  revokeConsent(consent: { claimId: string }) {
-    if (!this.wallet.address) return;
+  confirmAndRevoke(consent: any) {
+    const message = `Are you sure you want to revoke consent for attribute "${consent.claimId}"?\n\nThis action cannot be undone.`;
 
-    this.loading = true;
+    if (!confirm(message)) {
+      return;
+    }
+
+    this.loading.set(true);
 
     this.api.revokeConsent({
-      owner: this.wallet.address,
-      claimId: consent.claimId
+      owner: this.walletAddress()!,
+      claimId: consent.claimId,
+      context: this.selectedContext()
     }).subscribe({
-      next: res => {
-        this.result = res;
-        this.activeConsents = this.activeConsents.filter(
-          c => c.claimId !== consent.claimId
-        );
+      next: () => {
+        this.snackBar.open(`Consent for ${consent.claimId} revoked successfully`, 'Close', { duration: 5000 });
+        this.activeConsents.update(list => list.filter(c => c.claimId !== consent.claimId));
       },
-      error: err => {
-        console.error('❌ Failed to revoke consent', err);
-        alert('Failed to revoke consent: ' + (err.error?.error || err.message));
+      error: (err) => {
+        console.error('Revoke failed:', err);
+        this.snackBar.open('Failed to revoke consent', 'Close', { duration: 5000 });
       },
-      complete: () => (this.loading = false)
+      complete: () => this.loading.set(false)
     });
   }
 
-  /** ✅ Expiry label helper */
-  getExpiryLabel(expiresAt?: string | null): string | null {
-    if (!expiresAt) return null;
+  isExpired(expiresAt: string | null): boolean {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) <= new Date();
+  }
 
-    const now = new Date();
-    const expiry = new Date(expiresAt);
+  getExpiryLabel(expiresAt: string | null): string {
+    if (!expiresAt) return 'No expiration';
+    if (this.isExpired(expiresAt)) return 'Expired';
 
-    if (expiry <= now) return 'Expired';
-
-    const diffMs = expiry.getTime() - now.getTime();
+    const diffMs = new Date(expiresAt).getTime() - Date.now();
     const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
     return `Expires in ${days} day${days !== 1 ? 's' : ''}`;
   }
-
-  private async hashPayload(payload: any): Promise<string> {
-    const data = new TextEncoder().encode(JSON.stringify(payload));
-    const hash = await crypto.subtle.digest('SHA-256', data);
-    return [...new Uint8Array(hash)]
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
 }
-
-export default ConsentComponent;
 

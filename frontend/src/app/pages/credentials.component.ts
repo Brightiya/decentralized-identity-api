@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ContextService } from '../services/context.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { ThemeService } from '../services/theme.service';
+import { take } from 'rxjs';
 
 @Component({
   selector: 'app-credentials',
@@ -31,179 +33,180 @@ import { ThemeService } from '../services/theme.service';
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatTabsModule,
-    MatCardModule
+    MatCardModule,
+    MatSnackBarModule
   ],
   template: `
-  <div class="credentials-container" [class.dark]="darkMode()">
-    <div class="credentials-header">
-      <h1>Credentials</h1>
-      <p class="subtitle">
-        Issue and verify context-aware verifiable credentials. Each credential is bound to a specific disclosure context.
-      </p>
-    </div>
+    <div class="credentials-container" [class.dark]="darkMode()">
+      <div class="credentials-header">
+        <h1>Credentials</h1>
+        <p class="subtitle">
+          Issue and verify context-aware verifiable credentials. Each credential is bound to a specific disclosure context.
+        </p>
+      </div>
 
-    <!-- Wallet Connection -->
-    <mat-card class="card elevated" appearance="outlined">
-      <mat-card-header>
-        <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-        <mat-card-title>Wallet Connection</mat-card-title>
-      </mat-card-header>
+      <!-- Wallet Connection -->
+      <mat-card class="card elevated" appearance="outlined">
+        <mat-card-header>
+          <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
+          <mat-card-title>Wallet Connection</mat-card-title>
+        </mat-card-header>
 
-      <mat-card-content>
-        <ng-container *ngIf="address; else connectPrompt">
-          <div class="connected-state">
-            <div class="address-row">
-              <code class="address">{{ address | slice:0:6 }}…{{ address | slice:-4 }}</code>
-              <button mat-icon-button (click)="copyAddress()" matTooltip="Copy address">
-                <mat-icon>{{ copied ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
-            </div>
-            <p class="status success">
-              <mat-icon inline>check_circle</mat-icon>
-              Connected successfully
-            </p>
-            <p class="did-display">
-              <strong>Subject DID:</strong> 
-              <code>did:ethr:{{ address }}</code>
-            </p>
-          </div>
-        </ng-container>
-
-        <ng-template #connectPrompt>
-          <p class="muted">
-            Connect your wallet to issue or verify credentials.
-          </p>
-          <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
-            <mat-icon *ngIf="!connecting">wallet</mat-icon>
-            <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
-          </button>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Main Tabs: Issue VC -->
-    <mat-tab-group class="tabs" *ngIf="address" animationDuration="300ms">
-      <!-- Issue Tab -->
-      <mat-tab label="Issue Credential">
-        <div class="tab-content">
-          <mat-card class="card elevated" appearance="outlined">
-            <mat-card-header>
-              <mat-icon class="header-icon" mat-card-avatar>post_add</mat-icon>
-              <mat-card-title>Issue New Credential</mat-card-title>
-            </mat-card-header>
-
-            <mat-card-content>
-              <!-- Context Selection + Add Custom -->
-              <div class="context-section">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Context</mat-label>
-                  <mat-select [(ngModel)]="context" [disabled]="issuing">
-                    <mat-option value="">-- Select context --</mat-option>
-                    <mat-option *ngFor="let c of contexts" [value]="c">
-                      {{ c | titlecase }}
-                    </mat-option>
-                  </mat-select>
-                  <mat-icon matSuffix>arrow_drop_down</mat-icon>
-                  <mat-hint>Select the disclosure context for this credential</mat-hint>
-                </mat-form-field>
-
-                <div class="add-context-row">
-                  <mat-form-field appearance="outline" class="new-context-field">
-                    <mat-label>Add Custom Context</mat-label>
-                    <input
-                      matInput
-                      placeholder="e.g. health, education"
-                      [(ngModel)]="newContext"
-                      (keyup.enter)="addContext()"
-                    />
-                    <mat-hint>Lowercase, hyphens allowed</mat-hint>
-                  </mat-form-field>
-
-                  <button
-                    mat-stroked-button
-                    (click)="addContext()"
-                    [disabled]="!newContext.trim() || issuing">
-                    <mat-icon>add</mat-icon>
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              <!-- Purpose (GDPR-required) -->
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Purpose</mat-label>
-                <input
-                  matInput
-                  [(ngModel)]="purpose"
-                  placeholder="e.g. account verification, onboarding"
-                />
-                <mat-hint>Required for consent-based disclosure</mat-hint>
-              </mat-form-field>
-
-              <!-- Claim Details -->
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Claim ID</mat-label>
-                <input matInput [(ngModel)]="claimId" placeholder="e.g. identity.email" />
-              </mat-form-field>
-
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Claim JSON</mat-label>
-                <textarea
-                  matInput
-                  rows="6"
-                  [(ngModel)]="claim"
-                  placeholder='{"email":"alice@example.com"}'
-                ></textarea>
-                <mat-hint>Valid JSON object containing the claim data</mat-hint>
-              </mat-form-field>
-
-              <!-- Issue Button -->
-              <div class="issue-actions">
-                <button
-                  mat-raised-button
-                  color="primary"
-                  class="issue-btn"
-                  (click)="issueVC()"
-                  [disabled]="!isIssueValid() || issuing">
-                  <mat-icon *ngIf="!issuing">verified</mat-icon>
-                  <mat-spinner diameter="20" *ngIf="issuing"></mat-spinner>
-                  <span>{{ issuing ? 'Issuing Credential...' : 'Issue Credential' }}</span>
+        <mat-card-content>
+          <ng-container *ngIf="wallet.address$ | async as addr; else connectPrompt">
+            <div class="connected-state">
+              <div class="address-row">
+                <code class="address">{{ addr | slice:0:6 }}…{{ addr | slice:-4 }}</code>
+                <button mat-icon-button (click)="copyAddress(addr)" matTooltip="Copy address">
+                  <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
                 </button>
               </div>
+              <p class="status success">
+                <mat-icon inline>check_circle</mat-icon>
+                Connected successfully
+              </p>
+              <p class="did-display">
+                <strong>Subject DID:</strong> 
+                <code>did:ethr:{{ addr }}</code>
+              </p>
+            </div>
+          </ng-container>
 
-              <div class="validation-hint" *ngIf="!isIssueValid() && context">
-                <mat-icon inline color="warn">warning</mat-icon>
-                Please fill in Claim ID and valid JSON
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
-      </mat-tab>
-    </mat-tab-group>
+          <ng-template #connectPrompt>
+            <p class="muted">
+              Connect your wallet to issue or verify credentials.
+            </p>
+            <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting()">
+              <mat-icon *ngIf="!connecting()">wallet</mat-icon>
+              <span>{{ connecting() ? 'Connecting...' : 'Connect Wallet' }}</span>
+            </button>
+          </ng-template>
+        </mat-card-content>
+      </mat-card>
 
-    <!-- Result Display -->
-    <mat-card class="card elevated result-card" *ngIf="result" appearance="outlined">
-      <mat-card-header>
-        <mat-icon class="header-icon" [color]="isSuccessResult() ? 'primary' : 'warn'" mat-card-avatar>
-          {{ isSuccessResult() ? 'task_alt' : 'error' }}
-        </mat-icon>
-        <mat-card-title>Result</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <pre>{{ result | json }}</pre>
-      </mat-card-content>
-    </mat-card>
+      <!-- Main Tabs: Issue VC -->
+      <mat-tab-group class="tabs" *ngIf="wallet.address$ | async" animationDuration="300ms">
+        <!-- Issue Tab -->
+        <mat-tab label="Issue Credential">
+          <div class="tab-content">
+            <mat-card class="card elevated" appearance="outlined">
+              <mat-card-header>
+                <mat-icon class="header-icon" mat-card-avatar>post_add</mat-icon>
+                <mat-card-title>Issue New Credential</mat-card-title>
+              </mat-card-header>
 
-    <!-- Empty State (no wallet) -->
-    <mat-card class="card elevated empty-state" *ngIf="!address">
-      <mat-icon class="empty-icon">wallet</mat-icon>
-      <h3>Wallet Required</h3>
-      <p class="muted">
-        Connect your wallet above to issue or verify credentials.
-      </p>
-    </mat-card>
-  </div>
-`,
+              <mat-card-content>
+                <!-- Context Selection + Add Custom -->
+                <div class="context-section">
+                  <mat-form-field appearance="outline" class="full-width">
+                    <mat-label>Context</mat-label>
+                    <mat-select [(ngModel)]="context" [disabled]="issuing()">
+                      <mat-option value="">-- Select context --</mat-option>
+                      <mat-option *ngFor="let c of contexts" [value]="c">
+                        {{ c | titlecase }}
+                      </mat-option>
+                    </mat-select>
+                    <mat-icon matSuffix>arrow_drop_down</mat-icon>
+                    <mat-hint>Select the disclosure context for this credential</mat-hint>
+                  </mat-form-field>
+
+                  <div class="add-context-row">
+                    <mat-form-field appearance="outline" class="new-context-field">
+                      <mat-label>Add Custom Context</mat-label>
+                      <input
+                        matInput
+                        placeholder="e.g. health, education"
+                        [(ngModel)]="newContext"
+                        (keyup.enter)="addContext()"
+                      />
+                      <mat-hint>Lowercase, hyphens allowed</mat-hint>
+                    </mat-form-field>
+
+                    <button
+                      mat-stroked-button
+                      (click)="addContext()"
+                      [disabled]="!newContext.trim() || issuing()">
+                      <mat-icon>add</mat-icon>
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Purpose (GDPR-required) -->
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Purpose</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="purpose"
+                    placeholder="e.g. account verification, onboarding"
+                  />
+                  <mat-hint>Required for consent-based disclosure</mat-hint>
+                </mat-form-field>
+
+                <!-- Claim Details -->
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Claim ID</mat-label>
+                  <input matInput [(ngModel)]="claimId" placeholder="e.g. identity.email" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Claim JSON</mat-label>
+                  <textarea
+                    matInput
+                    rows="6"
+                    [(ngModel)]="claim"
+                    placeholder='{"email":"alice@example.com"}'
+                  ></textarea>
+                  <mat-hint>Valid JSON object containing the claim data</mat-hint>
+                </mat-form-field>
+
+                <!-- Issue Button -->
+                <div class="issue-actions">
+                  <button
+                    mat-raised-button
+                    color="primary"
+                    class="issue-btn"
+                    (click)="issueVC()"
+                    [disabled]="!isIssueValid() || issuing()">
+                    <mat-icon *ngIf="!issuing()">verified</mat-icon>
+                    <mat-spinner diameter="20" *ngIf="issuing()"></mat-spinner>
+                    <span>{{ issuing() ? 'Issuing Credential...' : 'Issue Credential' }}</span>
+                  </button>
+                </div>
+
+                <div class="validation-hint" *ngIf="!isIssueValid() && context">
+                  <mat-icon inline color="warn">warning</mat-icon>
+                  Please fill in Claim ID and valid JSON
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+
+      <!-- Result Display -->
+      <mat-card class="card elevated result-card" *ngIf="result" appearance="outlined">
+        <mat-card-header>
+          <mat-icon class="header-icon" [color]="isSuccessResult() ? 'primary' : 'warn'" mat-card-avatar>
+            {{ isSuccessResult() ? 'task_alt' : 'error' }}
+          </mat-icon>
+          <mat-card-title>Result</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <pre>{{ result | json }}</pre>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Empty State (no wallet) -->
+      <mat-card class="card elevated empty-state" *ngIf="!(wallet.address$ | async)">
+        <mat-icon class="empty-icon">wallet</mat-icon>
+        <h3>Wallet Required</h3>
+        <p class="muted">
+          Connect your wallet above to issue or verify credentials.
+        </p>
+      </mat-card>
+    </div>
+  `,
 
 styles: [`
   :host {
@@ -632,11 +635,17 @@ styles: [`
 })
 
 export class CredentialsComponent implements OnInit {
+  public wallet = inject(WalletService);
+  private api = inject(ApiService);
+  private contextService = inject(ContextService);
+  private snackBar = inject(MatSnackBar);
+  private themeService = inject(ThemeService);
+
+  darkMode = this.themeService.darkMode;
+
   // Wallet
-  address: string | null = null;
-  subject = '';
-  connecting = false;
-  copied = false;
+  copied = signal(false);
+  connecting = signal(false);
 
   // Context
   contexts: string[] = [];
@@ -644,37 +653,20 @@ export class CredentialsComponent implements OnInit {
   newContext = '';
   expiresAt?: string;
 
-  // Claim issuance (single-claim VC by design)
+  // Claim issuance
   claimId = 'identity.email';
   claim = '{\n  "email": "alice@example.com"\n}';
 
-  // 🔐 Purpose is now mandatory for consent-aware issuance
+  // Mandatory for backend
   purpose = '';
 
   // UI state
-  issuing = false;
+  issuing = signal(false);
   result: any | null = null;
 
-  private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;   // readonly signal
-
-  constructor(
-    private wallet: WalletService,
-    private api: ApiService,
-    private contextService: ContextService
-  ) {}
-
-  // --------------------
-  // Lifecycle
-  // --------------------
   ngOnInit() {
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts = ctxs.sort();
-    });
-
-    this.wallet.address$.subscribe(addr => {
-      this.address = addr;
-      this.subject = addr ? `did:ethr:${addr}` : '';
     });
   }
 
@@ -682,21 +674,21 @@ export class CredentialsComponent implements OnInit {
   // Wallet
   // --------------------
   async connect() {
-    this.connecting = true;
+    this.connecting.set(true);
+
     try {
       await this.wallet.connect();
     } catch (e: any) {
-      alert(e.message || 'Wallet connection failed');
+      this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
-      this.connecting = false;
+      this.connecting.set(false);
     }
   }
 
-  copyAddress() {
-    if (!this.address) return;
-    navigator.clipboard.writeText(this.address);
-    this.copied = true;
-    setTimeout(() => (this.copied = false), 2000);
+  copyAddress(addr: string) {
+    navigator.clipboard.writeText(addr);
+    this.copied.set(true);
+    setTimeout(() => this.copied.set(false), 2000);
   }
 
   // --------------------
@@ -707,31 +699,32 @@ export class CredentialsComponent implements OnInit {
     if (!ctx) return;
 
     if (!/^[a-z0-9-]+$/.test(ctx)) {
-      alert('Context must contain only lowercase letters, numbers, and hyphens.');
+      this.snackBar.open('Context must contain only lowercase letters, numbers, and hyphens.', 'Close', { duration: 5000 });
       return;
     }
 
     if (this.contexts.includes(ctx)) {
-      alert('Context already exists');
+      this.snackBar.open('Context already exists', 'Close', { duration: 3000 });
       return;
     }
 
     this.contextService.addContext(ctx);
     this.context = ctx;
     this.newContext = '';
+    this.snackBar.open(`Custom context "${ctx}" added (will be stored as 'profile')`, 'Close', { duration: 5000 });
   }
 
   // --------------------
-  // Validation
+  // Validation (enhanced for backend requirements)
   // --------------------
-    isIssueValid(): boolean {
-    // Context must be selected (not empty string)
+  isIssueValid(): boolean {
+    // Context must be selected
     if (!this.context || this.context.trim().length === 0) return false;
 
     // Claim ID must exist
     if (!this.claimId || this.claimId.trim().length === 0) return false;
 
-    // Purpose must exist (non-empty)
+    // Purpose is mandatory (backend enforces it)
     if (!this.purpose || this.purpose.trim().length === 0) return false;
 
     // Claim must be valid JSON object
@@ -743,49 +736,58 @@ export class CredentialsComponent implements OnInit {
     }
   }
 
-
   // --------------------
-  // Issue VC (single claim, consent enforced server-side)
+  // Issue VC
   // --------------------
   issueVC() {
-  if (!this.isIssueValid()) return;
+    if (!this.isIssueValid()) {
+      this.snackBar.open('Please complete all required fields (context, purpose, claim ID, valid JSON)', 'Close', { duration: 5000 });
+      return;
+    }
 
-  this.issuing = true;
-  this.result = null;
+    this.issuing.set(true);
+    this.result = null;
 
-  let claimObj: any;
-  try {
-    claimObj = JSON.parse(this.claim);
-  } catch {
-    alert('Invalid JSON in claim');
-    this.issuing = false;
-    return;
+    let claimObj: any;
+    try {
+      claimObj = JSON.parse(this.claim);
+    } catch {
+      this.snackBar.open('Invalid JSON in claim field', 'Close', { duration: 5000 });
+      this.issuing.set(false);
+      return;
+    }
+
+    this.wallet.address$.pipe(take(1)).subscribe(addr => {
+      if (!addr) {
+        this.snackBar.open('Wallet not connected', 'Close', { duration: 3000 });
+        this.issuing.set(false);
+        return;
+      }
+
+      this.api.issueVC({
+        issuer: `did:ethr:${addr}`,
+        subject: `did:ethr:${addr}`,
+        claimId: this.claimId,
+        claim: claimObj,
+        context: this.context,
+        consent: {
+          purpose: this.purpose.trim(),
+          expiresAt: this.expiresAt || undefined
+        }
+      }).subscribe({
+        next: (r) => {
+          this.result = r;
+          this.issuing.set(false);
+          this.snackBar.open(r.message || 'Credential issued & anchored successfully!', 'Close', { duration: 5000 });
+        },
+        error: (e) => {
+          this.result = e.error || e;
+          this.issuing.set(false);
+          this.snackBar.open(e.error?.error || 'Failed to issue credential', 'Close', { duration: 5000 });
+        }
+      });
+    });
   }
-
-  this.api.issueVC({
-    issuer: `did:ethr:${this.address}`,
-    subject: this.subject,
-    claimId: this.claimId,
-    claim: claimObj,
-    context: this.context,
-
-    // ✅ purpose goes inside consent
-    consent: {
-      purpose: this.purpose.trim(),
-      expiresAt: this.expiresAt || undefined
-    }
-  }).subscribe({
-    next: (r) => {
-      this.result = r;
-      this.issuing = false;
-    },
-    error: (e) => {
-      this.result = e.error || e;
-      this.issuing = false;
-    }
-  });
-}
-
 
   // --------------------
   // Helpers
@@ -798,5 +800,3 @@ export class CredentialsComponent implements OnInit {
     );
   }
 }
-
-export default CredentialsComponent;

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../services/api.service';
@@ -14,6 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ThemeService } from '../services/theme.service';
 
 @Component({
@@ -29,129 +30,132 @@ import { ThemeService } from '../services/theme.service';
     MatFormFieldModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   template: `
-  <div class="contexts-container" [class.dark]="darkMode()">
-    <div class="contexts-header">
-      <h1>Contexts</h1>
-      <p class="subtitle">
-        Manage selective disclosure contexts. Each context controls which attributes are visible when sharing your identity.
-      </p>
-    </div>
-
-    <!-- Context Selector -->
-    <section class="card elevated">
-      <div class="card-header">
-        <mat-icon class="header-icon">folder_special</mat-icon>
-        <h3>Select Context</h3>
+    <div class="contexts-container" [class.dark]="darkMode()">
+      <div class="contexts-header">
+        <h1>Contexts</h1>
+        <p class="subtitle">
+          Manage selective disclosure contexts. Custom contexts are stored under "profile" on the backend.
+        </p>
       </div>
 
-      <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Active Context</mat-label>
-        <mat-select
-          [(ngModel)]="currentContext"
-          (selectionChange)="loadContext()"
-          [disabled]="loading || contexts.length === 0">
-          <mat-option value="">-- Select a context --</mat-option>
-          <mat-option *ngFor="let ctx of contexts" [value]="ctx">
-            {{ ctx | titlecase }}
-          </mat-option>
-        </mat-select>
-        <mat-icon matSuffix>arrow_drop_down</mat-icon>
-      </mat-form-field>
+      <!-- Context Selector -->
+      <section class="card elevated">
+        <div class="card-header">
+          <mat-icon class="header-icon">folder_special</mat-icon>
+          <h3>Select Context</h3>
+          <button 
+            mat-icon-button 
+            (click)="loadContext()" 
+            [disabled]="loading() || !currentContext()"
+            matTooltip="Refresh current context">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
 
-      <div class="hint" *ngIf="!currentContext && contexts.length > 0">
-        <mat-icon inline>info</mat-icon>
-        Choose a context to view its associated attributes
-      </div>
-    </section>
-
-    <!-- Add Custom Context -->
-    <section class="card elevated">
-      <div class="card-header">
-        <mat-icon class="header-icon">add_circle_outline</mat-icon>
-        <h3>Create New Context</h3>
-      </div>
-
-      <div class="add-context-row">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>New context name</mat-label>
-          <input
-            matInput
-            [(ngModel)]="newContext"
-            placeholder="e.g. health, finance, gaming"
-            (keyup.enter)="addContext()"
-          />
-          <mat-hint>Lowercase, no spaces (use hyphens if needed)</mat-hint>
+          <mat-label>Active Context</mat-label>
+          <mat-select
+            [(ngModel)]="selectedContext"
+            (ngModelChange)="onContextChange($event)"
+            [disabled]="loading() || contexts().length === 0">
+            <mat-option value="">-- Select a context --</mat-option>
+            <mat-option *ngFor="let ctx of contexts()" [value]="ctx">
+              {{ ctx | titlecase }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matSuffix>arrow_drop_down</mat-icon>
         </mat-form-field>
 
-        <button
-          mat-raised-button
-          color="primary"
-          (click)="addContext()"
-          [disabled]="!newContext.trim()">
-          <mat-icon>add</mat-icon>
-          Add Context
-        </button>
-      </div>
+        <div class="hint" *ngIf="!currentContext() && contexts().length > 0">
+          <mat-icon inline>info</mat-icon>
+          Choose a context to view its associated attributes
+        </div>
+      </section>
 
-      <p class="small muted">
-        Contexts define which attributes are visible and shared during verification.
-      </p>
-    </section>
+      <!-- Add Custom Context -->
+      <section class="card elevated">
+        <div class="card-header">
+          <mat-icon class="header-icon">add_circle_outline</mat-icon>
+          <h3>Create New Context</h3>
+        </div>
 
-    <!-- Attributes Display -->
-    <section class="card elevated" *ngIf="hasAttributes()">
-      <div class="card-header">
-        <mat-icon class="header-icon" color="primary">badge</mat-icon>
-        <h3>{{ currentContext | titlecase }} Attributes</h3>
-        <span class="badge">{{ attributeKeys().length }} attribute{{ attributeKeys().length === 1 ? '' : 's' }}</span>
-      </div>
+        <div class="add-context-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>New context name</mat-label>
+            <input
+              matInput
+              [(ngModel)]="newContextInput"
+              placeholder="e.g. legal, health, finance"
+              (keyup.enter)="addContext()"
+            />
+            <mat-hint>Lowercase, no spaces (use hyphens if needed)</mat-hint>
+          </mat-form-field>
 
-      <div class="attributes-grid">
-        <div class="attribute-item" *ngFor="let key of attributeKeys()">
-          <label class="attribute-label">{{ key | titlecase }}</label>
-          <div class="attribute-value">
-            <code>{{ profile[key] }}</code>
-            <button mat-icon-button (click)="copyToClipboard(profile[key])" matTooltip="Copy value">
-              <mat-icon>{{ copiedKey === key ? 'check' : 'content_copy' }}</mat-icon>
-            </button>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="addContext()"
+            [disabled]="!newContextInput.trim() || loading()">
+            <mat-icon>add</mat-icon>
+            Add Context
+          </button>
+        </div>
+
+        <p class="small muted">
+          Custom contexts are mapped to "profile" on the backend for storage and disclosure.
+        </p>
+      </section>
+
+      <!-- Attributes Display -->
+      <section class="card elevated" *ngIf="hasAttributes()">
+        <div class="card-header">
+          <mat-icon class="header-icon" color="primary">badge</mat-icon>
+          <h3>{{ currentContext() | titlecase }} Attributes</h3>
+          <span class="badge">{{ attributeKeys().length }} attribute{{ attributeKeys().length === 1 ? '' : 's' }}</span>
+        </div>
+
+        <div class="attributes-grid">
+          <div class="attribute-item" *ngFor="let key of attributeKeys()">
+            <label class="attribute-label">{{ key | titlecase }}</label>
+            <div class="attribute-value">
+              <code>
+              {{ isObject(profile()[key]) ? (profile()[key] | json) : profile()[key] }}
+              </code>
+
+              <button 
+                mat-icon-button 
+                (click)="copyToClipboard(profile()[key], key)" 
+                matTooltip="Copy value">
+                <mat-icon>{{ copiedKey === key ? 'check' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
           </div>
         </div>
+      </section>
+
+      <!-- Empty State -->
+      <section class="card elevated empty-state" *ngIf="currentContext() && !loading() && !hasAttributes()">
+        <mat-icon class="empty-icon">inbox</mat-icon>
+        <h3>No attributes yet in this context</h3>
+        <p class="muted">
+          Issue a credential in the <a routerLink="/credentials">Credentials</a> page and assign it to
+          <strong>{{ currentContext() }}</strong>.
+          <br><br>
+          <strong>Note:</strong> Custom contexts are stored under "profile" — attributes may appear when selecting "profile".
+        </p>
+      </section>
+
+      <!-- Loading Overlay -->
+      <div class="loading-overlay" *ngIf="loading()">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading context attributes...</p>
       </div>
-    </section>
-
-    <!-- Empty States -->
-    <section class="card elevated empty-state" *ngIf="currentContext && !loading && !hasAttributes()">
-      <mat-icon class="empty-icon">inbox</mat-icon>
-      <h3>No attributes yet</h3>
-      <p class="muted">
-        This context is empty. Issue a credential in the
-        <a routerLink="/credentials">Credentials</a> page and assign it to
-        <strong>{{ currentContext }}</strong> to see attributes here.
-      </p>
-    </section>
-
-    <section class="card elevated empty-state" *ngIf="!currentContext && contexts.length > 0 && !loading">
-      <mat-icon class="empty-icon">arrow_forward</mat-icon>
-      <h3>Select a context</h3>
-      <p class="muted">Choose a context from the dropdown above to view its attributes.</p>
-    </section>
-
-    <section class="card elevated empty-state" *ngIf="contexts.length === 0 && !loading">
-      <mat-icon class="empty-icon">create_new_folder</mat-icon>
-      <h3>No contexts created</h3>
-      <p class="muted">Start by adding your first custom context above.</p>
-    </section>
-
-    <!-- Loading State -->
-    <div class="loading-overlay" *ngIf="loading">
-      <mat-spinner diameter="48"></mat-spinner>
-      <p>Loading context attributes...</p>
     </div>
-  </div>
-`,
+  `,
 
 styles: [`
   :host {
@@ -409,6 +413,22 @@ styles: [`
 
   .small { font-size: 0.9rem; }
   .muted { color: var(--text-secondary); }
+  /* Your existing styles + new warning hint */
+    .warning-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #9a3412;
+      background: rgba(249,115,22,0.1);
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    .contexts-container.dark .warning-hint {
+      color: #fdba74;
+      background: rgba(249,115,22,0.2);
+    }
 
   /* Dark mode Material form fixes (labels, hints, inputs, select) */
   .contexts-container.dark {
@@ -559,87 +579,180 @@ styles: [`
 
 `]
 })
-export class ContextsComponent implements OnInit, OnDestroy {
-  contexts: string[] = [];
-  currentContext = '';
-  newContext = '';
-  profile: any = null;
-  loading = false;
+export class ContextsComponent implements OnInit {
+  contexts = signal<string[]>([]);
+  currentContext = signal<string>('');
+  newContext = signal<string>('');
+
+  selectedContext: string = '';
+  newContextInput: string = '';
+
+  profile = signal<any>(null);
+  loading = signal<boolean>(false);
   copiedKey: string | null = null;
+
   private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;   // readonly signal
+  darkMode = this.themeService.darkMode;
 
-  constructor(
-    private api: ApiService,
-    public wallet: WalletService,
-    private contextService: ContextService
-  ) {}
+  private api = inject(ApiService);
+  private wallet = inject(WalletService);
+  private contextService = inject(ContextService);
+  private snackBar = inject(MatSnackBar);
 
-  ngOnInit() {
-    this.contextService.contexts$.subscribe(ctxs => {
-      this.contexts = ctxs.sort(); // optional: alphabetical sort
+  private readonly strictContexts = ['identity', 'medical', 'professional', 'profile', 'compliance'];
+
+  constructor() {
+    effect(() => {
+      const ctx = this.currentContext();
+      if (ctx !== this.selectedContext) {
+        this.selectedContext = ctx;
+      }
     });
   }
 
-  ngOnDestroy() {
-    // No subscription to unsubscribe currently
+  ngOnInit() {
+    this.contextService.contexts$.subscribe(ctxs => {
+      this.contexts.set(ctxs.sort());
+    });
+
+    this.selectedContext = this.currentContext();
+
+    if (this.currentContext()) {
+      this.loadContext();
+    }
+  }
+
+  onContextChange(newValue: string) {
+    this.currentContext.set(newValue);
+    this.loadContext();
+  }
+
+  isCustomContext(): boolean {
+    return !!this.currentContext() &&
+      !this.strictContexts.includes(this.currentContext().toLowerCase());
+  }
+
+  /**
+   * 🔐 Sanitization helper — protects against SQL keywords, control chars, etc.
+   */
+  private sanitizeContextInput(input: string): string {
+    let out = input.trim().toLowerCase();
+
+    // Remove dangerous tokens seen in SQL injection attempts
+    const blacklist = [
+      'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate',
+      'create', 'replace', 'where', 'from', 'union', 'into', 'values'
+    ];
+    blacklist.forEach(keyword => {
+      out = out.replace(new RegExp(keyword, 'gi'), '');
+    });
+
+    // Remove SQL comment/quote/control chars
+    out = out.replace(/['"%;()<>]/g, '');
+    out = out.replace(/(--|\/*|\*\/)/g, '');
+
+    // Strip duplicate hyphens
+    out = out.replace(/-{2,}/g, '-');
+
+    return out;
   }
 
   addContext() {
-    let ctx = this.newContext.trim().toLowerCase();
-    if (!ctx) return;
-
-    // Basic validation: alphanumeric + hyphens
-    if (!/^[a-z0-9-]+$/.test(ctx)) {
-      alert('Context name must contain only lowercase letters, numbers, and hyphens.');
+    const raw = this.newContextInput;
+    if (!raw || !raw.trim()) {
       return;
     }
 
-    if (this.contexts.includes(ctx)) {
-      alert('Context already exists');
+    // 🔐 normalize & sanitize
+    const sanitized = this.sanitizeContextInput(raw);
+
+    // Apply final allowed-shape restriction
+    if (!/^[a-z0-9-]+$/.test(sanitized)) {
+      this.snackBar.open(
+        'Context must contain only lowercase letters, numbers, and hyphens.',
+        'Close',
+        { duration: 5000 }
+      );
       return;
     }
 
-    this.contextService.addContext(ctx);
-    this.currentContext = ctx;
-    this.newContext = '';
+    // Prevent trivial/empty or hyphen-only names
+    if (!sanitized.replace(/-/g, '').length) {
+      this.snackBar.open('Context name cannot be only hyphens.', 'Close', { duration: 4000 });
+      return;
+    }
+
+    if (this.contexts().includes(sanitized)) {
+      this.snackBar.open('Context already exists', 'Close', { duration: 3000 });
+      return;
+    }
+
+    // Preserve existing behavior
+    this.contextService.addContext(sanitized);
+    this.currentContext.set(sanitized);
+    this.newContext.set('');
+    this.newContextInput = '';
+
+    this.snackBar.open(
+    `Custom context "${sanitized}" created.`,
+    'Close',
+    { duration: 5000 }
+  );
+
+
     this.loadContext();
   }
 
   loadContext() {
-    if (!this.wallet.address || !this.currentContext) {
-      this.profile = null;
+    const address = this.wallet.address;
+    if (!address || !this.currentContext()) {
+      this.profile.set(null);
+      this.loading.set(false);
       return;
     }
 
-    this.loading = true;
-    this.profile = null;
+    this.loading.set(true);
+    this.profile.set(null);
 
-    this.api.getProfileByContext(this.wallet.address, this.currentContext).subscribe({
+    this.api.getProfile(address, this.currentContext()).subscribe({
       next: (res: any) => {
-        this.profile = res.attributes || {};
-        this.loading = false;
+        this.profile.set(res.attributes || {});
+        this.loading.set(false);
       },
-      error: () => {
-        this.profile = null;
-        this.loading = false;
+      error: (err) => {
+        console.error('Failed to load context:', err);
+        this.profile.set(null);
+        this.loading.set(false);
+        this.snackBar.open(
+          'Failed to load context attributes. Please try again.',
+          'Close',
+          { duration: 5000 }
+        );
       }
     });
   }
 
   attributeKeys(): string[] {
-    return this.profile ? Object.keys(this.profile) : [];
+    const prof = this.profile();
+    return prof ? Object.keys(prof) : [];
   }
 
   hasAttributes(): boolean {
-    return this.profile && Object.keys(this.profile).length > 0;
+    const prof = this.profile();
+    return !!prof && Object.keys(prof).length > 0;
   }
 
-  copyToClipboard(value: string, key?: string) {
-    navigator.clipboard.writeText(value);
-    if (key) {
-      this.copiedKey = key;
-      setTimeout(() => this.copiedKey = null, 1500);
-    }
+  isObject(value: any) {
+    return value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  copyToClipboard(value: any, key: string) {
+    const text = typeof value === 'object' && value !== null
+      ? JSON.stringify(value, null, 2)
+      : String(value);
+    navigator.clipboard.writeText(text);
+    this.copiedKey = key;
+    setTimeout(() => (this.copiedKey = null), 1500);
+    this.snackBar.open('Copied to clipboard', 'Close', { duration: 2000 });
   }
 }

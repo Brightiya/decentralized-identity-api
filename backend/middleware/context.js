@@ -1,32 +1,57 @@
 /**
- * Context middleware
+ * Context middleware (Option B-1 + hardened sanitation)
  *
- * Supports:
- * - POST /vc/issue        → context from req.body.context
- * - GET  /profile/:addr  → context from req.query.context
+ * Protects against:
+ *  - control characters
+ *  - null byte injection
+ *  - SQL-style comment/control tokens
+ *  - excessive length
  *
- * Fallback:
- * - defaults to "personal"
+ * Does NOT:
+ *  - restrict valid custom contexts
+ *  - remap unknown values
+ *  - enforce static enum
  */
+
 export function contextMiddleware(req, res, next) {
   let context = null;
 
-  // 1️⃣ Prefer explicit query context (GET requests)
-  if (req.query && req.query.context) {
-    context = req.query.context;
+  // Explicit ?context
+  if (req.query?.context) {
+    context = req.query.context.trim();
   }
 
-  // 2️⃣ Fallback to body context (POST /vc/issue)
-  if (!context && req.body && req.body.context) {
-    context = req.body.context;
+  // Fallback to body { context }
+  if (!context && req.body?.context) {
+    context = req.body.context.trim();
   }
 
-  // 3️⃣ Final fallback (SAFE DEFAULT)
+  // Service-layer default
   if (!context) {
-    context = "personal";
+    context = 'profile';
   }
+
+  // Normalize
+  context = context.toLowerCase();
+
+  // ----------- HARDENING LAYER -----------------
+
+  // 1. Strip NULL bytes (classic injection primitive)
+  context = context.replace(/\0/g, '');
+
+  // 2. Strip control characters except newline/tab if desired
+  context = context.replace(/[\u0000-\u001F\u007F]/g, '');
+
+  // 3. Strip SQL comment/control tokens
+  context = context.replace(/(--|;|\/\*|\*\/)/g, '');
+
+  // 4. Enforce max length (prevents giant payload attacks)
+  if (context.length > 255) {
+    context = context.substring(0, 255);
+  }
+
+  // -------------------------------------------------
 
   req.context = context;
-
-  next();
+  return next();
 }

@@ -50,16 +50,30 @@ COMMENT ON COLUMN users.created_at IS
 COMMENT ON COLUMN users.last_login IS
 'Timestamp of most recent successful authentication';
 
--- Optional safety index (prevents accidental role-based queries)
 CREATE INDEX IF NOT EXISTS idx_users_eth_address
   ON users(eth_address);
 
+-- NEW: Profiles table (linked to users for extensible data)
+CREATE TABLE IF NOT EXISTS profiles (
+  id            SERIAL PRIMARY KEY,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  gender        TEXT CHECK (gender IN ('male', 'female', 'non-binary', 'genderqueer', 'transgender', 'prefer-not-to-say', 'other')),
+  pronouns      TEXT,
+  bio           TEXT,
+  online_links  JSONB,
+  preferences   JSONB,
+  updated_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+COMMENT ON TABLE profiles IS
+'Extensible user profile data, treated as claims in "profile" context for consents/disclosures';
+
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id
+  ON profiles(user_id);
 
 -- ============================================
 -- 1.1 Optional: Login Audit (NON-BREAKING)
 -- ============================================
--- This does NOT affect current logic
--- It is future-ready for tracking login intent
 
 CREATE TABLE IF NOT EXISTS login_audit (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -74,7 +88,6 @@ COMMENT ON TABLE login_audit IS
 
 COMMENT ON COLUMN login_audit.login_role IS
 'Role selected at login time (session scope only)';
-
 
 -- ============================================
 -- 2. SIWE Nonces (unchanged)
@@ -102,9 +115,8 @@ COMMENT ON COLUMN nonces.address IS
 COMMENT ON COLUMN nonces.expires_at IS
 'Hard expiration time (usually 5 minutes)';
 
-
 -- ============================================
--- 3. Consent Registry (UNCHANGED)
+-- 3. Consent Registry (UPDATED for flexible contexts)
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS consents (
@@ -114,7 +126,7 @@ CREATE TABLE IF NOT EXISTS consents (
   claim_id TEXT NOT NULL,
   purpose TEXT NOT NULL,
   verifier_did TEXT,
-  context TEXT,
+  context TEXT,  -- CONTEXT IS NOW FLEXIBLE (custom and standard allowed)
 
   issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
   expires_at TIMESTAMP,
@@ -135,6 +147,9 @@ CREATE INDEX IF NOT EXISTS idx_consents_purpose
 CREATE INDEX IF NOT EXISTS idx_consents_context_subject
   ON consents(subject_did, context)
   WHERE revoked_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_consents_context_ci
+  ON consents (LOWER(context));
 
 DROP INDEX IF EXISTS uniq_active_consent;
 
@@ -159,11 +174,37 @@ WHERE id IN (
   SELECT id FROM ranked_consents WHERE rn > 1
 );
 
-UPDATE consents
-SET context = 'identity'
-WHERE context IS NULL
-  AND claim_id LIKE 'identity.%';
 
+-- ============================================
+-- REMOVE STRICT CHECK CONSTRAINT FOR FLEXIBLE CONTEXTS
+-- ============================================
+
+ALTER TABLE consents
+  DROP CONSTRAINT IF EXISTS check_context;
+
+COMMENT ON COLUMN consents.context IS
+'Flexible context label (may include custom contexts). Enforcement handled at application layer.';
+
+-- ============================================
+-- Disclosure Contexts (ALREADY FLEXIBLE, KEEP AS-IS)
+-- ============================================
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'disclosures'::regclass
+      AND conname = 'check_disclosure_context'
+  ) THEN
+    ALTER TABLE disclosures DROP CONSTRAINT check_disclosure_context;
+  END IF;
+END $$;
+
+COMMENT ON COLUMN disclosures.context IS
+'Raw disclosed context (may include custom contexts). Stored unbounded for auditability.';
+
+CREATE INDEX IF NOT EXISTS idx_disclosures_context
+  ON disclosures (context);
 
 -- ============================================
 -- 4. Disclosure Audit Log (UNCHANGED)
@@ -194,8 +235,11 @@ CREATE INDEX IF NOT EXISTS idx_disclosures_compliance
   ON disclosures(subject_did)
   WHERE context = 'compliance';
 
+CREATE INDEX IF NOT EXISTS idx_disclosures_context_ci
+  ON disclosures (LOWER(context));
+
 COMMENT ON TABLE disclosures IS
 'GDPR-compliant audit log of selective disclosures';
 
 COMMENT ON COLUMN disclosures.context IS
-'Disclosure context (identity, medical, professional, etc.)';
+'Disclosure context (identity, medical, professional, profile, or custom)';

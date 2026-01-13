@@ -4,11 +4,12 @@ import {
   revokeConsent,
   getActiveConsents  // ← NEW import
 } from "../controllers/consentController.js";
+import { contextMiddleware } from "../../middleware/context.js";
 
 const router = express.Router();
 
-router.post("/grant", grantConsent);
-router.post("/revoke", revokeConsent);
+router.post("/grant", contextMiddleware, grantConsent);
+router.post("/revoke", contextMiddleware, revokeConsent);
 
 // NEW: Get active consents (with optional context)
 router.get("/active/:owner/:context?", getActiveConsents);

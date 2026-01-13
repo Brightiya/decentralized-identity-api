@@ -2,7 +2,7 @@
 import { pool } from "../utils/db.js";
 
 /**
- * Normalize DID → address
+ * Normalize DID → Ethereum address
  */
 const didToAddress = (didOrAddress) => {
   if (!didOrAddress) return didOrAddress;
@@ -13,24 +13,37 @@ const didToAddress = (didOrAddress) => {
 };
 
 /**
- * Grant consent (GDPR Art.6, Art.7)
+ * Minimal sanitization for contexts not coming through middleware
+ * (lowercase + strict character set)
+ */
+const sanitizeContext = (ctx) => {
+  if (!ctx || typeof ctx !== "string") return null;
+  return ctx
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+};
+
+/**
+ * Grant consent (Option B-1: Fully dynamic contexts)
  */
 export const grantConsent = async (req, res) => {
   try {
-    const { owner, claimId, purpose, context, expiresAt } = req.body;
+    let { owner, claimId, purpose, expiresAt } = req.body;
 
-    if (!owner || !claimId || !purpose || !context) {
+    if (!owner || !claimId || !purpose) {
       return res.status(400).json({
-        error: "owner, claimId, purpose, and context are required"
+        error: "owner, claimId, and purpose are required"
       });
     }
 
+    // Context always available via middleware (fallback → 'profile')
+    const ctx = req.context; // already sanitized + lowercase
     const subjectAddress = didToAddress(owner);
 
-    /**
-     * 🚫 Prevent duplicate active consent
-     * Same subject + claim + context
-     */
+    
+
+    // Prevent duplicate active consent
     const existing = await pool.query(
       `
       SELECT id
@@ -41,27 +54,25 @@ export const grantConsent = async (req, res) => {
         AND revoked_at IS NULL
       LIMIT 1
       `,
-      [subjectAddress, claimId, context]
+      [subjectAddress, claimId, ctx]
     );
 
     if (existing.rowCount > 0) {
       return res.status(409).json({
         error: "Active consent already exists for this attribute in this context",
         claimId,
-        context
+        context: ctx
       });
     }
 
-    /**
-     * ✅ Insert new consent
-     */
+    // Insert consent with raw context
     await pool.query(
       `
       INSERT INTO consents
         (subject_did, claim_id, purpose, context, expires_at)
       VALUES ($1, $2, $3, $4, $5)
       `,
-      [subjectAddress, claimId, purpose, context, expiresAt || null]
+      [subjectAddress, claimId, purpose, ctx, expiresAt || null]
     );
 
     return res.json({
@@ -69,7 +80,7 @@ export const grantConsent = async (req, res) => {
       subject_did: subjectAddress,
       claimId,
       purpose,
-      context
+      context: ctx
     });
 
   } catch (err) {
@@ -79,7 +90,10 @@ export const grantConsent = async (req, res) => {
 };
 
 /**
- * Revoke consent (GDPR Art.7(3))
+ * Revoke consent (Option B-1)
+ * NOTE:
+ * - context is OPTIONAL and must NOT fallback (no implicit profile)
+ * - if provided, must filter by it
  */
 export const revokeConsent = async (req, res) => {
   try {
@@ -92,6 +106,9 @@ export const revokeConsent = async (req, res) => {
     }
 
     const subjectAddress = didToAddress(owner);
+
+    // Optional context — sanitized if present
+    const ctx = sanitizeContext(context);
 
     let query = `
       UPDATE consents
@@ -107,9 +124,9 @@ export const revokeConsent = async (req, res) => {
       params.push(purpose);
     }
 
-    if (context) {
+    if (ctx) {
       query += ` AND context = $${params.length + 1}`;
-      params.push(context);
+      params.push(ctx);
     }
 
     query += ` RETURNING claim_id, purpose, context`;
@@ -136,8 +153,10 @@ export const revokeConsent = async (req, res) => {
 };
 
 /**
- * Get active (non-revoked) consents for a subject (optional context filter)
- * GET /api/consent/active/:owner/:context?
+ * Get active consents (Option B-1)
+ * NOTE:
+ * - context filter is OPTIONAL
+ * - no fallback; only applied if explicitly provided
  */
 export const getActiveConsents = async (req, res) => {
   try {
@@ -157,9 +176,11 @@ export const getActiveConsents = async (req, res) => {
     `;
     const params = [subjectAddress];
 
+    // Optional context filter
     if (context && context !== "undefined" && context.trim() !== "") {
+      const ctx = sanitizeContext(context);
       query += ` AND context = $2`;
-      params.push(context);
+      params.push(ctx);
     }
 
     query += ` ORDER BY issued_at DESC`;

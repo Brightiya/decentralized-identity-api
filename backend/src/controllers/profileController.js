@@ -9,16 +9,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /* ------------------------------------------------------------------
-   Contract bootstrap
+   Contract bootstrap (global registry)
 ------------------------------------------------------------------- */
 
 const contractData = (async () => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const contractDataPath = path.resolve(
-    __dirname,
-    "../../src/contractData.json"
-  );
+  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
   return JSON.parse(await readFile(contractDataPath, "utf8"));
 })();
 
@@ -36,20 +33,37 @@ const signer = new ethers.Wallet(privateKey, provider);
 })();
 
 /* ------------------------------------------------------------------
+   English labels for translatable fields
+------------------------------------------------------------------- */
+
+const genderLabels = {
+  male: "Male",
+  female: "Female",
+  "non-binary": "Non-binary",
+  genderqueer: "Genderqueer",
+  transgender: "Transgender",
+  "prefer-not-to-say": "Prefer not to say",
+  other: "Other"
+};
+
+/* ------------------------------------------------------------------
    CREATE / UPDATE PROFILE (MERGED, STATE-SAFE)
 ------------------------------------------------------------------- */
 
 export const createOrUpdateProfile = async (req, res) => {
   try {
-    const { owner, contexts = {}, credentials = [] } = req.body;
+    const { owner, contexts = {}, credentials = [], attributes = {} } = req.body;
+
     if (!owner) {
       return res.status(400).json({ error: "owner address required" });
     }
 
+    const subjectAddress = owner.toLowerCase(); // normalize
+
     let existingProfile = {};
 
-     // 🚫 GDPR HARD STOP — erased profiles cannot be recreated
-    const existingCid = await registry.getProfileCID(owner);
+    // GDPR HARD STOP — erased profiles cannot be recreated
+    const existingCid = await registry.getProfileCID(subjectAddress);
     if (existingCid && existingCid.length > 0) {
       try {
         const existing = await fetchJSON(existingCid);
@@ -58,33 +72,39 @@ export const createOrUpdateProfile = async (req, res) => {
             error: "Profile erased under GDPR Art.17 and cannot be recreated"
           });
         }
+        existingProfile = existing;
       } catch {
-        // Ignore fetch errors here; normal flow continues
+        // silent ignore - proceed with creation
       }
     }
 
-    // 🧠 Merge instead of overwrite
+    // Merge new data
     const mergedProfile = {
       ...existingProfile,
-      id: `did:example:${owner}`,
-
+      id: `did:ethr:${subjectAddress}`,
       contexts: {
         ...(existingProfile.contexts || {}),
         ...contexts
       },
-
       credentials: [
         ...(existingProfile.credentials || []),
         ...credentials
       ],
-
+      attributes: {
+        ...(existingProfile.attributes || {}),
+        ...attributes  // NEW: support direct attributes like gender, pronouns, bio
+      },
+      online_links: {
+        ...(existingProfile.online_links || {}),
+        ...(req.body.online_links || {})  // NEW: support online_links
+      },
       updatedAt: new Date().toISOString()
     };
 
     const ipfsUri = await uploadJSON(mergedProfile);
     const cid = ipfsUri.replace("ipfs://", "");
 
-    await (await registry.setProfileCID(owner, cid)).wait();
+    await (await registry.setProfileCID(subjectAddress, cid)).wait();
 
     return res.json({
       message: "✅ Profile merged & stored",
@@ -93,7 +113,7 @@ export const createOrUpdateProfile = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ createOrUpdateProfile error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -110,29 +130,28 @@ export const getProfile = async (req, res) => {
       return res.status(400).json({ error: "address required" });
     }
 
-    const cid = await registry.getProfileCID(address);
+    const cid = await registry.getProfileCID(address.toLowerCase());
     if (!cid || cid.length === 0) {
       return res.status(404).json({ error: "Profile not found" });
     }
 
     const profile = await fetchJSON(cid);
 
-    // 🔥 ADD THIS BLOCK
-if (profile?.erased === true) {
-  return res.status(410).json({
-    did: `did:ethr:${address}`,
-    erased: true,
-    erasedAt: profile.erasedAt,
-    message: "Profile erased under GDPR Art.17"
-  });
-}
+    if (profile?.erased === true) {
+      return res.status(410).json({
+        did: `did:ethr:${address}`,
+        erased: true,
+        erasedAt: profile.erasedAt,
+        message: "Profile erased under GDPR Art.17"
+      });
+    }
 
-    // ✅ Correct context filtering
+    // Filter credentials by requested context
     const credentials = (profile.credentials || []).filter(
       c => c.context === context
     );
 
-    const attributes = {};
+    const attributes = { ...profile.attributes }; // NEW: include direct attributes
 
     for (const cred of credentials) {
       try {
@@ -140,10 +159,18 @@ if (profile?.erased === true) {
         const claim = vc?.credentialSubject?.claim;
 
         if (claim && typeof claim === "object") {
-          Object.assign(attributes, claim);
+          // Special handling for gender
+          if (claim.gender) {
+            attributes.gender = {
+              code: claim.gender,
+              label: genderLabels[claim.gender] || claim.gender
+            };
+          } else {
+            Object.assign(attributes, claim);
+          }
         }
       } catch (e) {
-        console.warn("⚠️ Failed to resolve VC:", cred.cid);
+        console.warn(`⚠️ Failed to resolve VC: ${cred.cid}`);
       }
     }
 
@@ -151,15 +178,16 @@ if (profile?.erased === true) {
       did: `did:ethr:${address}`,
       context,
       attributes,
-      credentials
+      online_links: profile.online_links || {}, // NEW: return online_links
+      credentials,
+      note: "Content is provided in English. Your browser can translate this page if needed."
     });
 
   } catch (err) {
     console.error("❌ getProfile error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 
 /* ------------------------------------------------------------------
    GDPR ART.17 — RIGHT TO ERASURE
@@ -172,13 +200,15 @@ export const eraseProfile = async (req, res) => {
       return res.status(400).json({ error: "owner required" });
     }
 
-    const oldCid = await registry.getProfileCID(owner);
+    const subjectAddress = owner.toLowerCase();
+
+    const oldCid = await registry.getProfileCID(subjectAddress);
     if (oldCid && oldCid.length > 0) {
-      await unpinCID(oldCid);
+      await unpinCID(oldCid).catch(() => {}); // best-effort
     }
 
     const tombstone = {
-      id: `did:example:${owner}`,
+      id: `did:ethr:${subjectAddress}`,
       erased: true,
       erasedAt: new Date().toISOString()
     };
@@ -186,7 +216,7 @@ export const eraseProfile = async (req, res) => {
     const ipfsUri = await uploadJSON(tombstone);
     const newCid = ipfsUri.replace("ipfs://", "");
 
-    await (await registry.setProfileCID(owner, newCid)).wait();
+    await (await registry.setProfileCID(subjectAddress, newCid)).wait();
 
     return res.json({
       message: "✅ Profile erased (GDPR compliant)",
@@ -194,6 +224,6 @@ export const eraseProfile = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ eraseProfile error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Internal server error" });
   }
 };

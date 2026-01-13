@@ -12,7 +12,7 @@
 
 4. Deploy IdentityRegistry contract (optional local deploy): `npx hardhat run --network localhost ./scripts/deploy.mjs`(from main directory)
    Copy deployed address to IDENTITY_REGISTRY_ADDRESS in .env.
-5. Start server: npm run dev or (from backend directory) or yarn --cwd backend dev(from frontend dir.)
+5. Start server: npm run dev (from backend directory) or yarn --cwd backend dev(from frontend dir.)
 
 Example endpoints
 

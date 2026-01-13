@@ -17,19 +17,18 @@ export default router;
 import express from "express";
 import { getProfile, createOrUpdateProfile } from "../controllers/profileController.js";
 import { contextMiddleware } from "../../middleware/context.js";
-import { gdprConsentMiddleware } from "../../middleware/gdprConsent.js";
+
 
 
 const router = express.Router();
 
 // Create or update profile (vault creation)
-router.post("/", createOrUpdateProfile);
+router.post("/", contextMiddleware,createOrUpdateProfile);
 
 // Enforced disclosure read
 router.get(
   "/:address",
   contextMiddleware,
-  gdprConsentMiddleware,
   getProfile
 );
 

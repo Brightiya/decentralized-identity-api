@@ -15,15 +15,8 @@ import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 
-
 // Middleware
-//import { authMiddleware } from "./middleware/auth.js";
 import { authMiddleware } from "../middleware/auth.js";
-//import adminRoutes from './routes/adminRoutes.js';
-
-
-
-
 
 dotenv.config();
 
@@ -44,6 +37,26 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev')); // tiny, colorful logs
 }
 
+// PERMANENT CACHE FIX: Prevent caching of profile endpoints
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/profile/') && req.method === 'GET') {
+    // No caching for profile reads (prevents stale 403/empty responses)
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
+// PERMANENT CACHE FIX: Also prevent caching on consent endpoints
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/consent/') && req.method === 'GET') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 // ────────────────────────────────────────────────
 // Public Routes (no auth required)
 // ────────────────────────────────────────────────

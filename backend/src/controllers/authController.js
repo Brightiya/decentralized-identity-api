@@ -7,9 +7,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-
-const JWT_SECRET =
-  process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
 
 const APP_DOMAIN = process.env.APP_DOMAIN || 'localhost:4200';
 const APP_URI = `http://${APP_DOMAIN}/`;
@@ -30,6 +28,11 @@ function normalizeRole(role) {
   return ALLOWED_ROLES.includes(upper) ? upper : 'USER';
 }
 
+function normalizeAddress(addr) {
+  if (!addr) return addr;
+  return ethers.getAddress(addr).toLowerCase();
+}
+
 // =====================================
 // GET /api/auth/challenge
 // =====================================
@@ -42,7 +45,7 @@ export const getChallenge = async (req, res) => {
     }
 
     const checksumAddress = ethers.getAddress(address);
-    const normalizedAddress = checksumAddress.toLowerCase();
+    const normalizedAddress = normalizeAddress(address);
 
     const nonce = generateNonce();
     const issuedAt = new Date().toISOString();
@@ -78,6 +81,7 @@ export const getChallenge = async (req, res) => {
     res.status(500).json({ error: 'Failed to generate authentication challenge' });
   }
 };
+
 // =====================================
 // POST /api/auth/verify
 // =====================================
@@ -100,14 +104,7 @@ export const verifySignature = async (req, res) => {
       return res.status(401).json({ error: 'Invalid SIWE domain or URI' });
     }
 
-    let checksumAddress;
-    try {
-      checksumAddress = ethers.getAddress(fields.address);
-    } catch {
-      return res.status(400).json({ error: 'Invalid Ethereum address format' });
-    }
-
-    const normalizedAddress = checksumAddress.toLowerCase();
+    const normalizedAddress = normalizeAddress(fields.address);
 
     // Nonce validation
     const nonceRes = await pool.query(
@@ -133,13 +130,10 @@ export const verifySignature = async (req, res) => {
     );
 
     let user;
-    let effectiveRole;
-    const loginIntent = normalizeRole(requestedRole);
+    let effectiveRole = normalizeRole(requestedRole);
 
     if (userRes.rowCount === 0) {
-      // First login → create with the selected role (or default to USER if invalid)
-      effectiveRole = loginIntent;
-
+      // First login → create with selected role
       const insertRes = await pool.query(
         `INSERT INTO users (eth_address, role, created_at, last_login)
          VALUES ($1, $2, NOW(), NOW())
@@ -148,19 +142,30 @@ export const verifySignature = async (req, res) => {
       );
 
       user = insertRes.rows[0];
+
+      // Optional: Log first login
+      await pool.query(
+        `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
+         VALUES ($1, $2, NOW())`,
+        [normalizedAddress, effectiveRole]
+      );
     } else {
       user = userRes.rows[0];
 
-      // For existing users: use the requested role as the session role
-      // and update the persistent role in DB to match current choice
-      effectiveRole = loginIntent;
-
-      // Update both last_login and the role column
+      // For existing users: use requested role as session role
+      // and update persistent role in DB
       await pool.query(
         `UPDATE users 
          SET role = $1, last_login = NOW() 
          WHERE eth_address = $2`,
         [effectiveRole, normalizedAddress]
+      );
+
+      // Log every login
+      await pool.query(
+        `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
+         VALUES ($1, $2, NOW())`,
+        [normalizedAddress, effectiveRole]
       );
     }
 
@@ -169,12 +174,12 @@ export const verifySignature = async (req, res) => {
     // =====================================
     const token = jwt.sign(
       {
-        sub: checksumAddress,
-        ethAddress: checksumAddress,
+        sub: normalizedAddress,
+        ethAddress: normalizedAddress,
         role: effectiveRole,
         userId: user.id,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 60 * 60
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 // 24h in prod
       },
       JWT_SECRET
     );
@@ -182,8 +187,8 @@ export const verifySignature = async (req, res) => {
     res.json({
       token,
       user: {
-        address: checksumAddress,
-        did: `did:ethr:${checksumAddress}`,
+        address: normalizedAddress,
+        did: `did:ethr:${normalizedAddress}`,
         role: effectiveRole,
         createdAt: user.created_at
       }

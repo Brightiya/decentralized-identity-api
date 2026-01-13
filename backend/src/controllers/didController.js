@@ -33,19 +33,37 @@ const signer = new ethers.Wallet(privateKey, provider);
 })();
 
 /**
+ * Normalize address (consistent with other controllers)
+ */
+const normalizeAddress = (addr) => {
+  if (!addr) return addr;
+  return addr.toLowerCase();
+};
+
+/**
  * Register a DID (W3C DID Core + EIP-155 compliant)
  * POST /api/did/register
  */
 export const registerDID = async (req, res) => {
   try {
     const { address, name, email } = req.body;
+
     if (!address || !ethers.isAddress(address)) {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
 
-    const did = `did:ethr:${address}`;
+    const normalizedAddress = normalizeAddress(address);
+    const did = `did:ethr:${normalizedAddress}`;
     const controllerAddress = signer.address;
     const verificationMethodId = `${did}#controller`;
+
+    // Optional: Basic validation for name/email
+    if (name && name.length > 100) {
+      return res.status(400).json({ error: "Name too long (max 100 characters)" });
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
 
     // Build W3C + EIP-155 DID Document
     const didDocument = {
@@ -55,7 +73,7 @@ export const registerDID = async (req, res) => {
       ],
       id: did,
       controller: did,
-      alsoKnownAs: [email ? `mailto:${email}` : null].filter(Boolean),
+      alsoKnownAs: email ? [`mailto:${email}`] : [],
       verificationMethod: [
         {
           id: verificationMethodId,
@@ -67,7 +85,7 @@ export const registerDID = async (req, res) => {
           id: `${did}#ethereumAddress`,
           type: "EcdsaSecp256k1RecoveryMethod2020",
           controller: did,
-          blockchainAccountId: `eip155:1:${address}`
+          blockchainAccountId: `eip155:1:${normalizedAddress}`
         }
       ],
       authentication: [verificationMethodId, `${did}#ethereumAddress`],
@@ -81,7 +99,7 @@ export const registerDID = async (req, res) => {
       ],
       created: new Date().toISOString(),
       updated: new Date().toISOString(),
-      metadata: { name, email },
+      metadata: { name: name || undefined, email: email || undefined },
     };
 
     // Upload to IPFS
@@ -89,7 +107,7 @@ export const registerDID = async (req, res) => {
     const cid = ipfsUri.replace("ipfs://", "");
 
     // Store CID on-chain
-    const tx = await globalThis.registry.setProfileCID(address, cid);
+    const tx = await globalThis.registry.setProfileCID(normalizedAddress, cid);
     await tx.wait();
 
     return res.json({
@@ -102,7 +120,7 @@ export const registerDID = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ registerDID error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Failed to register DID" });
   }
 };
 
@@ -112,10 +130,12 @@ export const registerDID = async (req, res) => {
  */
 export const resolveDID = async (req, res) => {
   try {
-    const { address } = req.params;
+    let { address } = req.params;
     if (!address || !ethers.isAddress(address)) {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
+
+    address = normalizeAddress(address);
 
     const cid = await globalThis.registry.getProfileCID(address);
     if (!cid || cid === "0x" || cid.length === 0) {
@@ -134,7 +154,7 @@ export const resolveDID = async (req, res) => {
       return res.status(404).json({ error: "DID Document not found or data unavailable" });
     }
     console.error("❌ resolveDID error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Failed to resolve DID" });
   }
 };
 
@@ -150,31 +170,33 @@ export const verifyDID = async (req, res) => {
       return res.status(400).json({ error: "address and signature are required" });
     }
 
+    const normalizedAddress = normalizeAddress(address);
+
     // Step 1: Resolve the DID
-    const cid = await globalThis.registry.getProfileCID(address);
+    const cid = await globalThis.registry.getProfileCID(normalizedAddress);
     if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }
     const didDocument = await fetchJSON(cid);
-    const did = `did:ethr:${address}`;
+    const did = `did:ethr:${normalizedAddress}`;
 
     // Step 2: Reconstruct message
     const message = `Verifying DID ownership for ${did}`;
     const recovered = ethers.verifyMessage(message, signature);
 
     // Step 3: Check that recovered address matches DID address
-    const valid = recovered.toLowerCase() === address.toLowerCase();
+    const valid = recovered.toLowerCase() === normalizedAddress;
 
     return res.json({
       message: valid ? "✅ DID verification successful" : "❌ DID verification failed",
       valid,
       did,
       recoveredAddress: recovered,
-      expectedAddress: address,
+      expectedAddress: normalizedAddress,
       didDocument,
     });
   } catch (err) {
     console.error("❌ verifyDID error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Failed to verify DID ownership" });
   }
 };

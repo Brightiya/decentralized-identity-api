@@ -1,4 +1,4 @@
- // backend/src/controllers/vcController.js
+// backend/src/controllers/vcController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
 import { readFile } from "node:fs/promises";
@@ -38,28 +38,25 @@ const signer = new ethers.Wallet(privateKey, provider);
   globalThis.registry = new ethers.Contract(address, abi, signer);
 })();
 
-  const didToAddress = (didOrAddress) => {
-    if (!didOrAddress) return didOrAddress;
-
-    // did:ethr:0xabc...
-    if (didOrAddress.startsWith("did:")) {
-      return didOrAddress.split(":").pop();
-    }
-
-    return didOrAddress;
-  };
+const didToAddress = (didOrAddress) => {
+  if (!didOrAddress) return didOrAddress;
+  if (didOrAddress.startsWith("did:")) {
+    return didOrAddress.split(":").pop();
+  }
+  return didOrAddress;
+};
 
 /* ------------------------------------------------------------------
    1️⃣ Issue Context-Aware Verifiable Credential
 ------------------------------------------------------------------- */
 export const issueVC = async (req, res) => {
   try {
-    const {
+    let {
       issuer,
       subject,
       claimId,
       claim,
-      context = "default",
+      context = "default",  // ← will be normalized below
       consent
     } = req.body;
 
@@ -74,6 +71,16 @@ export const issueVC = async (req, res) => {
       });
     }
 
+    // ────────────────────────────────
+    // Normalize context (simple lowercase trim)
+    // ────────────────────────────────
+    const normalizeContext = (ctx) => {
+      if (!ctx) return 'profile';
+      return ctx.trim().toLowerCase();
+    };
+
+    context = normalizeContext(context);
+
     /* -------------------------------------------------
        Build VC payload — FINAL version (no cid yet)
     --------------------------------------------------*/
@@ -87,16 +94,15 @@ export const issueVC = async (req, res) => {
         claim
       },
       pimv: {
-        context,
+        context,        // ← normalized & passthrough compatible
         claimId,
         purpose: consent.purpose,
         consentRequired: true
-        // We will NOT put cid here in the signed part
       }
     };
 
     /* -------------------------------------------------
-       Sign the clean VC
+       Sign VC
     --------------------------------------------------*/
     const vcString = JSON.stringify(vc);
     const signature = await signer.signMessage(vcString);
@@ -110,30 +116,29 @@ export const issueVC = async (req, res) => {
     };
 
     /* -------------------------------------------------
-       Upload the FINAL signed VC to IPFS
+       Upload signed VC to IPFS
     --------------------------------------------------*/
     const ipfsUri = await uploadJSON(vc);
     const cid = ipfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
-       Create enriched version for gateway (includes cid) — NOT signed
+       Enriched version (adds CID, not signed)
     --------------------------------------------------*/
     const enrichedVC = {
       ...vc,
       pimv: {
         ...vc.pimv,
-        cid  // ← Add CID here, but this version is NOT signed
+        cid
       }
     };
 
-    // Upload enriched version (this is what users see via gatewayUrl)
     const enrichedIpfsUri = await uploadJSON(enrichedVC);
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
-       Anchor the SIGNED (clean) VC's CID on-chain
+       Anchor signed VC CID on-chain
     --------------------------------------------------*/
-    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid)); // ← anchor the signed one
+    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
     const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
     const subjectAddress = didToAddress(subject);
 
@@ -145,7 +150,7 @@ export const issueVC = async (req, res) => {
     await tx.wait();
 
     /* -------------------------------------------------
-       Auto-update Profile — use signed CID
+       Auto-update profile (optional)
     --------------------------------------------------*/
     try {
       let profile = {};
@@ -161,7 +166,7 @@ export const issueVC = async (req, res) => {
           ...(profile.credentials || []),
           {
             type: "ContextualCredential",
-            cid,  // signed version
+            cid,
             context,
             claimId,
             issuedAt: new Date().toISOString()
@@ -178,13 +183,10 @@ export const issueVC = async (req, res) => {
       console.warn("Profile auto-update skipped:", e.message);
     }
 
-    /* -------------------------------------------------
-       Response — point to enriched gateway URL
-    --------------------------------------------------*/
     return res.json({
-      message: " ✅ VC issued and anchored",
-      cid: enrichedCid,  // enriched one for user
-      signedCid: cid,    // for debugging
+      message: "✅ VC issued and anchored",
+      cid: enrichedCid,
+      signedCid: cid,
       claimId,
       context,
       claimHash,
@@ -199,7 +201,7 @@ export const issueVC = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   2️⃣ Verify Verifiable Credentials (multi-CID, one-claim-per-VC)
+   2️⃣ Verify Verifiable Credentials (unchanged)
 ------------------------------------------------------------------- */
 export const verifyVC = async (req, res) => {
   try {
@@ -211,9 +213,6 @@ export const verifyVC = async (req, res) => {
       credentials
     } = req.body;
 
-    /* -------------------------------------------------
-       1️⃣ Basic request validation
-    --------------------------------------------------*/
     if (
       !subject ||
       !verifierDid ||
@@ -232,9 +231,6 @@ export const verifyVC = async (req, res) => {
     const denied = {};
     const subjectAddress = didToAddress(subject);
 
-    /* -------------------------------------------------
-       2️⃣ Process each VC independently
-    --------------------------------------------------*/
     for (const entry of credentials) {
       const { cid, claimId } = entry;
 
@@ -243,22 +239,13 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      /* -------------------------------------------------
-         3️⃣ Fetch VC from IPFS
-      --------------------------------------------------*/
       const vc = await fetchJSON(cid);
 
-      /* -------------------------------------------------
-         🚫 GDPR Art.17 — Right to Erasure
-      --------------------------------------------------*/
       if (vc?.credentialSubject?.id === "[ERASED]") {
         denied[claimId] = "Credential subject erased";
         continue;
       }
 
-      /* -------------------------------------------------
-         4️⃣ Verify VC signature
-      --------------------------------------------------*/
       const { proof, ...signedVC } = vc;
 
       if (!proof?.jws) {
@@ -275,9 +262,6 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      /* -------------------------------------------------
-         🔎 Extract VC context (MANDATORY)
-      --------------------------------------------------*/
       const vcContext = vc?.pimv?.context;
 
       if (!vcContext || typeof vcContext !== "string") {
@@ -285,10 +269,6 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      /* -------------------------------------------------
-         5️⃣ Enforce consent + purpose + context
-         (DB = source of truth)
-      --------------------------------------------------*/
       const consentRes = await pool.query(
         `
         SELECT 1
@@ -309,9 +289,6 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      /* -------------------------------------------------
-         6️⃣ Data minimization (single claim only)
-      --------------------------------------------------*/
       const field = claimId.split(".").pop();
       const value = vc?.credentialSubject?.claim?.[field];
 
@@ -322,9 +299,6 @@ export const verifyVC = async (req, res) => {
 
       disclosed[claimId] = value;
 
-      /* -------------------------------------------------
-         7️⃣ Log disclosure (audit trail)
-      --------------------------------------------------*/
       await pool.query(
         `
         INSERT INTO disclosures
@@ -335,9 +309,6 @@ export const verifyVC = async (req, res) => {
       );
     }
 
-    /* -------------------------------------------------
-       8️⃣ Enforce data minimization
-    --------------------------------------------------*/
     if (Object.keys(disclosed).length === 0) {
       return res.status(403).json({
         error: "No credentials authorized for disclosure",
@@ -345,9 +316,6 @@ export const verifyVC = async (req, res) => {
       });
     }
 
-    /* -------------------------------------------------
-       9️⃣ Success
-    --------------------------------------------------*/
     return res.json({
       message: "✅ Credentials verified with enforced disclosure",
       subject: subjectAddress,
@@ -363,9 +331,8 @@ export const verifyVC = async (req, res) => {
   }
 };
 
-
 /* ------------------------------------------------------------------
-   3️⃣ Validate Raw Verifiable Credential (Debug / Audit)
+   3️⃣ Validate Raw VC (unchanged)
 ------------------------------------------------------------------- */
 
 export const validateRawVC = async (req, res) => {
@@ -388,13 +355,11 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    /* 1️⃣ Verify signature — handle case where pimv.cid is present */
     let cidForValidation = null;
 
-    // Extract and temporarily remove cid if present (in pimv or root)
     if (vc.pimv?.cid) {
       cidForValidation = vc.pimv.cid;
-      delete vc.pimv.cid;  // Remove so signature matches original signed payload
+      delete vc.pimv.cid;
     } else if (vc.cid) {
       cidForValidation = vc.cid;
       delete vc.cid;
@@ -417,7 +382,6 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    /* 2️⃣ Verify on-chain anchor */
     const claimId = vc.pimv?.claimId;
     if (!claimId) {
       return res.status(400).json({
@@ -454,7 +418,6 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    /* Success */
     return res.json({
       message: "✅ VC is cryptographically and on-chain valid",
       issuer: vc.issuer,

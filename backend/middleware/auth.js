@@ -2,6 +2,8 @@
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
 import dotenv from 'dotenv';
+import {pool} from '../../backend/src/utils/db.js'
+
 
 dotenv.config();
 
@@ -37,22 +39,30 @@ export const authMiddleware = async (req, res, next) => {
           return res.status(401).json({ error: 'Invalid token payload' });
         }
 
+        const normalizedAddress = decoded.ethAddress.toLowerCase();
+
         // Attach full user context
         req.user = {
-          ethAddress: decoded.ethAddress.toLowerCase(),
-          address: decoded.ethAddress.toLowerCase(), // alias for compatibility
-          did: `did:ethr:${decoded.ethAddress.toLowerCase()}`,
+          ethAddress: normalizedAddress,
+          address: normalizedAddress, // alias for compatibility
+          did: `did:ethr:${normalizedAddress}`,
           role: decoded.role || 'USER',
           userId: decoded.userId,
           iat: decoded.iat,
           exp: decoded.exp
         };
 
+        // Optional: Log successful login (audit trail)
+        await pool.query(
+          `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
+           VALUES ($1, $2, NOW())`,
+          [normalizedAddress, req.user.role]
+        );
+
         return next();
       } catch (jwtErr) {
-        // If JWT is invalid/expired → fall through to legacy check (or fail)
         if (jwtErr.name === 'TokenExpiredError') {
-          return res.status(401).json({ error: 'Token has expired' });
+          return res.status(401).json({ error: 'Token has expired – please sign in again' });
         }
         if (jwtErr.name === 'JsonWebTokenError') {
           return res.status(401).json({ error: 'Invalid token' });
@@ -94,6 +104,13 @@ export const authMiddleware = async (req, res, next) => {
         did,
         role: 'USER' // assume default – upgrade to JWT for roles
       };
+
+      // Optional: Log legacy auth usage
+      await pool.query(
+        `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
+         VALUES ($1, $2, NOW())`,
+        [address, 'USER']
+      );
 
       return next();
     }

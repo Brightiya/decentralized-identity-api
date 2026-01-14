@@ -12,7 +12,7 @@ import { AppComponent } from './app/app.component';
 // Reuse the shared client routes (single source of truth, avoids duplication)
 import { routes } from './app/app.routes';
 
-const isDevMode = process.env['NODE_ENV'] !== 'production';
+//const isDevMode = process.env['NODE_ENV'] !== 'production';
 
 export default async function bootstrap() {
   return bootstrapApplication(AppComponent, {
@@ -24,7 +24,7 @@ export default async function bootstrap() {
       importProvidersFrom(FormsModule, ReactiveFormsModule),
 
       // Optional: only enable route tracing in development
-      ...(isDevMode ? [provideRouter(routes, withDebugTracing())] : [])
+    //  ...(isDevMode ? [provideRouter(routes, withDebugTracing())] : [])
     ]
   });
 }

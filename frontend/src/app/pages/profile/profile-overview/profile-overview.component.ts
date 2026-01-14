@@ -48,7 +48,7 @@ interface ProfileData {
   template: `
     <div class="overview-container" [class.dark]="darkMode()">
       <div class="page-header">
-        <h1>Profile Overview</h1>
+        <h1>User Profile Overview</h1>
         <p class="subtitle">Your current personal information across contexts</p>
       </div>
 

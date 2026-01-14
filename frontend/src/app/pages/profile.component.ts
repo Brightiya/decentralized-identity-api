@@ -1,5 +1,5 @@
 // src/app/pages/profile/profile.component.ts
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { WalletService } from '../services/wallet.service';
 import { ThemeService } from '../services/theme.service';
 import { filter } from 'rxjs/operators';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-profile',
@@ -31,9 +32,10 @@ import { filter } from 'rxjs/operators';
       <!-- Hero-like Header -->
       <div class="profile-hero">
         <div class="hero-content">
-          <h1>My Profile</h1>
+          <h1>My Identity Profile</h1>
           <p class="hero-subtitle">
-            Manage your decentralized identity • personal data • privacy controls
+            Manage your decentralized identity • personal data • privacy controls<br>
+            <small>(Data is linked to your wallet address — same for all roles)</small>
           </p>
         </div>
       </div>
@@ -110,8 +112,12 @@ import { filter } from 'rxjs/operators';
             class="profile-tabs">
 
             <mat-tab label="Overview"></mat-tab>
-            <mat-tab label="Edit Profile"></mat-tab>
-            <mat-tab label="Privacy & Consents"></mat-tab>
+            <mat-tab label="Edit Profile"
+                            *ngIf="isUserRole()">
+            </mat-tab>
+            <mat-tab label="Privacy & Consents"
+                            *ngIf="isUserRole()">
+            </mat-tab>
           </mat-tab-group>
 
           <div class="tab-content-wrapper">
@@ -411,6 +417,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
   activeTabIndex = signal(0);
 
   private subscription: any;
+  private auth = inject(AuthService);
+  isUserRole = computed(() => this.auth.role() === 'USER');
 
   ngOnInit() {
     this.subscription = this.router.events.pipe(

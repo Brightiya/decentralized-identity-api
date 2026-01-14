@@ -33,7 +33,9 @@ Example endpoints
 
   1. Connect as the default superuser (no password needed)
    Run this — it will connect without asking for a password:
+   brew services start postgresql
    psql postgres
+
   2. Create the pimv_user and pimv_db exactly as in your .env
    Inside the psql prompt, run these commands one by one:
    CREATE USER pimv_user WITH PASSWORD 'strongpassword' CREATEDB;

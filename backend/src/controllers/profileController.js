@@ -90,16 +90,12 @@ export const createOrUpdateProfile = async (req, res) => {
         ...(existingProfile.credentials || []),
         ...credentials
       ],
-      attributes: {
-        ...(existingProfile.attributes || {}),
-        ...attributes  // NEW: support direct attributes like gender, pronouns, bio
-      },
-      online_links: {
-        ...(existingProfile.online_links || {}),
-        ...(req.body.online_links || {})  // NEW: support online_links
-      },
       updatedAt: new Date().toISOString()
     };
+
+    // Optional: clean up any old top-level fields from previous saves
+    delete mergedProfile.attributes;
+    delete mergedProfile.online_links;
 
     const ipfsUri = await uploadJSON(mergedProfile);
     const cid = ipfsUri.replace("ipfs://", "");
@@ -124,7 +120,7 @@ export const createOrUpdateProfile = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const { address } = req.params;
-    const context = req.query.context || "default";
+    const context = req.query.context || "profile";
 
     if (!address) {
       return res.status(400).json({ error: "address required" });
@@ -146,13 +142,27 @@ export const getProfile = async (req, res) => {
       });
     }
 
+    // Prefer data from the requested context (new structure)
+    const ctxData = profile.contexts?.[context] || {};
+
+    // Build attributes — context first, then fallback to old top-level (for migration)
+    let attributes = {
+      ...ctxData.attributes,                // ← primary source (new)
+      ...profile.attributes                 // ← fallback (old)
+    };
+
+    // Build online_links — same priority
+    let online_links = {
+      ...ctxData.online_links,
+      ...profile.online_links
+    };
+
     // Filter credentials by requested context
     const credentials = (profile.credentials || []).filter(
       c => c.context === context
     );
 
-    const attributes = { ...profile.attributes }; // NEW: include direct attributes
-
+    // Resolve VCs into attributes (your existing logic — kept intact)
     for (const cred of credentials) {
       try {
         const vc = await fetchJSON(cred.cid);
@@ -174,11 +184,12 @@ export const getProfile = async (req, res) => {
       }
     }
 
+    // Clean response — no duplication
     return res.json({
       did: `did:ethr:${address}`,
       context,
       attributes,
-      online_links: profile.online_links || {}, // NEW: return online_links
+      online_links,
       credentials,
       note: "Content is provided in English. Your browser can translate this page if needed."
     });
@@ -188,7 +199,6 @@ export const getProfile = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 /* ------------------------------------------------------------------
    GDPR ART.17 — RIGHT TO ERASURE
 ------------------------------------------------------------------- */

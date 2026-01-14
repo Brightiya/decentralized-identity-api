@@ -44,7 +44,7 @@ interface ProfileData {
     MatDividerModule,
     MatSelectModule,
     MatFormFieldModule
-  ],
+    ],
   template: `
     <div class="overview-container" [class.dark]="darkMode()">
       <div class="page-header">
@@ -136,9 +136,6 @@ interface ProfileData {
                   <p class="muted">
                     This context doesn't contain any personal details at the moment.
                   </p>
-                  <button mat-stroked-button color="primary" routerLink="../edit">
-                    Add Information
-                  </button>
                 </div>
               </div>
             </mat-card-content>

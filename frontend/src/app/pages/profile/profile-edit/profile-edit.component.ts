@@ -445,24 +445,28 @@ export class ProfileEditComponent implements OnInit {
         return;
       }
 
-      // Prepare payload
+      // Prepare online links
       const linksArray = this.onlineLinks.value;
       const online_links = linksArray.reduce((acc: Record<string, string>, item: any) => {
         if (item.platform && item.url) acc[item.platform.trim()] = item.url.trim();
         return acc;
       }, {});
 
+      // Build proper nested structure backend expects
       const payload = {
-        owner: address,
-        context: 'profile',
-        credentials: [], // extend later with VC issuance if needed
-        attributes: {
-          gender: this.profileForm.value.gender || undefined,
-          pronouns: this.profileForm.value.pronouns || undefined,
-          bio: this.profileForm.value.bio || undefined
-        },
-        online_links
-      };
+      owner: address,
+      contexts: {
+        profile: {
+          attributes: {
+            gender: this.profileForm.value.gender || undefined,
+            pronouns: this.profileForm.value.pronouns || undefined,
+            bio: this.profileForm.value.bio || undefined
+          },
+          online_links: online_links
+        }
+      },
+      credentials: [] // keep empty for now
+    };
 
       // Save profile (using the correct method name)
       this.apiService.createProfile(payload).subscribe({

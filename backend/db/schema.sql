@@ -238,6 +238,8 @@ CREATE INDEX IF NOT EXISTS idx_disclosures_compliance
 CREATE INDEX IF NOT EXISTS idx_disclosures_context_ci
   ON disclosures (LOWER(context));
 
+
+
 COMMENT ON TABLE disclosures IS
 'GDPR-compliant audit log of selective disclosures';
 

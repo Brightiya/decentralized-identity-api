@@ -37,19 +37,20 @@ import { take } from 'rxjs';
     MatSnackBarModule
   ],
   template: `
-    <div class="credentials-container" [class.dark]="darkMode()">
-      <div class="credentials-header">
+    <div class="credentials-page" [class.dark]="darkMode()">
+      <!-- Hero Header -->
+      <div class="page-header">
         <h1>Credentials</h1>
         <p class="subtitle">
           Issue and verify context-aware verifiable credentials. Each credential is bound to a specific disclosure context.
         </p>
       </div>
 
-      <!-- Wallet Connection -->
-      <mat-card class="card elevated" appearance="outlined">
+      <!-- Wallet Status Card -->
+      <mat-card class="wallet-card glass-card" appearance="outlined">
         <mat-card-header>
-          <mat-icon class="header-icon" mat-card-avatar>account_balance_wallet</mat-icon>
-          <mat-card-title>Wallet Connection</mat-card-title>
+          <mat-icon class="header-icon" mat-card-avatar>shield</mat-icon>
+          <mat-card-title>Your Identity</mat-card-title>
         </mat-card-header>
 
         <mat-card-content>
@@ -58,38 +59,42 @@ import { take } from 'rxjs';
               <div class="address-row">
                 <code class="address">{{ addr | slice:0:6 }}…{{ addr | slice:-4 }}</code>
                 <button mat-icon-button (click)="copyAddress(addr)" matTooltip="Copy address">
-                  <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+                  <mat-icon>{{ copied() ? 'check_circle' : 'content_copy' }}</mat-icon>
                 </button>
               </div>
-              <p class="status success">
-                <mat-icon inline>check_circle</mat-icon>
+              <div class="status-pill success">
+                <mat-icon>check_circle</mat-icon>
                 Connected successfully
-              </p>
-              <p class="did-display">
-                <strong>Subject DID:</strong> 
+              </div>
+              <div class="did-display">
+                <strong>Subject DID:</strong>
                 <code>did:ethr:{{ addr }}</code>
-              </p>
+              </div>
             </div>
           </ng-container>
 
           <ng-template #connectPrompt>
-            <p class="muted">
-              Connect your wallet to issue or verify credentials.
-            </p>
-            <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting()">
-              <mat-icon *ngIf="!connecting()">wallet</mat-icon>
-              <span>{{ connecting() ? 'Connecting...' : 'Connect Wallet' }}</span>
-            </button>
+            <div class="connect-prompt">
+              <mat-icon class="prompt-icon">wallet</mat-icon>
+              <h3>Wallet Required</h3>
+              <p class="muted">
+                Connect your wallet to issue or verify credentials.
+              </p>
+              <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting()">
+                <mat-icon *ngIf="!connecting()">wallet</mat-icon>
+                <mat-spinner *ngIf="connecting()" diameter="20"></mat-spinner>
+                {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
+              </button>
+            </div>
           </ng-template>
         </mat-card-content>
       </mat-card>
 
       <!-- Main Tabs: Issue VC -->
-      <mat-tab-group class="tabs" *ngIf="wallet.address$ | async" animationDuration="300ms">
-        <!-- Issue Tab -->
+      <mat-tab-group class="tabs glass-tabs" *ngIf="wallet.address$ | async" animationDuration="300ms">
         <mat-tab label="Issue Credential">
           <div class="tab-content">
-            <mat-card class="card elevated" appearance="outlined">
+            <mat-card class="card glass-card elevated" appearance="outlined">
               <mat-card-header>
                 <mat-icon class="header-icon" mat-card-avatar>post_add</mat-icon>
                 <mat-card-title>Issue New Credential</mat-card-title>
@@ -185,7 +190,7 @@ import { take } from 'rxjs';
       </mat-tab-group>
 
       <!-- Result Display -->
-      <mat-card class="card elevated result-card" *ngIf="result" appearance="outlined">
+      <mat-card class="card glass-card result-card" *ngIf="result" appearance="outlined">
         <mat-card-header>
           <mat-icon class="header-icon" [color]="isSuccessResult() ? 'primary' : 'warn'" mat-card-avatar>
             {{ isSuccessResult() ? 'task_alt' : 'error' }}
@@ -193,12 +198,12 @@ import { take } from 'rxjs';
           <mat-card-title>Result</mat-card-title>
         </mat-card-header>
         <mat-card-content>
-          <pre>{{ result | json }}</pre>
+          <pre class="result-pre">{{ result | json }}</pre>
         </mat-card-content>
       </mat-card>
 
       <!-- Empty State (no wallet) -->
-      <mat-card class="card elevated empty-state" *ngIf="!(wallet.address$ | async)">
+      <mat-card class="card glass-card empty-state" *ngIf="!(wallet.address$ | async)">
         <mat-icon class="empty-icon">wallet</mat-icon>
         <h3>Wallet Required</h3>
         <p class="muted">
@@ -208,430 +213,423 @@ import { take } from 'rxjs';
     </div>
   `,
 
-styles: [`
-  :host {
-    display: block;
-    min-height: 100vh;
-  }
+  styles: [`
+    :host { display: block; min-height: 100vh; }
 
-  .credentials-container {
-    padding: 32px 40px 80px;
-    max-width: 960px;
-    margin: 0 auto;
-    transition: background 0.4s ease;
-  }
-
-  .credentials-container.dark {
-    background: #0f0f1a;
-    color: #e2e8f0;
-  }
-
-  /* Header */
-  .credentials-header {
-    text-align: center;
-    margin-bottom: 48px;
-  }
-
-  h1 {
-    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
-    font-weight: 800;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0 0 16px;
-    letter-spacing: -0.6px;
-  }
-
-  .subtitle {
-    font-size: 1.15rem;
-    color: var(--text-secondary, #94a3b8);
-    max-width: 760px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  /* Cards */
-  .card {
-    background: var(--card-bg, white);
-    border-radius: 20px;
-    margin-bottom: 32px;
-    border: 1px solid var(--card-border, #e2e8f0);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .credentials-container.dark .card {
-    background: rgba(30, 41, 59, 0.65);
-    border-color: #2d2d44;
-    backdrop-filter: blur(10px);
-  }
-
-  .elevated {
-    box-shadow: 0 10px 30px rgba(0,0,0,0.09);
-  }
-
-  .credentials-container.dark .elevated {
-    box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  }
-
-  .card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.14);
-  }
-
-  .credentials-container.dark .card:hover {
-    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
-  }
-
-  mat-card-header {
-    align-items: center;
-    margin-bottom: 24px;
-  }
-
-  .header-icon {
-    background: var(--icon-bg, rgba(99,102,241,0.12));
-    color: #6366f1;
-    border-radius: 14px;
-    width: 52px;
-    height: 52px;
-    font-size: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .credentials-container.dark .header-icon {
-    background: rgba(99,102,241,0.28);
-    color: #a5b4fc;
-  }
-
-  /* Wallet Connected State */
-  .address-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .address {
-    flex: 1;
-    background: var(--code-bg, #f1f5f9);
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-family: 'Courier New', monospace;
-    font-size: 1rem;
-    color: #1d4ed8;
-  }
-
-  .credentials-container.dark .address {
-    background: rgba(30,41,59,0.6);
-    color: #c7d2fe;
-  }
-
-  .status.success {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--success-bg, #f0fdf4);
-    border: 1px solid #bbf7d0;
-    color: var(--success-text, #166534);
-    padding: 14px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-  }
-
-  .credentials-container.dark .status.success {
-    background: rgba(34,197,94,0.18);
-    border-color: rgba(34,197,94,0.45);
-    color: #86efac;
-  }
-
-  .did-display {
-    margin-top: 12px;
-    font-size: 0.98rem;
-  }
-
-  .did-display strong {
-    color: var(--text-primary);
-  }
-
-  .credentials-container.dark .did-display strong {
-    color: #f1f5f9;
-  }
-
-  .did-display code {
-    background: var(--code-bg, #f1f5f9);
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-family: 'Courier New', monospace;
-  }
-
-  .credentials-container.dark .did-display code {
-    background: rgba(30,41,59,0.6);
-  }
-
-  /* Form Fields */
-  .full-width {
-    width: 100%;
-    margin-bottom: 20px;
-  }
-
-  .context-section {
-    margin-bottom: 28px;
-  }
-
-  .add-context-row {
-    display: flex;
-    gap: 16px;
-    align-items: flex-end;
-    margin-top: 12px;
-  }
-
-  .new-context-field {
-    flex: 1;
-  }
-
-  /* Buttons */
-  .issue-btn {
-    padding: 14px 40px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    transition: all 0.25s ease;
-  }
-
-  .issue-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(99,102,241,0.4);
-  }
-
-  /* Tabs & Tab Content */
-  .tab-content {
-    padding: 32px 0;
-  }
-
-  .tabs ::ng-deep .mat-mdc-tab-body-content {
-    padding: 0;
-  }
-
-  /* Result Card */
-  .result-card pre {
-    background: var(--code-bg, #1e1e1e);
-    color: #9cdcfe;
-    padding: 20px;
-    border-radius: 14px;
-    overflow-x: auto;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  .credentials-container.dark .result-card pre {
-    background: #0d1117;
-    color: #c9d1d9;
-  }
-
-  /* Empty State */
-  .empty-state {
-    text-align: center;
-    padding: 80px 32px;
-    border-radius: 20px;
-  }
-
-  .empty-icon {
-    font-size: 96px;
-    width: 120px;
-    height: 120px;
-    color: var(--text-secondary);
-    margin-bottom: 32px;
-  }
-
-  .empty-state h3 {
-    color: var(--text-primary);
-    margin: 0 0 16px;
-    font-size: 1.6rem;
-  }
-
-  /* Misc */
-  .muted {
-    color: var(--text-secondary);
-  }
-
-  .validation-hint {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #9a3412;
-    font-size: 0.95rem;
-    margin-top: 16px;
-  }
-
-  .credentials-container.dark .validation-hint {
-    color: #fca5a5;
-  }
-
-    /* Dark mode Material form fixes */
-  .credentials-container.dark {
-    .mat-mdc-form-field-label,
-    .mat-mdc-form-field-hint,
-    .mat-mdc-select-placeholder,
-    .mat-mdc-input-element::placeholder {
-      color: #94a3b8 !important;
-      opacity: 1 !important;
+    .credentials-page {
+      padding: clamp(32px, 5vw, 64px) clamp(24px, 6vw, 80px);
+      max-width: 1000px;
+      margin: 0 auto;
+      transition: background 0.6s ease;
     }
 
-    .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
-      color: #a5b4fc !important;
+    .credentials-page.dark {
+      background: linear-gradient(to bottom, #0b0e17, #000000);
+      color: #e2e8f0;
     }
 
-    .mat-mdc-input-element,
-    textarea.mat-mdc-input-element {
-      color: #f1f5f9 !important;
+    /* Header */
+    .page-header {
+      text-align: center;
+      margin-bottom: clamp(40px, 7vw, 80px);
     }
 
-    .mat-mdc-select-arrow,
-    .mat-mdc-select-value-text {
-      color: #f1f5f9 !important;
+    .page-header h1 {
+      font-size: clamp(2.5rem, 6vw, 4.2rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0 0 12px;
+      letter-spacing: -1px;
     }
 
-    .mat-mdc-form-field-underline,
-    .mat-mdc-form-field-ripple {
-      background-color: #6366f1 !important;
+    .subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: #94a3b8;
+      max-width: 760px;
+      margin: 0 auto;
+      line-height: 1.6;
     }
 
-    .mat-mdc-form-field-disabled .mat-mdc-form-field-label,
-    .mat-mdc-form-field-disabled .mat-mdc-input-element {
-      color: #6b7280 !important;
+    /* Glass Cards */
+    .glass-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      overflow: hidden;
+      transition: all 0.4s ease;
     }
 
-    .mat-mdc-form-field-invalid .mat-mdc-form-field-label,
-    .mat-mdc-form-field-invalid .mat-mdc-form-field-hint {
-      color: #fca5a5 !important;
+    .credentials-page.dark .glass-card {
+      background: rgba(20,25,35,0.72);
+      border-color: rgba(100,116,139,0.35);
+      box-shadow: 0 25px 70px rgba(0,0,0,0.55);
     }
-  }
+
+    /* Wallet Card */
+    .wallet-card {
+      margin-bottom: 40px;
+    }
+
+    .header-icon {
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      color: white;
+      border-radius: 16px;
+    }
+
+    .connected-state {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 20px 0;
+    }
+
+    .address-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      background: rgba(226,232,240,0.45);
+      border-radius: 16px;
+    }
+
+    .credentials-page.dark .address-row {
+      background: rgba(30,41,59,0.6);
+    }
+
+    .address {
+      flex: 1;
+      font-family: 'JetBrains Mono', monospace;
+      color: #1d4ed8;
+      font-size: 1.05rem;
+    }
+
+    .credentials-page.dark .address {
+      color: #c7d2fe;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .status-pill.success {
+      background: rgba(34,197,94,0.18);
+      color: #166534;
+    }
+
+    .credentials-page.dark .status-pill.success {
+      background: rgba(34,197,94,0.28);
+      color: #86efac;
+    }
+
+    .did-display {
+      font-size: 0.98rem;
+      color: #64748b;
+    }
+
+    .credentials-page.dark .did-display {
+      color: #94a3b8;
+    }
+
+    .connect-prompt {
+      text-align: center;
+      padding: 64px 32px;
+      color: #94a3b8;
+    }
+
+    .prompt-icon {
+      font-size: 80px;
+      height: 80px;
+      width: 80px;
+      margin-bottom: 24px;
+      opacity: 0.7;
+    }
+
+    /* Form Section */
+    .context-section {
+      margin-bottom: 32px;
+    }
+
+    .add-context-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .new-context-field {
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .full-width {
+      width: 100%;
+      margin-bottom: 24px;
+    }
+
+    /* Issue Button */
+    .issue-actions {
+      text-align: center;
+      margin-top: 32px;
+    }
+
+    .issue-btn {
+      padding: 14px 48px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 24px rgba(99,102,241,0.35);
+    }
+
+    .issue-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(99,102,241,0.45);
+    }
+
+    .issue-btn:disabled {
+      opacity: 0.6;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Result Card */
+    .result-card pre.result-pre {
+      background: rgba(30,41,59,0.9);
+      color: #c9d1d9;
+      padding: 24px;
+      border-radius: 16px;
+      overflow-x: auto;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .credentials-page:not(.dark) .result-card pre.result-pre {
+      background: #1e1e1e;
+      color: #9cdcfe;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 80px 32px;
+    }
+
+    .empty-icon {
+      font-size: 96px;
+      height: 96px;
+      width: 96px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+
+    .empty-state h3 {
+      color: #1e293b;
+      margin: 0 0 16px;
+      font-size: 2rem;
+    }
+
+    .credentials-page.dark .empty-state h3 {
+      color: #f1f5f9;
+    }
+
+    /* Validation Hint */
+    .validation-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f59e0b;
+      font-size: 0.95rem;
+      margin-top: 16px;
+    }
+
+    .credentials-page.dark .validation-hint {
+      color: #fcd34d;
+    }
+
+    /* ─────────────────────────────────────────────
+       Dark Mode Material Form Fixes (FULLY RESTORED)
+    ────────────────────────────────────────────── */
+    .credentials-page.dark {
+      .mat-mdc-form-field-label,
+      .mat-mdc-form-field-hint,
+      .mat-mdc-select-placeholder,
+      .mat-mdc-input-element::placeholder {
+        color: #94a3b8 !important;
+        opacity: 1 !important;
+      }
+
+      .mat-mdc-form-field.mat-focused .mat-mdc-form-field-label {
+        color: #a5b4fc !important;
+      }
+
+      .mat-mdc-input-element,
+      textarea.mat-mdc-input-element {
+        color: #f1f5f9 !important;
+      }
+
+      .mat-mdc-select-arrow,
+      .mat-mdc-select-value-text {
+        color: #f1f5f9 !important;
+      }
+
+      .mat-mdc-form-field-underline,
+      .mat-mdc-form-field-ripple {
+        background-color: #6366f1 !important;
+      }
+
+      .mat-mdc-form-field-disabled .mat-mdc-form-field-label,
+      .mat-mdc-form-field-disabled .mat-mdc-input-element {
+        color: #6b7280 !important;
+      }
+
+      .mat-mdc-form-field-invalid .mat-mdc-form-field-label,
+      .mat-mdc-form-field-invalid .mat-mdc-form-field-hint {
+        color: #fca5a5 !important;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       Responsive Media Queries (FULLY RESTORED + refined)
+    ────────────────────────────────────────────── */
+
     /* Tablet / Small Laptop */
-@media (max-width: 960px) {
-  .credentials-container {
-    padding: 24px 24px 64px;
-  }
-  h1 {
-    font-size: 2.2rem;
-  }
-  .subtitle {
-    font-size: 1.05rem;
-  }
-}
+    @media (max-width: 960px) {
+      .credentials-page {
+        padding: 32px 32px 80px;
+      }
 
-/* Phones */
-@media (max-width: 480px) {
-  /* Disable hover transforms */
-  .card:hover {
-    transform: none;
-    box-shadow: none;
-  }
+      h1 {
+        font-size: 2.2rem;
+      }
 
-  .credentials-container {
-    padding: 20px 18px 56px;
-  }
+      .subtitle {
+        font-size: 1.05rem;
+      }
+    }
 
-  h1 {
-    font-size: 1.8rem;
-    line-height: 1.2;
-  }
+    /* Phones */
+    @media (max-width: 480px) {
+      /* Disable hover transforms */
+      .card:hover {
+        transform: none;
+        box-shadow: none;
+      }
 
-  .subtitle {
-    font-size: 1rem;
-    max-width: 100%;
-  }
+      .credentials-page {
+        padding: 20px 18px 56px;
+      }
 
-  .header-icon {
-    width: 46px;
-    height: 46px;
-    font-size: 28px;
-  }
+      h1 {
+        font-size: 1.8rem;
+        line-height: 1.2;
+      }
 
-  .address-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
+      .subtitle {
+        font-size: 1rem;
+        max-width: 100%;
+      }
 
-  .address {
-    font-size: 0.9rem;
-  }
+      .header-icon {
+        width: 46px;
+        height: 46px;
+        font-size: 28px;
+      }
 
-  .add-context-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
+      .address-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
 
-  .issue-btn {
-    width: 100%;
-    text-align: center;
-    padding: 12px 24px;
-    font-size: 1rem;
-  }
+      .address {
+        font-size: 0.9rem;
+      }
 
-  .result-card pre {
-    font-size: 0.85rem;
-    padding: 16px;
-  }
+      .add-context-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
 
-  .empty-state {
-    padding: 56px 20px;
-  }
+      .issue-btn {
+        width: 100%;
+        text-align: center;
+        padding: 12px 24px;
+        font-size: 1rem;
+      }
 
-  .empty-icon {
-    font-size: 72px;
-    width: 90px;
-    height: 90px;
-  }
-}
+      .result-card pre.result-pre {
+        font-size: 0.85rem;
+        padding: 16px;
+      }
 
-/* Very small phones (320px and below) */
-@media (max-width: 320px) {
-  h1 {
-    font-size: 1.5rem;
-  }
+      .empty-state {
+        padding: 56px 20px;
+      }
 
-  .subtitle {
-    font-size: 0.9rem;
-  }
+      .empty-icon {
+        font-size: 72px;
+        width: 90px;
+        height: 90px;
+      }
+    }
 
-  .header-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 24px;
-  }
+    /* Very small phones (320px and below) */
+    @media (max-width: 320px) {
+      h1 {
+        font-size: 1.5rem;
+      }
 
-  button,
-  .issue-btn {
-    font-size: 0.85rem;
-    padding: 8px 14px;
-  }
+      .subtitle {
+        font-size: 0.9rem;
+      }
 
-  .address {
-    padding: 10px 12px;
-    font-size: 0.82rem;
-  }
+      .header-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+      }
 
-  .status.success {
-    padding: 10px;
-    font-size: 0.9rem;
-  }
+      button,
+      .issue-btn {
+        font-size: 0.85rem;
+        padding: 8px 14px;
+      }
 
-  .result-card pre {
-    font-size: 0.75rem;
-    padding: 12px;
-  }
+      .address {
+        padding: 10px 12px;
+        font-size: 0.82rem;
+      }
 
-  .empty-icon {
-    font-size: 60px;
-    width: 72px;
-    height: 72px;
-  }
-}
+      .status.success {
+        padding: 10px;
+        font-size: 0.9rem;
+      }
 
-`]
+      .result-card pre.result-pre {
+        font-size: 0.75rem;
+        padding: 12px;
+      }
+
+      .empty-icon {
+        font-size: 60px;
+        width: 72px;
+        height: 72px;
+      }
+    }
+  `]
 })
 
 export class CredentialsComponent implements OnInit {

@@ -12,6 +12,13 @@ export class WalletService {
   private addressSubject = new BehaviorSubject<string | null>(null);
   address$ = this.addressSubject.asObservable();
 
+  // New: Authentication state (JWT + isAuthenticated flag)
+  private authState = new BehaviorSubject<{ token: string | null; isAuthenticated: boolean }>({
+    token: null,
+    isAuthenticated: false
+  });
+  authState$ = this.authState.asObservable();
+
   provider: BrowserProvider | null = null;
   signer: JsonRpcSigner | null = null;
 
@@ -24,6 +31,13 @@ export class WalletService {
       if (saved) {
         this.addressSubject.next(saved);
       }
+
+      // Optional: Restore auth token if you want persistence across refresh
+      // (but usually JWT is short-lived, so you may want to re-login instead)
+      // const savedToken = localStorage.getItem('authToken');
+      // if (savedToken) {
+      //   this.authState.next({ token: savedToken, isAuthenticated: true });
+      // }
 
       // 🔄 Keep address in sync with MetaMask
       if (window.ethereum) {
@@ -107,9 +121,49 @@ export class WalletService {
     this.provider = null;
     this.signer = null;
     this.addressSubject.next(null);
+    this.clearAuth(); // Clears auth state on disconnect
 
     if (this.isBrowser) {
       localStorage.removeItem('walletAddress');
     }
+  }
+
+  // ────────────────────────────────────────────────
+  // NEW METHODS FOR AUTHENTICATION STATE
+  // ────────────────────────────────────────────────
+
+  /**
+   * Call this after successful SIWE login (when you receive JWT from backend)
+   */
+  setAuthenticated(token: string) {
+    this.authState.next({ token, isAuthenticated: true });
+    // Optional: persist token (only if your JWT is long-lived / refreshable)
+    if (this.isBrowser) {
+      localStorage.setItem('authToken', token);
+    }
+  }
+
+  /**
+   * Clears auth state (call on logout or when disconnecting wallet)
+   */
+  clearAuth() {
+    this.authState.next({ token: null, isAuthenticated: false });
+    if (this.isBrowser) {
+      localStorage.removeItem('authToken');
+    }
+  }
+
+  /**
+   * Get current JWT token (useful for HTTP interceptors)
+   */
+  getToken(): string | null {
+    return this.authState.value.token || (this.isBrowser ? localStorage.getItem('authToken') : null);
+  }
+
+  /**
+   * Convenience getter for auth status
+   */
+  isAuthenticated(): boolean {
+    return this.authState.value.isAuthenticated;
   }
 }

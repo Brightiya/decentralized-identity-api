@@ -40,10 +40,27 @@ const signer = new ethers.Wallet(privateKey, provider);
 
 const didToAddress = (didOrAddress) => {
   if (!didOrAddress) return didOrAddress;
-  if (didOrAddress.startsWith("did:")) {
-    return didOrAddress.split(":").pop();
+  
+  let addr = didOrAddress;
+  
+  // Strip any did: prefix
+  if (addr.startsWith('did:')) {
+    addr = addr.split(':').pop();
   }
-  return didOrAddress;
+  
+  // Force lowercase + ensure 0x prefix
+  if (addr.startsWith('0x')) {
+    addr = addr.slice(2);
+  }
+  
+  addr = addr.toLowerCase();
+  
+  // Basic validation (optional but good)
+  if (!/^ [0-9a-f]{40}$/.test(addr)) {
+    console.warn('Invalid address format:', didOrAddress);
+  }
+  
+  return '0x' + addr;
 };
 
 /* ------------------------------------------------------------------
@@ -230,6 +247,7 @@ export const verifyVC = async (req, res) => {
     const disclosed = {};
     const denied = {};
     const subjectAddress = didToAddress(subject);
+    const verifierAddress = didToAddress(verifierDid);
 
     for (const entry of credentials) {
       const { cid, claimId } = entry;
@@ -300,12 +318,12 @@ export const verifyVC = async (req, res) => {
       disclosed[claimId] = value;
 
       await pool.query(
-        `
+        ` 
         INSERT INTO disclosures
-          (subject_did, verifier_did, claim_id, purpose, context, consent)
-        VALUES ($1, $2, $3, $4, $5, $6)
+          (subject_did, verifier_did, claim_id, purpose, context, consent, disclosed_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
         `,
-        [subjectAddress, verifierDid, claimId, purpose, vcContext, true]
+        [subjectAddress, verifierAddress, claimId, purpose, vcContext, true]
       );
     }
 
@@ -319,7 +337,7 @@ export const verifyVC = async (req, res) => {
     return res.json({
       message: "✅ Credentials verified with enforced disclosure",
       subject: subjectAddress,
-      verifierDid,
+      verifierDid: verifierAddress,
       purpose,
       disclosed,
       denied,

@@ -121,7 +121,6 @@ export class ApiService {
 
   /**
    * Legacy alias: Restore original method name for compatibility
-   * (used in consent.component.ts, contexts.component.ts, etc.)
    */
   getProfileByContext(address: string, context: string): Observable<any> {
     return this.getProfile(address, context);
@@ -148,9 +147,46 @@ export class ApiService {
      Disclosure audit & GDPR rights
   -------------------------------------------------- */
 
+  /**
+   * Legacy (still kept — DO NOT REMOVE)
+   * For backward compatibility, returns full disclosure list without pagination.
+   */
   getDisclosuresForSubject(subjectDid: string): Observable<any> {
     return this.http.get(
       `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`
+    );
+  }
+
+  /**
+   * 🆕 Modern GDPR endpoint
+   * Supports pagination + optional context filtering.
+   */
+  getDisclosuresBySubject(
+    subjectDid: string,
+    limit = 50,
+    offset = 0,
+    context?: string,
+  ): Observable<any> {
+    let params = new HttpParams()
+      .set('limit', limit)
+      .set('offset', offset);
+
+    if (context && context.trim().length > 0) {
+      params = params.set('context', context.trim());
+    }
+
+    return this.http.get(
+      `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`,
+      { params }
+    );
+  }
+
+  /**
+   * 🆕 GDPR Art. 15 export (JSON bundle)
+   */
+  exportDisclosures(subjectDid: string): Observable<any> {
+    return this.http.get(
+      `${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`
     );
   }
 

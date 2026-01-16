@@ -157,6 +157,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_consent
 ON consents (subject_did, claim_id, context)
 WHERE revoked_at IS NULL;
 
+COMMENT ON INDEX uniq_active_consent IS
+'Prevents duplicate active (non-revoked) consents for the same subject, claim_id, and context';
+
 -- Cleanup duplicate active consents
 WITH ranked_consents AS (
   SELECT

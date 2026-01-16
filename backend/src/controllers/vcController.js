@@ -226,6 +226,7 @@ export const verifyVC = async (req, res) => {
       subject,
       verifierDid,
       purpose,
+      context,
       consent,
       credentials
     } = req.body;
@@ -234,6 +235,7 @@ export const verifyVC = async (req, res) => {
       !subject ||
       !verifierDid ||
       !purpose ||
+      !context ||
       consent !== true ||
       !Array.isArray(credentials) ||
       credentials.length === 0
@@ -287,6 +289,12 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
+      // NEW: Enforce that VC context matches the verifier's requested context
+      if (vcContext.toLowerCase() !== context.toLowerCase()) {
+        denied[claimId] = `VC context mismatch: VC has "${vcContext}", but requested "${context}"`;
+        continue;
+      }
+
       const consentRes = await pool.query(
         `
         SELECT 1
@@ -299,7 +307,7 @@ export const verifyVC = async (req, res) => {
           AND (expires_at IS NULL OR expires_at > NOW())
         LIMIT 1
         `,
-        [subjectAddress, claimId, purpose, vcContext]
+        [subjectAddress, claimId, purpose, vcContext, context]
       );
 
       if (consentRes.rowCount === 0) {
@@ -323,7 +331,7 @@ export const verifyVC = async (req, res) => {
           (subject_did, verifier_did, claim_id, purpose, context, consent, disclosed_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
         `,
-        [subjectAddress, verifierAddress, claimId, purpose, vcContext, true]
+        [subjectAddress, verifierAddress, claimId, purpose, vcContext, context, true]
       );
     }
 
@@ -339,6 +347,7 @@ export const verifyVC = async (req, res) => {
       subject: subjectAddress,
       verifierDid: verifierAddress,
       purpose,
+      context,
       disclosed,
       denied,
     });

@@ -1,5 +1,7 @@
 // backend/src/controllers/consentController.js
 import { pool } from "../utils/db.js";
+import { ethers } from "ethers";
+import { fetchJSON } from "../utils/pinata.js";
 
 /**
  * Normalize DID → Ethereum address
@@ -200,5 +202,120 @@ export const getActiveConsents = async (req, res) => {
   } catch (err) {
     console.error("❌ getActiveConsents error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Get suggestable claimIds, purposes, and contexts for consent granting
+ * Pulls real values from:
+ *  - On-chain anchored VCs (via registry + IPFS fetch)
+ *  - Profile credentials (if linked)
+ *  - Historical consents (as memory aid)
+ * Ensures suggestions match what was actually issued
+ */
+export const getSuggestableClaimsForConsent = async (req, res) => {
+  try {
+    const { subjectDid } = req.params;
+
+    if (!subjectDid) {
+      return res.status(400).json({ error: "subjectDid is required" });
+    }
+
+    const subjectAddress = didToAddress(subjectDid);
+    const suggestions = new Map(); // key: claimId, value: {purpose, context} — avoids duplicates
+
+    // 1. Fetch from profile credentials (best source — links to issued VCs)
+    const profileCid = await registry.getProfileCID(subjectAddress);
+
+    if (profileCid && profileCid.length > 0) {
+      try {
+        const profile = await fetchJSON(profileCid);
+
+        // Extract from credentials array (each has cid, context, claimId)
+        for (const cred of profile.credentials || []) {
+          if (cred.cid && cred.claimId && cred.context) {
+            try {
+              const vc = await fetchJSON(cred.cid);
+              const purpose = vc?.pimv?.purpose || "General verification";
+              const context = vc?.pimv?.context || cred.context;
+
+              suggestions.set(cred.claimId, {
+                claim_id: cred.claimId,
+                purpose,
+                context
+              });
+            } catch (e) {
+              console.warn(`Failed to fetch VC ${cred.cid} for suggestion:`, e.message);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch profile CID ${profileCid}:`, e.message);
+      }
+    }
+
+    // 2. Fallback: Scan common claimIds directly from registry (if profile has no credentials)
+    const commonClaimIds = [
+      'Address', 'Name', 'Email', 'Age', 'Number', 
+      'identity.name', 'identity.email', 'profile.email', 'legal.email', 'professional.Name'
+    ];
+
+    for (const claimId of commonClaimIds) {
+      try {
+        const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
+        const claimHash = await registry.getClaim(subjectAddress, claimIdBytes32);
+
+        if (claimHash !== ethers.ZeroHash) { // claim is anchored
+          // Try to fetch VC from profile or skip to default suggestion
+          suggestions.set(claimId, {
+            claim_id: claimId,
+            purpose: `Verification of ${claimId}`,
+            context: 'identity' // default fallback
+          });
+        }
+      } catch (e) {
+        console.warn(`Failed to check on-chain claim ${claimId}:`, e.message);
+      }
+    }
+
+    // 3. Historical consents (as additional memory aid)
+    const historicalRes = await pool.query(`
+      SELECT DISTINCT claim_id, purpose, context
+      FROM consents
+      WHERE subject_did = $1
+      ORDER BY claim_id
+    `, [subjectAddress]);
+
+    historicalRes.rows.forEach(row => {
+      if (!suggestions.has(row.claim_id)) {
+        suggestions.set(row.claim_id, {
+          claim_id: row.claim_id,
+          purpose: row.purpose,
+          context: row.context || 'unknown'
+        });
+      }
+    });
+
+    // Convert to array + sort
+    const uniqueSuggestions = Array.from(suggestions.values())
+      .sort((a, b) => a.claim_id.localeCompare(b.claim_id));
+
+    return res.json({
+      subjectDid,
+      suggestableClaims: uniqueSuggestions,
+      total: uniqueSuggestions.length,
+      sources: [
+        "issued VCs (on-chain + IPFS)",
+        "profile credentials",
+        "historical consents"
+      ],
+      message: uniqueSuggestions.length > 0
+        ? "These are the claims you have issued — select one to grant consent for"
+        : "No issued VCs or profile claims found yet — issue a VC first"
+    });
+
+  } catch (err) {
+    console.error("❌ getSuggestableClaimsForConsent error:", err);
+    return res.status(500).json({ error: "Failed to fetch suggestable claims" });
   }
 };

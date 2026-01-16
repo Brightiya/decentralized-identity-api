@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -9,9 +9,14 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatOptionModule } from '@angular/material/core';
+import { MatSelectModule } from '@angular/material/select';
 import { ApiService } from '../../services/api.service';
 import { WalletService } from '../../services/wallet.service';
 import { ThemeService } from '../../services/theme.service';
+import { ContextService } from '../../services/context.service';
+import { computed, signal } from '@angular/core';
 
 @Component({
   selector: 'app-verifier',
@@ -26,7 +31,10 @@ import { ThemeService } from '../../services/theme.service';
     MatCheckboxModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatDividerModule
+    MatDividerModule,
+    MatAutocompleteModule,
+    MatOptionModule,
+    MatSelectModule
   ],
   template: `
   <div class="verifier-container" [class.dark]="darkMode()">
@@ -37,14 +45,14 @@ import { ThemeService } from '../../services/theme.service';
       </p>
     </div>
 
-    <!-- Connect Wallet Prompt (shown when not connected) -->
+    <!-- Connect Wallet Prompt -->
     <ng-container *ngIf="!wallet.address; else mainContent">
       <mat-card class="card elevated connect-card" appearance="outlined">
         <mat-card-content class="connect-content">
           <mat-icon class="wallet-icon">account_balance_wallet</mat-icon>
           <h2>Wallet Connection Required</h2>
           <p class="muted">
-            Request and verify credentials from a subject with explicit purpose and consent.
+            Connect your wallet to create secure, purpose-bound credential verification requests.
           </p>
 
           <button
@@ -60,19 +68,21 @@ import { ThemeService } from '../../services/theme.service';
       </mat-card>
     </ng-container>
 
-    <!-- Main Content (shown only when wallet is connected) -->
+    <!-- Main Content -->
     <ng-template #mainContent>
       <mat-card class="card elevated verifier-card">
         <mat-card-header>
           <mat-icon mat-card-avatar>verified_user</mat-icon>
-          <mat-card-title>Credential Verification & Disclosure Request</mat-card-title>
+          <mat-card-title>Credential Verification Request</mat-card-title>
           <mat-card-subtitle>
-            Request and verify credentials from a subject with explicit purpose and consent.
+            Request verifiable credentials with explicit purpose and consent tracking.
           </mat-card-subtitle>
         </mat-card-header>
 
         <mat-card-content>
           <form [formGroup]="form" (ngSubmit)="submit()">
+
+            <!-- Subject DID -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Subject DID</mat-label>
               <input matInput formControlName="subject" placeholder="did:ethr:0x..." />
@@ -81,80 +91,134 @@ import { ThemeService } from '../../services/theme.service';
               </mat-error>
             </mat-form-field>
 
+            <!-- Verifier DID -->
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Verifier DID</mat-label>
+              <mat-label>Verifier DID (your DID)</mat-label>
               <input matInput formControlName="verifierDid" placeholder="did:ethr:0x..." />
               <mat-error *ngIf="form.get('verifierDid')?.hasError('required')">
-                Verifier DID is required
+                Your DID is required
               </mat-error>
             </mat-form-field>
 
+            <!-- Context Selection -->
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Disclosure Context</mat-label>
+              <mat-select formControlName="context">
+                <mat-option value="">-- Select context --</mat-option>
+                <mat-option *ngFor="let c of contexts()" [value]="c">
+                  {{ c | titlecase }}
+                </mat-option>
+              </mat-select>
+              <mat-error *ngIf="form.get('context')?.hasError('required')">
+                Context is required
+              </mat-error>
+            </mat-form-field>
+
+            <!-- Purpose with Autocomplete -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Purpose of Disclosure</mat-label>
-              <textarea matInput formControlName="purpose" rows="2"></textarea>
-              <mat-hint>e.g., "Legal case", "KYC verification", "Employment check"</mat-hint>
-              <mat-error *ngIf="form.get('purpose')?.hasError('required')">
-                Purpose is required
-              </mat-error>
+              <input matInput formControlName="purpose"
+                     placeholder="e.g., KYC verification, age check, address confirmation"
+                     [matAutocomplete]="purposeAuto" />
+
+              <mat-autocomplete #purposeAuto="matAutocomplete">
+                <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
+                  <span>Purpose:({{ claim.purpose }})</span>
+                  <small class="muted ml-2">Claim Id:({{ claim.claim_id }}) Context: {{ claim.context }})</small>
+                </mat-option>
+              </mat-autocomplete>
+
+              <!-- Improved hints -->
+              <mat-hint class="subtle-context-hint" *ngIf="!form.get('context')?.value">
+                Select a context first to see relevant purpose suggestions
+              </mat-hint>
+
+              <mat-hint class="subtle-context-hint warn-hint" *ngIf="form.get('context')?.value && filteredSuggestedPurposes().length === 0 && !form.get('purpose')?.value?.trim()">
+                No previous purposes found for <strong>{{ form.get('context')?.value | titlecase }}</strong>.<br>
+                A consented VC must be issued first in this context by the issuer.
+              </mat-hint>
             </mat-form-field>
 
-            <mat-checkbox formControlName="consent" color="primary">
-              I confirm that this disclosure request is lawful, necessary, and I have the right to request these credentials for the stated purpose.
+            <!-- Consent Checkbox -->
+            <mat-checkbox formControlName="consent" color="primary" class="consent-checkbox">
+              I confirm this request is lawful, necessary, and respects data minimization principles.
             </mat-checkbox>
 
-            <mat-divider class="my-4"></mat-divider>
+            <mat-divider class="my-5"></mat-divider>
 
             <h3>Requested Credentials</h3>
 
             <div formArrayName="credentials">
-              <div *ngFor="let cred of credentialsArray.controls; let i = index" [formGroupName]="i" class="credential-row">
+              <div *ngFor="let cred of credentialsArray.controls; let i = index"
+                   [formGroupName]="i"
+                   class="credential-row">
+
+                <!-- Claim ID - now filtered dropdown -->
                 <mat-form-field appearance="outline" class="cred-field">
                   <mat-label>Claim ID</mat-label>
-                  <input matInput formControlName="claimId" placeholder="e.g. identity.email" />
+                  <mat-select formControlName="claimId">
+                    <mat-option *ngFor="let id of filteredClaimIdsByContext()" [value]="id">
+                      {{ id }}
+                    </mat-option>
+                    <mat-option *ngIf="filteredClaimIdsByContext().length === 0" disabled>
+                      No claims available
+                    </mat-option>
+                  </mat-select>
                   <mat-error *ngIf="cred.get('claimId')?.hasError('required')">
                     Claim ID is required
                   </mat-error>
+                  <mat-hint *ngIf="form.get('context')?.value && filteredClaimIdsByContext().length === 0">
+                    No credentials found in this context
+                  </mat-hint>
                 </mat-form-field>
 
+                <!-- CID -->
                 <mat-form-field appearance="outline" class="cred-field">
-                  <mat-label>CID</mat-label>
-                  <input matInput formControlName="cid" placeholder="e.g. QmQaXoq7zS4xJa8DH2Yp6YZgEJkNCcHXr4QvnjbfinGRKV" />
+                  <mat-label>Content Identifier (CID)</mat-label>
+                  <input matInput formControlName="cid" placeholder="Qm..." />
                   <mat-error *ngIf="cred.get('cid')?.hasError('required')">
                     CID is required
                   </mat-error>
                 </mat-form-field>
 
-                <button mat-icon-button color="warn" (click)="removeCredential(i)" matTooltip="Remove">
-                  <mat-icon>delete</mat-icon>
+                <button mat-icon-button color="warn" (click)="removeCredential(i)" matTooltip="Remove this credential">
+                  <mat-icon>delete_outline</mat-icon>
                 </button>
               </div>
             </div>
 
-            <button mat-stroked-button color="primary" type="button" (click)="addCredential()" class="add-btn">
-              <mat-icon>add</mat-icon> Add Credential
+            <!-- Add Button -->
+            <button mat-stroked-button color="primary"
+                    type="button"
+                    (click)="addCredential()"
+                    class="add-btn mt-3"
+                    [disabled]="!form.get('context')?.value || filteredClaimIdsByContext().length === 0"
+                    matTooltip="Select context first">
+              <mat-icon>add</mat-icon>
+              Add Credential
             </button>
 
+            <!-- Submit -->
             <div class="actions">
               <button
                 mat-raised-button
                 color="primary"
                 type="submit"
-                [disabled]="form.invalid || isSubmitting || credentialsArray.length === 0"
-              >
+                [disabled]="form.invalid || isSubmitting || credentialsArray.length === 0">
                 <mat-spinner *ngIf="isSubmitting" diameter="20"></mat-spinner>
-                <span *ngIf="!isSubmitting">Verify & Request Disclosure</span>
+                <span *ngIf="!isSubmitting">Request & Verify</span>
                 <span *ngIf="isSubmitting">Processing...</span>
               </button>
             </div>
           </form>
 
-          <!-- Result / Error -->
-          <div *ngIf="result" class="result success">
-            <h3>Verification Successful</h3>
+          <!-- Results -->
+          <div *ngIf="result" class="result success mt-5">
+            <h3>Request Successful</h3>
             <pre>{{ result | json }}</pre>
           </div>
 
-          <div *ngIf="error" class="result error">
+          <div *ngIf="error" class="result error mt-5">
             <h3>Error</h3>
             <p>{{ error }}</p>
           </div>
@@ -162,6 +226,7 @@ import { ThemeService } from '../../services/theme.service';
       </mat-card>
     </ng-template>
   </div>
+
 `,
 
 styles: [`
@@ -529,6 +594,25 @@ styles: [`
     font-size: 0.9rem;
   }
 }
+  /* New subtle hint style */
+    .subtle-context-hint {
+      font-size: 0.85rem;
+      color: #757575;
+      margin-top: 8px;
+      margin-bottom: 16px;
+      opacity: 0.8;
+      display: block;
+    }
+
+    /* Optional: Style for auto-complete options */
+    mat-option {
+      line-height: 1.4;
+    }
+    mat-option small {
+      opacity: 0.7;
+      font-size: 0.85em;
+      margin-left: 8px;
+    }
 
 `]
 })
@@ -536,40 +620,113 @@ export class VerifierComponent {
   private fb = inject(FormBuilder);
   private api = inject(ApiService);
   wallet = inject(WalletService);
+  private themeService = inject(ThemeService);
+  private contextService = inject(ContextService);
+  private cdr = inject(ChangeDetectorRef);
 
   form: FormGroup;
   isSubmitting = false;
   result: any = null;
   error: string | null = null;
-  connecting = false; // ← new flag for connect button
+  connecting = false;
+
+  // Signals
+  suggestedClaims = signal<any[]>([]);
+  contexts = signal<string[]>([]);
+
+  // ⭐ Recommended: dedicated signal for context (best reactivity)
+  selectedContext = signal<string>('');
+
+  darkMode = this.themeService.darkMode;
+
+  // Helper to normalize contexts consistently (good practice)
+  private normalizeContext(ctx: string): string {
+    return ctx?.toLowerCase()?.trim()?.replace(/\s+/g, '-') || '';
+  }
+
+  sortedSuggestedClaims = computed(() => {
+    return [...this.suggestedClaims()].reverse();
+  });
+
+  filteredSuggestedPurposes = computed(() => {
+    const search = (this.form.get('purpose')?.value || '').toLowerCase().trim();
+    const currentContext = this.selectedContext(); // ← now using signal!
+
+    let baseList = this.sortedSuggestedClaims();
+
+    if (currentContext) {
+      const normalizedCurrent = this.normalizeContext(currentContext);
+      baseList = baseList.filter(claim =>
+        this.normalizeContext(claim.context || '') === normalizedCurrent
+      );
+    }
+
+    if (!search) return baseList;
+
+    return baseList.filter(claim =>
+      (claim.purpose || '').toLowerCase().includes(search)
+    );
+  });
+
+  filteredClaimIdsByContext = computed(() => {
+    const currentContext = this.selectedContext();
+    const normalizedCurrent = this.normalizeContext(currentContext);
+
+    return this.sortedSuggestedClaims()
+      .filter(claim =>
+        !normalizedCurrent ||
+        this.normalizeContext(claim.context || '') === normalizedCurrent
+      )
+      .map(claim => claim.claim_id);
+  });
 
   get credentialsArray(): FormArray {
     return this.form.get('credentials') as FormArray;
   }
 
-  private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;   // readonly signal
-
   constructor() {
     this.form = this.fb.group({
       subject: ['', Validators.required],
       verifierDid: ['', Validators.required],
+      context: ['', Validators.required],
       purpose: ['', Validators.required],
       consent: [false, Validators.requiredTrue],
       credentials: this.fb.array([])
     });
 
-    // Prefill subject with connected wallet address (as DID)
+    // Wallet connection → prefill subject + load suggestions
     this.wallet.address$.subscribe(addr => {
       if (addr) {
-        this.form.patchValue({
-          subject: `did:ethr:${addr}`
-        });
+        this.form.patchValue({ subject: `did:ethr:${addr}` });
+        this.loadSuggestions();
       }
+    });
+
+    // Load available contexts
+    this.contextService.contexts$.subscribe(ctxs => {
+      this.contexts.set(ctxs.sort());
+    });
+
+    // ⭐ Key reactivity bridge: sync form context → selectedContext signal
+    this.form.get('context')?.valueChanges.subscribe(value => {
+      const newValue = value || '';
+      this.selectedContext.set(newValue);
+
+      // Optional: normalize in form too (consistency)
+      const normalized = this.normalizeContext(newValue);
+      if (normalized !== newValue && normalized) {
+        this.form.patchValue({ context: normalized }, { emitEvent: false });
+      }
+
+      this.cdr.detectChanges();
+    });
+
+    // Purpose changes → trigger UI refresh if needed
+    this.form.get('purpose')?.valueChanges.subscribe(() => {
+      this.cdr.detectChanges();
     });
   }
 
-  // New method: Connect wallet
   async connectWallet() {
     this.connecting = true;
     try {
@@ -579,6 +736,20 @@ export class VerifierComponent {
     } finally {
       this.connecting = false;
     }
+  }
+
+  loadSuggestions() {
+    const addr = this.wallet.address;
+    if (!addr) return;
+
+    const did = `did:ethr:${addr}`;
+    this.api.getSuggestableClaims(did).subscribe({
+      next: (res: any) => {
+        this.suggestedClaims.set(res.suggestableClaims || []);
+        this.cdr.detectChanges();
+      },
+      error: (err) => console.error('Failed to load suggestions:', err)
+    });
   }
 
   addCredential() {
@@ -614,8 +785,7 @@ export class VerifierComponent {
     };
 
     try {
-      const response = await this.api.verifyVC(payload).toPromise();
-      this.result = response;
+      this.result = await this.api.verifyVC(payload).toPromise();
     } catch (err: any) {
       this.error = err.error?.error || err.message || 'Verification failed';
       console.error('Verification error:', err);

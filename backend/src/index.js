@@ -15,6 +15,7 @@ import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 
+
 // Middleware
 import { authMiddleware } from "../middleware/auth.js";
 

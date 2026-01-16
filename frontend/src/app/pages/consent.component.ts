@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -20,6 +20,9 @@ import { WalletService } from '../services/wallet.service';
 import { ContextService } from '../services/context.service';
 import { ApiService } from '../services/api.service';
 import { ThemeService } from '../services/theme.service';
+import { MatOptionModule } from '@angular/material/core';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+
 
 @Component({
   selector: 'app-consent',
@@ -38,7 +41,9 @@ import { ThemeService } from '../services/theme.service';
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatDividerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatAutocompleteModule,   
+    MatOptionModule
   ],
   template: `
     <div class="consent-container" [class.dark]="darkMode()">
@@ -155,19 +160,44 @@ import { ThemeService } from '../services/theme.service';
             <mat-card-title>Purpose & Explicit Consent</mat-card-title>
           </mat-card-header>
           <mat-card-content>
+            <!-- Auto-complete Purpose Field -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Purpose of Disclosure</mat-label>
-              <input matInput [(ngModel)]="purposeValue" required />
+              <input matInput [(ngModel)]="purposeValue" 
+                    placeholder="e.g., Personal address"
+                    [matAutocomplete]="purposeAuto"
+                    required />
+              
+              <!-- Auto-complete panel -->
+              <mat-autocomplete #purposeAuto="matAutocomplete">
+                <mat-option *ngFor="let claim of filteredSuggestedPurposes()"
+                          [value]="claim.purpose">
+                 Purpose: {{ claim.purpose }} 
+                  <small class="muted"> (Claim Id: {{ claim.claim_id }} ) Context: {{ claim.context }})</small>
+                </mat-option>
+              </mat-autocomplete>
+
+              <!-- Hint when suggestions exist -->
+              <mat-hint *ngIf="suggestedClaims.length > 0">
+                Type to filter suggestions from your issued claims
+              </mat-hint>
             </mat-form-field>
 
+            <!-- Add this right after the mat-autocomplete block -->
+              <mat-hint class="subtle-context-hint" *ngIf="selectedContext() && filteredSuggestedPurposes().length === 0">
+                No suggestions available for <strong>{{ selectedContext() | titlecase }}</strong> context yet.
+                Issue a VC in this context first.
+              </mat-hint>
+              
+             
             <mat-checkbox
               [checked]="explicitConsent()"
               (change)="explicitConsent.set($event.checked)">
-              <strong>I explicitly consent</strong> to sharing the selected attributes from my
+              <strong> I explicitly consent</strong> to sharing the selected attributes from my
               <strong>{{ selectedContext() | titlecase }}</strong> context for the purpose:
               <strong>"{{ purposeValue.trim() || 'not specified' }}"</strong>.
             </mat-checkbox>
-
+            
             <div class="actions">
               <button
                 mat-raised-button
@@ -656,8 +686,22 @@ styles: [`
     max-height: 240px;
   }
 }
-
-
+  mat-option {
+      line-height: 1.4;
+    }
+    mat-option small {
+      opacity: 0.7;
+      font-size: 0.85em;
+      margin-left: 8px;
+    }
+      .subtle-context-hint {
+        font-size: 0.85rem;
+        color: #757575;
+        margin-top: 8px;        /* Increased spacing to avoid crowding checkbox */
+        margin-bottom: 16px;    /* Extra breathing room before checkbox */
+        opacity: 0.8;
+        display: block;         /* Ensures it takes full width and doesn't inline */
+      }
 
 `]
 })
@@ -672,6 +716,7 @@ export class ConsentComponent implements OnInit {
   contexts = signal<string[]>([]);
   attributes = signal<string[]>([]);
   selectedContext = signal<string>('');
+  suggestedClaims = signal<any[]>([]);
 
   purposeValue = '';
 
@@ -679,6 +724,35 @@ export class ConsentComponent implements OnInit {
   explicitConsent = signal<boolean>(false);
   activeConsents = signal<any[]>([]);
   result = signal<any>(null);
+
+ // NEW: Computed for sorted + filtered suggestions (newest first)
+  sortedSuggestedClaims = computed(() => {
+    const claims = this.suggestedClaims();
+    // Reverse to show newest/latest first (assuming backend sends in chronological order)
+    return [...claims].reverse();
+  })
+
+  filteredSuggestedPurposes = computed(() => {
+  const search = this.purposeValue?.toLowerCase().trim() || '';
+  const currentContext = this.selectedContext()?.toLowerCase() || '';
+
+  // Get the sorted base list
+  let baseList = this.sortedSuggestedClaims();
+
+  // Filter by context if one is selected
+  if (currentContext) {
+    baseList = baseList.filter(claim =>
+      (claim.context || '').toLowerCase() === currentContext
+    );
+  }
+
+  // Then apply search filter
+  if (!search) return baseList;
+
+  return baseList.filter(claim =>
+    claim.purpose.toLowerCase().includes(search)
+  );
+});
 
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
@@ -688,10 +762,14 @@ export class ConsentComponent implements OnInit {
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
+  
 
   ngOnInit() {
     this.wallet.address$.subscribe(addr => {
       this.walletAddress.set(addr);
+      if (addr) {
+        this.loadSuggestions(); // ← NEW: Load suggestions when wallet is ready
+      }
       if (!addr) this.resetForm();
     });
 
@@ -881,6 +959,23 @@ export class ConsentComponent implements OnInit {
       this.loading.set(false);
       this.cdr.detectChanges();
     }
+  }
+
+  // NEW: Load suggestions when wallet is ready
+  loadSuggestions() {
+    if (!this.walletAddress()) return;
+
+    const did = `did:ethr:${this.walletAddress()}`;
+    this.api.getSuggestableClaims(did).subscribe({
+      next: (res: any) => {
+        this.suggestedClaims.set(res.suggestableClaims || []);
+        this.cdr.detectChanges(); // Ensure UI updates immediately
+      },
+      error: (err: any) => {
+        console.error('Failed to load suggestions:', err);
+        this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
+      }
+    });
   }
 
   confirmAndRevoke(consent: any) {

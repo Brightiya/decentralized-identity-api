@@ -76,6 +76,13 @@ export class ApiService {
     );
   }
 
+  // NEW: Get suggestable claims for consent granting
+  getSuggestableClaims(subjectDid: string): Observable<any> {
+    return this.http.get(
+      `${this.base}/api/consent/suggestable/${encodeURIComponent(subjectDid)}`
+    );
+  }
+
   grantConsent(payload: {
     owner: string;
     claimId: string;

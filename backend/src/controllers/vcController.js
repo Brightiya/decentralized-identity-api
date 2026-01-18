@@ -56,7 +56,7 @@ const didToAddress = (didOrAddress) => {
   addr = addr.toLowerCase();
   
   // Basic validation (optional but good)
-  if (!/^ [0-9a-f]{40}$/.test(addr)) {
+  if (!/^[0-9a-f]{40}$/.test(addr)) {
     console.warn('Invalid address format:', didOrAddress);
   }
   
@@ -148,13 +148,14 @@ export const issueVC = async (req, res) => {
       jws: signature
     };
 
-    // Use per-request JWT for uploads
+    // Get both keys from headers
     const pinataJwt = getPinataJwtForRequest(req);
+    const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
     /* -------------------------------------------------
-       Upload signed VC to IPFS
+       Upload signed VC to IPFS (nft.storage preferred)
     --------------------------------------------------*/
-    const ipfsUri = await uploadJSON(vc, pinataJwt);
+    const ipfsUri = await uploadJSON(vc, pinataJwt, nftStorageKey);
     const cid = ipfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
@@ -168,7 +169,7 @@ export const issueVC = async (req, res) => {
       }
     };
 
-    const enrichedIpfsUri = await uploadJSON(enrichedVC, pinataJwt);
+    const enrichedIpfsUri = await uploadJSON(enrichedVC, pinataJwt, nftStorageKey);
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
@@ -193,7 +194,8 @@ export const issueVC = async (req, res) => {
       const profileCID = await registry.getProfileCID(subjectAddress);
 
       if (profileCID && profileCID.length > 0) {
-        profile = await fetchJSON(profileCID);
+        const preferred = req.headers['x-preferred-gateway'] || null;
+        profile = await fetchJSON(profileCID, 3, preferred);
       }
 
       const updatedProfile = {
@@ -211,7 +213,7 @@ export const issueVC = async (req, res) => {
         updatedAt: new Date().toISOString()
       };
 
-      const profileUri = await uploadJSON(updatedProfile, pinataJwt);
+      const profileUri = await uploadJSON(updatedProfile, pinataJwt, nftStorageKey);
       const newProfileCid = profileUri.replace("ipfs://", "");
 
       await registry.setProfileCID(subjectAddress, newProfileCid).then(tx => tx.wait());
@@ -237,7 +239,7 @@ export const issueVC = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   2️⃣ Verify Verifiable Credentials (unchanged)
+   2️⃣ Verify Verifiable Credentials (unchanged - read only)
 ------------------------------------------------------------------- */
 export const verifyVC = async (req, res) => {
   try {
@@ -278,7 +280,8 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      const vc = await fetchJSON(cid);
+      const preferred = req.headers['x-preferred-gateway'] || null;
+      const vc = await fetchJSON(cid, 3, preferred);
 
       if (vc?.credentialSubject?.id === "[ERASED]") {
         denied[claimId] = "Credential subject erased";
@@ -308,7 +311,6 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      // NEW: Enforce that VC context matches the verifier's requested context
       if (vcContext.toLowerCase() !== context.toLowerCase()) {
         denied[claimId] = `VC context mismatch: VC has "${vcContext}", but requested "${context}"`;
         continue;
@@ -378,7 +380,7 @@ export const verifyVC = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   3️⃣ Validate Raw VC (unchanged)
+   3️⃣ Validate Raw VC (unchanged - read only)
 ------------------------------------------------------------------- */
 
 export const validateRawVC = async (req, res) => {

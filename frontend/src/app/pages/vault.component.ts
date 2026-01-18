@@ -16,6 +16,7 @@ import { ThemeService } from '../services/theme.service';
 import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ProfileStateService } from '../services/profile-state.service';
+import { StorageService } from '../services/storage.service';
 
 @Component({
   selector: 'app-vault',
@@ -78,7 +79,7 @@ import { ProfileStateService } from '../services/profile-state.service';
     </section>
 
     <!-- Profile Status Card -->
-    <section class="card elevated" *ngIf="wallet.address$ | async">
+    <section class="card elevated mt-6" *ngIf="wallet.address$ | async">
       <div class="card-header">
         <mat-icon class="header-icon">shield</mat-icon>
         <h3>Vault Profile</h3>
@@ -98,7 +99,7 @@ import { ProfileStateService } from '../services/profile-state.service';
               <strong>Security note:</strong> Create a dedicated key in Pinata with Admin permissions only.
             </p>
 
-            <!-- Wrap in form to silence password warning -->
+           
             <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Pinata JWT</mat-label>
@@ -146,6 +147,103 @@ import { ProfileStateService } from '../services/profile-state.service';
                  *ngIf="!hasUserJwt()">
               <mat-icon>warning</mat-icon>
               <span>Using shared app key — <strong>only for testing</strong></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Custom IPFS Gateway (Reading) -->
+       <section class="card elevated mt-6">
+          <div class="card-header">
+            <mat-icon class="header-icon">cloud_download</mat-icon>
+            <h3>Preferred IPFS Gateway (for reading)</h3>
+          </div>
+
+          <div class="content p-4">
+            <p class="muted mb-4">
+              Choose where the app fetches your credentials and profiles from.<br>
+              <strong>Default:</strong> public gateways (fast & reliable)<br>
+              <strong>Advanced:</strong> your local node or custom gateway
+            </p>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Gateway URL</mat-label>
+              <input matInput
+                    [(ngModel)]="customGateway"
+                    placeholder="https://ipfs.io/ipfs/"
+                    (blur)="saveCustomGateway()" />
+              <mat-hint>
+                Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain.mypinata.cloud/ipfs/
+              </mat-hint>
+            </mat-form-field>
+           <div class="actions mt-4">
+            <div class="status mt-4 flex items-center gap-4" *ngIf="customGateway()">
+              <mat-icon color="primary">check_circle</mat-icon>
+              <span>Using custom gateway: <code>{{ customGateway() }}</code></span>
+            </div>
+
+            <div class="status mt-4 flex items-center gap-4 text-amber-600 dark:text-amber-400" *ngIf="!customGateway()">
+              <mat-icon>info</mat-icon>
+              <span>Using default public gateways</span>
+            </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card elevated mt-6">
+          <div class="card-header">
+            <mat-icon class="header-icon">cloud_upload</mat-icon>
+            <h3>nft.storage API Key (alternative pinning)</h3>
+          </div>
+
+          <div class="content p-4">
+            <p class="muted mb-4">
+              Optionally use <strong>nft.storage</strong> instead of Pinata for pinning credentials.<br>
+              <strong>Free, decentralized, permanent</strong> — great for self-sovereign identity.<br>
+              Get your key at: <a href="https://nft.storage" target="_blank" class="text-primary underline">nft.storage → Login → API Keys</a>
+            </p>
+
+            <form (ngSubmit)="saveNftStorageKey()" #nftForm="ngForm">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>nft.storage API Key</mat-label>
+                <input matInput
+                      type="password"
+                      name="nftKey"
+                      [(ngModel)]="nftStorageKey"
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      autocomplete="new-password" />
+                <mat-hint>
+                  Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="actions mt-4 flex gap-4">
+                <button mat-raised-button 
+                        color="primary" 
+                        type="submit"
+                        [disabled]="!nftStorageKey().trim() || nftForm.invalid">
+                  Save nft.storage Key
+                </button>
+
+                <button mat-stroked-button 
+                        color="warn" 
+                        type="button"
+                        *ngIf="hasNftStorageKey()" 
+                        (click)="clearNftStorageKey()">
+                  Remove / Use Pinata
+                </button>
+              </div>
+            </form>
+
+            <div class="status mt-6 flex items-center gap-3 text-base font-medium text-purple-700 dark:text-purple-300" 
+                *ngIf="hasNftStorageKey()">
+              <mat-icon>check_circle</mat-icon>
+              <span>Pinning via <strong>nft.storage</strong> (decentralized & free)</span>
+            </div>
+
+            <div class="status mt-6 flex items-center gap-3 text-base font-medium text-gray-600 dark:text-gray-400" 
+                *ngIf="!hasNftStorageKey()">
+              <mat-icon>info</mat-icon>
+              <span>Pinning via Pinata (or shared test key)</span>
             </div>
           </div>
         </section>
@@ -731,6 +829,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private profileState = inject(ProfileStateService);
+  private storage = inject(StorageService); // Secure IndexedDB
 
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
@@ -742,26 +841,50 @@ export class VaultComponent implements OnInit, OnDestroy {
   userPinataJwt = signal<string>('');
   hasUserJwt = signal<boolean>(false);
 
-  private readonly USER_PINATA_JWT_KEY = 'user_pinata_jwt';
+  // Custom Gateway
+  customGateway = signal<string>('');
+
+  // nft.storage fields
+  nftStorageKey = signal<string>('');
+  hasNftStorageKey = signal<boolean>(false);
 
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
 
-  ngOnInit() {
+  async ngOnInit() {
     const isBrowser = isPlatformBrowser(this.platformId);
 
     if (isBrowser) {
       const erasedDid = sessionStorage.getItem('erasedDid');
-      const erasedAt = sessionStorage.getItem('erasedAt');
+      const erasedAtStr = sessionStorage.getItem('erasedAt');
 
       if (erasedDid) {
-        this.profileState.setProfileStatus(false, true, erasedAt);
+        this.profileState.setProfileStatus(false, true, erasedAtStr);
       }
 
-      // Load saved JWT
-      const savedJwt = localStorage.getItem(this.USER_PINATA_JWT_KEY);
-      if (savedJwt) {
-        this.userPinataJwt.set(savedJwt);
-        this.hasUserJwt.set(true);
+      // Initialize secure storage (wallet-based encryption)
+      const encryptionReady = await this.storage.initEncryption();
+
+      // Load all settings from IndexedDB (encrypted)
+      try {
+        const savedJwt = await this.storage.getItem('user_pinata_jwt');
+        if (savedJwt) {
+          this.userPinataJwt.set(savedJwt);
+          this.hasUserJwt.set(true);
+        }
+
+        const savedNft = await this.storage.getItem('nft_storage_api_key');
+        if (savedNft) {
+          this.nftStorageKey.set(savedNft);
+          this.hasNftStorageKey.set(true);
+        }
+
+        const savedGateway = await this.storage.getItem('custom_ipfs_gateway');
+        if (savedGateway) {
+          this.customGateway.set(savedGateway);
+        }
+      } catch (err) {
+        console.error('Failed to load settings from secure storage:', err);
+        this.snackBar.open('Failed to load saved settings - may need to reconnect wallet', 'Close', { duration: 5000 });
       }
     }
 
@@ -783,7 +906,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────────────────────────────
-  // All your existing methods remain unchanged
+  // Existing methods (checkProfile, createProfile, connect, copyAddress) - unchanged
   // ────────────────────────────────────────────────
 
   async checkProfile() {
@@ -845,6 +968,8 @@ export class VaultComponent implements OnInit, OnDestroy {
     try {
       this.loading.set(true);
       await this.wallet.connect();
+      // Re-init encryption after wallet connect (important!)
+      await this.storage.initEncryption();
     } catch (e: any) {
       this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
@@ -859,10 +984,10 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────────────────────────────
-  // Pinata JWT methods
+  // Pinata JWT methods (async + secure IndexedDB)
   // ────────────────────────────────────────────────
 
-  saveUserPinataJwt() {
+  async saveUserPinataJwt() {
     const jwt = this.userPinataJwt().trim();
     if (!jwt) {
       this.snackBar.open('Please enter a JWT', 'Close', { duration: 4000 });
@@ -875,15 +1000,99 @@ export class VaultComponent implements OnInit, OnDestroy {
       return;
     }
 
-    localStorage.setItem(this.USER_PINATA_JWT_KEY, jwt);
-    this.hasUserJwt.set(true);
-    this.snackBar.open('Your Pinata JWT saved — uploads will use your account', 'Close', { duration: 6000 });
+    try {
+      await this.storage.setItem('user_pinata_jwt', jwt);
+      this.hasUserJwt.set(true);
+      this.snackBar.open('Your Pinata JWT saved — uploads will use your account', 'Close', { duration: 6000 });
+    } catch (err) {
+      console.error('Failed to save Pinata JWT:', err);
+      this.snackBar.open('Failed to save JWT - storage error', 'Close', { duration: 5000 });
+    }
   }
 
-  clearUserPinataJwt() {
-    localStorage.removeItem(this.USER_PINATA_JWT_KEY);
-    this.userPinataJwt.set('');
-    this.hasUserJwt.set(false);
-    this.snackBar.open('Removed — now using shared test key', 'Close', { duration: 5000 });
+  async clearUserPinataJwt() {
+    try {
+      await this.storage.removeItem('user_pinata_jwt');
+      this.userPinataJwt.set('');
+      this.hasUserJwt.set(false);
+      this.snackBar.open('Removed — now using shared test key', 'Close', { duration: 5000 });
+    } catch (err) {
+      console.error('Failed to clear Pinata JWT:', err);
+      this.snackBar.open('Failed to clear JWT - storage error', 'Close', { duration: 5000 });
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Custom Gateway methods
+  // ────────────────────────────────────────────────
+
+  async saveCustomGateway() {
+    let url = this.customGateway().trim();
+
+    if (url) {
+      // Basic validation
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        this.snackBar.open('Gateway must start with http:// or https://', 'Close', { duration: 4000 });
+        return;
+      }
+      if (!url.endsWith('/')) {
+        url += '/';
+        this.customGateway.set(url);
+      }
+
+      try {
+        await this.storage.setItem('custom_ipfs_gateway', url);
+        this.snackBar.open('Custom gateway saved', 'Close', { duration: 3000 });
+      } catch (err) {
+        console.error('Failed to save custom gateway:', err);
+        this.snackBar.open('Failed to save gateway - storage error', 'Close', { duration: 5000 });
+      }
+    } else {
+      try {
+        await this.storage.removeItem('custom_ipfs_gateway');
+        this.snackBar.open('Reverted to default gateways', 'Close', { duration: 3000 });
+      } catch (err) {
+        console.error('Failed to clear custom gateway:', err);
+      }
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // nft.storage methods
+  // ────────────────────────────────────────────────
+
+  async saveNftStorageKey() {
+    const key = this.nftStorageKey().trim();
+    if (!key) {
+      this.snackBar.open('Please enter a valid API key', 'Close', { duration: 4000 });
+      return;
+    }
+
+    // Basic JWT-like check
+    if (!key.startsWith('eyJ') || key.split('.').length !== 3) {
+      this.snackBar.open('Invalid nft.storage API key format', 'Close', { duration: 5000 });
+      return;
+    }
+
+    try {
+      await this.storage.setItem('nft_storage_api_key', key);
+      this.hasNftStorageKey.set(true);
+      this.snackBar.open('nft.storage key saved — pinning will use it', 'Close', { duration: 6000 });
+    } catch (err) {
+      console.error('Failed to save nft.storage key:', err);
+      this.snackBar.open('Failed to save key - storage error', 'Close', { duration: 5000 });
+    }
+  }
+
+  async clearNftStorageKey() {
+    try {
+      await this.storage.removeItem('nft_storage_api_key');
+      this.nftStorageKey.set('');
+      this.hasNftStorageKey.set(false);
+      this.snackBar.open('Removed — now using Pinata for pinning', 'Close', { duration: 5000 });
+    } catch (err) {
+      console.error('Failed to clear nft.storage key:', err);
+      this.snackBar.open('Failed to clear key - storage error', 'Close', { duration: 5000 });
+    }
   }
 }

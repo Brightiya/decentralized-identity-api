@@ -11,9 +11,9 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   // ────────────────────────────────────────────────
-  // Helper: Base headers with optional Accept-Language
+  // Base headers (Accept + language) - unchanged
   // ────────────────────────────────────────────────
-  private getHeaders(acceptLanguage = 'en'): HttpHeaders {
+  private getBaseHeaders(acceptLanguage = 'en'): HttpHeaders {
     return new HttpHeaders({
       'Accept': 'application/json',
       'Accept-Language': acceptLanguage
@@ -21,23 +21,43 @@ export class ApiService {
   }
 
   // ────────────────────────────────────────────────
-  // NEW: Pinata JWT header (uses user's stored JWT if available)
+  // Pinata JWT for uploads - unchanged
   // ────────────────────────────────────────────────
   private getPinataHeaders(baseHeaders: HttpHeaders = new HttpHeaders()): HttpHeaders {
     const userJwt = localStorage.getItem('user_pinata_jwt');
+    return userJwt ? baseHeaders.set('X-Pinata-User-JWT', userJwt) : baseHeaders;
+  }
 
-    if (userJwt) {
-      return baseHeaders.set('X-Pinata-User-JWT', userJwt);
-    }
+  // ────────────────────────────────────────────────
+  // NEW: nft.storage API key for uploads (preferred over Pinata)
+  // ────────────────────────────────────────────────
+  private getNftStorageHeaders(baseHeaders: HttpHeaders = new HttpHeaders()): HttpHeaders {
+    const nftKey = localStorage.getItem('nft_storage_api_key');
+    return nftKey ? baseHeaders.set('X-NFT-Storage-Key', nftKey) : baseHeaders;
+  }
 
-    // If no user JWT → backend will fallback to shared key
-    return baseHeaders;
+  // ────────────────────────────────────────────────
+  // Combined headers for ALL UPLOAD/WRITE operations
+  // Priority: nft.storage > Pinata user > base
+  // ────────────────────────────────────────────────
+  private getUploadHeaders(acceptLanguage = 'en'): HttpHeaders {
+    let headers = this.getBaseHeaders(acceptLanguage);
+    headers = this.getNftStorageHeaders(headers);   // Highest priority
+    headers = this.getPinataHeaders(headers);       // Fallback
+    return headers;
+  }
+
+  // ────────────────────────────────────────────────
+  // Custom IPFS Gateway for READING only - unchanged
+  // ────────────────────────────────────────────────
+  private getGatewayHeaders(baseHeaders: HttpHeaders = new HttpHeaders()): HttpHeaders {
+    const customGateway = localStorage.getItem('custom_ipfs_gateway');
+    return customGateway ? baseHeaders.set('X-Preferred-Gateway', customGateway) : baseHeaders;
   }
 
   /* -------------------------------------------------
-     Advanced / Diagnostic DID endpoints (Legacy) - unchanged
+     DID endpoints (Legacy) - unchanged, no headers needed
   -------------------------------------------------- */
-
   registerDID(payload: { address: string }): Observable<any> {
     return this.http.post(`${this.base}/api/did/register`, payload);
   }
@@ -51,86 +71,56 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
-     VC endpoints (Hybrid / GDPR-aware) - added Pinata header where needed
+     VC endpoints
   -------------------------------------------------- */
 
-  issueVC(payload: {
-    issuer: string;
-    subject: string;
-    claimId: string;
-    claim: any;
-    context?: string;
-    consent?: { purpose?: string; expiresAt?: string };
-  }): Observable<any> {
-    const headers = this.getPinataHeaders(this.getHeaders());
+  issueVC(payload: any): Observable<any> {
+    const headers = this.getUploadHeaders(); // Uses nft.storage > Pinata
     return this.http.post(`${this.base}/api/vc/issue`, payload, { headers });
   }
 
-  verifyVC(payload: {
-    subject: string;
-    verifierDid: string;
-    purpose: string;
-    context: string;
-    consent: boolean;
-    credentials: { cid: string; claimId: string }[];
-  }): Observable<any> {
-    // verifyVC only reads → no need for Pinata JWT
-    return this.http.post(`${this.base}/api/vc/verify`, payload);
+  verifyVC(payload: any): Observable<any> {
+    const headers = this.getGatewayHeaders(this.getBaseHeaders()); // Only custom gateway
+    return this.http.post(`${this.base}/api/vc/verify`, payload, { headers });
   }
 
   validateRawVC(vc: any): Observable<any> {
-    // validateRawVC only reads → no Pinata JWT needed
-    return this.http.post(`${this.base}/api/vc/validate`, vc);
+    const headers = this.getGatewayHeaders(this.getBaseHeaders()); // Only custom gateway
+    return this.http.post(`${this.base}/api/vc/validate`, vc, { headers });
   }
 
   /* -------------------------------------------------
-     Consent endpoints (GDPR-compliant) - unchanged
+     Consent endpoints - unchanged (no IPFS involved)
   -------------------------------------------------- */
-
   getActiveConsents(owner: string, context: string): Observable<any[]> {
-    return this.http.get<any[]>(
-      `${this.base}/api/consent/active/${encodeURIComponent(owner)}/${encodeURIComponent(context)}`
-    );
+    return this.http.get<any[]>(`${this.base}/api/consent/active/${encodeURIComponent(owner)}/${encodeURIComponent(context)}`);
   }
 
   getSuggestableClaims(subjectDid: string): Observable<any> {
-    return this.http.get(
-      `${this.base}/api/consent/suggestable/${encodeURIComponent(subjectDid)}`
-    );
+    return this.http.get(`${this.base}/api/consent/suggestable/${encodeURIComponent(subjectDid)}`);
   }
 
-  grantConsent(payload: {
-    owner: string;
-    claimId: string;
-    purpose: string;
-    context: string;
-    expiresAt?: string;
-  }): Observable<any> {
+  grantConsent(payload: any): Observable<any> {
     return this.http.post(`${this.base}/api/consent/grant`, payload);
   }
 
-  revokeConsent(payload: {
-    owner: string;
-    claimId: string;
-    context?: string;
-    purpose?: string;
-  }): Observable<any> {
+  revokeConsent(payload: any): Observable<any> {
     return this.http.post(`${this.base}/api/consent/revoke`, payload);
   }
 
   /* -------------------------------------------------
-     Profile endpoints (UPDATED & COMPATIBLE) - added Pinata header
+     Profile endpoints
   -------------------------------------------------- */
 
   getProfile(address: string, context?: string, acceptLanguage = 'en'): Observable<any> {
     let params = new HttpParams();
-    if (context) {
-      params = params.set('context', context);
-    }
+    if (context) params = params.set('context', context);
+
+    const headers = this.getGatewayHeaders(this.getBaseHeaders(acceptLanguage));
 
     return this.http.get(
       `${this.base}/api/profile/${encodeURIComponent(address)}`,
-      { headers: this.getHeaders(acceptLanguage), params }
+      { headers, params }
     ).pipe(
       catchError(err => {
         console.error('getProfile error:', err);
@@ -143,19 +133,13 @@ export class ApiService {
     return this.getProfile(address, context);
   }
 
-  /**
-   * Create or update profile (uses user's Pinata JWT if available)
-   */
   createProfile(payload: any): Observable<any> {
-    const headers = this.getPinataHeaders(this.getHeaders());
+    const headers = this.getUploadHeaders();
     return this.http.post(`${this.base}/api/profile`, payload, { headers });
   }
 
-  /**
-   * Partial update profile (uses user's Pinata JWT if available)
-   */
   updateProfile(address: string, payload: any): Observable<any> {
-    const headers = this.getPinataHeaders(this.getHeaders());
+    const headers = this.getUploadHeaders();
     return this.http.put(
       `${this.base}/api/profile/${encodeURIComponent(address)}`,
       payload,
@@ -164,28 +148,16 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
-     Disclosure audit & GDPR rights - unchanged
+     Disclosure & GDPR - unchanged
   -------------------------------------------------- */
 
   getDisclosuresForSubject(subjectDid: string): Observable<any> {
-    return this.http.get(
-      `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`
-    );
+    return this.http.get(`${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`);
   }
 
-  getDisclosuresBySubject(
-    subjectDid: string,
-    limit = 50,
-    offset = 0,
-    context?: string,
-  ): Observable<any> {
-    let params = new HttpParams()
-      .set('limit', limit)
-      .set('offset', offset);
-
-    if (context && context.trim().length > 0) {
-      params = params.set('context', context.trim());
-    }
+  getDisclosuresBySubject(subjectDid: string, limit = 50, offset = 0, context?: string): Observable<any> {
+    let params = new HttpParams().set('limit', limit).set('offset', offset);
+    if (context && context.trim()) params = params.set('context', context.trim());
 
     return this.http.get(
       `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`,
@@ -194,15 +166,11 @@ export class ApiService {
   }
 
   exportDisclosures(subjectDid: string): Observable<any> {
-    return this.http.get(
-      `${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`
-    );
+    return this.http.get(`${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`);
   }
 
   eraseProfile(payload: { did: string }): Observable<any> {
-    return this.http.delete(
-      `${this.base}/api/gdpr/erase`,
-      { body: payload }
-    );
+    const headers = this.getUploadHeaders(); // tombstone upload uses nft.storage > Pinata
+    return this.http.delete(`${this.base}/api/gdpr/erase`, { body: payload, headers });
   }
 }

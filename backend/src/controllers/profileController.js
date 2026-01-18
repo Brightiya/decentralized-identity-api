@@ -82,7 +82,8 @@ export const createOrUpdateProfile = async (req, res) => {
     const existingCid = await registry.getProfileCID(subjectAddress);
     if (existingCid && existingCid.length > 0) {
       try {
-        const existing = await fetchJSON(existingCid);
+        const preferred = req.headers['x-preferred-gateway'] || null;
+        const existing = await fetchJSON(existingCid, 3, preferred);
         if (existing?.erased === true) {
           return res.status(403).json({
             error: "Profile erased under GDPR Art.17 and cannot be recreated"
@@ -113,10 +114,11 @@ export const createOrUpdateProfile = async (req, res) => {
     delete mergedProfile.attributes;
     delete mergedProfile.online_links;
 
-    // Use per-request JWT (user's key preferred)
+    // Get both keys from headers
     const pinataJwt = getPinataJwtForRequest(req);
+    const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
-    const ipfsUri = await uploadJSON(mergedProfile, pinataJwt);
+    const ipfsUri = await uploadJSON(mergedProfile, pinataJwt, nftStorageKey);
     const cid = ipfsUri.replace("ipfs://", "");
 
     await (await registry.setProfileCID(subjectAddress, cid)).wait();
@@ -150,7 +152,8 @@ export const getProfile = async (req, res) => {
       return res.status(404).json({ error: "Profile not found" });
     }
 
-    const profile = await fetchJSON(cid);
+    const preferred = req.headers['x-preferred-gateway'] || null;
+    const profile = await fetchJSON(cid, 3, preferred);
 
     if (profile?.erased === true) {
       return res.status(410).json({
@@ -184,7 +187,8 @@ export const getProfile = async (req, res) => {
     // Resolve VCs into attributes (your existing logic — kept intact)
     for (const cred of credentials) {
       try {
-        const vc = await fetchJSON(cred.cid);
+        const preferred = req.headers['x-preferred-gateway'] || null;
+        const vc = await fetchJSON(cred.cid, 3, preferred);
         const claim = vc?.credentialSubject?.claim;
 
         if (claim && typeof claim === "object") {
@@ -218,6 +222,7 @@ export const getProfile = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 /* ------------------------------------------------------------------
    GDPR ART.17 — RIGHT TO ERASURE
 ------------------------------------------------------------------- */
@@ -236,8 +241,9 @@ export const eraseProfile = async (req, res) => {
       await unpinCID(oldCid).catch(() => {}); // best-effort
     }
 
-    // Use per-request JWT for tombstone upload
+    // Get both keys from headers
     const pinataJwt = getPinataJwtForRequest(req);
+    const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
     const tombstone = {
       id: `did:ethr:${subjectAddress}`,
@@ -245,7 +251,7 @@ export const eraseProfile = async (req, res) => {
       erasedAt: new Date().toISOString()
     };
 
-    const ipfsUri = await uploadJSON(tombstone, pinataJwt);
+    const ipfsUri = await uploadJSON(tombstone, pinataJwt, nftStorageKey);
     const newCid = ipfsUri.replace("ipfs://", "");
 
     await (await registry.setProfileCID(subjectAddress, newCid)).wait();

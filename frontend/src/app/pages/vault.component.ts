@@ -6,6 +6,9 @@ import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { isPlatformBrowser } from '@angular/common';
 import { Inject, PLATFORM_ID } from '@angular/core';
 import { firstValueFrom, Subscription } from 'rxjs';
@@ -13,7 +16,6 @@ import { ThemeService } from '../services/theme.service';
 import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ProfileStateService } from '../services/profile-state.service';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-vault',
@@ -25,135 +27,203 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatInputModule
   ],
   template: `
-    <div class="vault-container" [class.dark]="darkMode()">
-      <div class="vault-header">
-        <h1>Identity Vault</h1>
-        <p class="subtitle">
-          Your sovereign digital identity starts here. Connect your wallet to manage credentials, contexts, and consents.
+  <div class="vault-container" [class.dark]="darkMode()">
+    <div class="vault-header">
+      <h1>Identity Vault</h1>
+      <p class="subtitle">
+        Your sovereign digital identity starts here. Connect your wallet to manage credentials, contexts, and consents.
+      </p>
+    </div>
+
+    <!-- Wallet Connection Card -->
+    <section class="card elevated">
+      <div class="card-header">
+        <mat-icon class="header-icon">account_balance_wallet</mat-icon>
+        <h3>Wallet Connection</h3>
+      </div>
+
+      <div class="wallet-info" *ngIf="wallet.address$ | async as address; else connectPrompt">
+        <div class="address-row">
+          <input class="address-input" [value]="address" disabled />
+          <button mat-icon-button class="copy-btn" (click)="copyAddress(address)">
+            <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+
+        <div class="did-display">
+          <span class="label">Decentralized Identifier (DID)</span>
+          <code class="did">did:ethr:{{ address }}</code>
+        </div>
+
+        <p class="status success">
+          <mat-icon inline>check_circle</mat-icon>
+          Wallet connected successfully
         </p>
       </div>
 
-      <!-- Wallet Connection Card -->
-      <section class="card elevated">
-        <div class="card-header">
-          <mat-icon class="header-icon">account_balance_wallet</mat-icon>
-          <h3>Wallet Connection</h3>
-        </div>
+      <ng-template #connectPrompt>
+        <p class="muted">
+          Connect your Ethereum wallet to access your personal identity vault.
+        </p>
+        <button class="connect-btn" (click)="connect()" [disabled]="loading()">
+          <mat-icon *ngIf="!loading()">wallet</mat-icon>
+          <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
+        </button>
+      </ng-template>
+    </section>
 
-        <div class="wallet-info" *ngIf="wallet.address$ | async as address; else connectPrompt">
-          <div class="address-row">
-            <input class="address-input" [value]="address" disabled />
-            <button mat-icon-button class="copy-btn" (click)="copyAddress(address)">
-              <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
-            </button>
+    <!-- Profile Status Card -->
+    <section class="card elevated" *ngIf="wallet.address$ | async">
+      <div class="card-header">
+        <mat-icon class="header-icon">shield</mat-icon>
+        <h3>Vault Profile</h3>
+      </div>
+
+      <div class="profile-content">
+        <!-- Pinata JWT Section -->
+        <section class="card elevated mt-6">
+          <div class="card-header">
+            <mat-icon class="header-icon">vpn_key</mat-icon>
+            <h3>Your Pinata JWT (for pinning)</h3>
           </div>
 
-          <div class="did-display">
-            <span class="label">Decentralized Identifier (DID)</span>
-            <code class="did">did:ethr:{{ address }}</code>
+          <div class="content p-4">
+            <p class="muted mb-4">
+              Provide your own Pinata JWT so uploads use <strong>your account</strong> instead of the shared test key.<br>
+              <strong>Security note:</strong> Create a dedicated key in Pinata with Admin permissions only.
+            </p>
+
+            <!-- Wrap in form to silence password warning -->
+            <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Pinata JWT</mat-label>
+                <input matInput
+                       type="password"
+                       name="jwt"
+                       [(ngModel)]="userPinataJwt"
+                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                       required
+                       autocomplete="new-password" />
+                <mat-hint>
+                  Get it from: 
+                  <a href="https://app.pinata.cloud/keys" target="_blank" class="text-primary underline">
+                    Pinata Dashboard → API Keys → New Key (Admin)
+                  </a>
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="actions mt-4 flex gap-4">
+                <button mat-raised-button 
+                        color="primary" 
+                        type="submit"
+                        [disabled]="!userPinataJwt().trim() || jwtForm.invalid">
+                  Save My JWT
+                </button>
+
+                <button mat-stroked-button 
+                        color="warn" 
+                        type="button"
+                        *ngIf="hasUserJwt()" 
+                        (click)="clearUserPinataJwt()">
+                  Remove / Use Shared Key
+                </button>
+              </div>
+            </form>
+
+            <div class="status mt-4 flex items-center gap-2" 
+                 *ngIf="hasUserJwt()" 
+                 [ngClass]="{'text-success-600 dark:text-success-400': true}">
+              <mat-icon>check_circle</mat-icon>
+              <span>Using <strong>your own Pinata account</strong> for uploads</span>
+            </div>
+
+            <div class="status mt-4 flex items-center gap-2 text-amber-600 dark:text-amber-400" 
+                 *ngIf="!hasUserJwt()">
+              <mat-icon>warning</mat-icon>
+              <span>Using shared app key — <strong>only for testing</strong></span>
+            </div>
           </div>
+        </section>
 
-          <p class="status success">
-            <mat-icon inline>check_circle</mat-icon>
-            Wallet connected successfully
-          </p>
-        </div>
+        <!-- Existing Profile Status -->
+        <ng-container *ngIf="loading(); else profileLoaded">
+          <div class="loading-state">
+            <mat-spinner diameter="32"></mat-spinner>
+            <p class="muted">Checking vault status...</p>
+          </div>
+        </ng-container>
 
-        <ng-template #connectPrompt>
-          <p class="muted">
-            Connect your Ethereum wallet to access your personal identity vault.
-          </p>
-          <button class="connect-btn" (click)="connect()" [disabled]="loading()">
-            <mat-icon *ngIf="!loading()">wallet</mat-icon>
-            <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
-          </button>
-        </ng-template>
-      </section>
-
-      <!-- Profile Status Card -->
-      <section class="card elevated" *ngIf="wallet.address$ | async">
-        <div class="card-header">
-          <mat-icon class="header-icon">shield</mat-icon>
-          <h3>Vault Profile</h3>
-        </div>
-
-        <div class="profile-content">
-          <ng-container *ngIf="loading(); else profileLoaded">
-            <div class="loading-state">
-              <mat-spinner diameter="32"></mat-spinner>
-              <p class="muted">Checking vault status...</p>
+        <ng-template #profileLoaded>
+          <!-- Erased State -->
+          <ng-container *ngIf="isErased()">
+            <div class="status erased">
+              <mat-icon inline color="warn">privacy_tip</mat-icon>
+              <div>
+                <strong>Your identity has been permanently erased</strong>
+                <p class="muted small">
+                  You exercised your Right to be Forgotten on {{ erasedAt() | date:'medium' }}.
+                </p>
+                <p class="muted small">
+                  No credentials or personal data are accessible. This is cryptographically proven on-chain.
+                </p>
+              </div>
             </div>
           </ng-container>
 
-          <ng-template #profileLoaded>
-            <!-- Erased State -->
-            <ng-container *ngIf="isErased()">
-              <div class="status erased">
-                <mat-icon inline color="warn">privacy_tip</mat-icon>
-                <div>
-                  <strong>Your identity has been permanently erased</strong>
-                  <p class="muted small">
-                    You exercised your Right to be Forgotten on {{ erasedAt() | date:'medium' }}.
-                  </p>
-                  <p class="muted small">
-                    No credentials or personal data are accessible. This is cryptographically proven on-chain.
-                  </p>
-                </div>
+          <!-- Active Profile -->
+          <ng-container *ngIf="!isErased() && profileExists()">
+            <div class="status success">
+              <mat-icon>verified</mat-icon>
+              <div>
+                <strong>Your identity vault is active</strong>
+                <p class="muted small">All credentials and contexts are ready.</p>
               </div>
-            </ng-container>
-
-            <!-- Active Profile -->
-            <ng-container *ngIf="!isErased() && profileExists()">
-              <div class="status success">
-                <mat-icon>verified</mat-icon>
-                <div>
-                  <strong>Your identity vault is active</strong>
-                  <p class="muted small">All credentials and contexts are ready.</p>
-                </div>
-              </div>
-
-              <div class="actions">
-                <a routerLink="/contexts" class="btn-primary">
-                  <mat-icon>layers</mat-icon>
-                  Manage Contexts
-                </a>
-                <a routerLink="/credentials" class="btn-secondary">
-                  <mat-icon>badge</mat-icon>
-                  Issue Credential
-                </a>
-              </div>
-            </ng-container>
-
-            <!-- No Profile -->
-            <ng-container *ngIf="!isErased() && !profileExists()">
-              <div class="status warning">
-                <mat-icon>info</mat-icon>
-                <div>
-                  <strong>No vault profile found</strong>
-                  <p class="muted small">Create one to start issuing and managing credentials.</p>
-                </div>
-              </div>
-
-              <button class="btn-primary" (click)="createProfile()" [disabled]="loading()">
-                <mat-icon *ngIf="!loading()">add_box</mat-icon>
-                <span>{{ loading() ? 'Creating...' : 'Create Vault Profile' }}</span>
-              </button>
-            </ng-container>
-
-            <!-- Refresh Button -->
-            <div class="refresh">
-              <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
-                <mat-icon>refresh</mat-icon> Refresh Status
-              </button>
             </div>
-          </ng-template>
-        </div>
-      </section>
-    </div>
-  `,
+
+            <div class="actions">
+              <a routerLink="/contexts" class="btn-primary">
+                <mat-icon>layers</mat-icon>
+                Manage Contexts
+              </a>
+              <a routerLink="/credentials" class="btn-secondary">
+                <mat-icon>badge</mat-icon>
+                Issue Credential
+              </a>
+            </div>
+          </ng-container>
+
+          <!-- No Profile -->
+          <ng-container *ngIf="!isErased() && !profileExists()">
+            <div class="status warning">
+              <mat-icon>info</mat-icon>
+              <div>
+                <strong>No vault profile found</strong>
+                <p class="muted small">Create one to start issuing and managing credentials.</p>
+              </div>
+            </div>
+
+            <button class="btn-primary" (click)="createProfile()" [disabled]="loading()">
+              <mat-icon *ngIf="!loading()">add_box</mat-icon>
+              <span>{{ loading() ? 'Creating...' : 'Create Vault Profile' }}</span>
+            </button>
+          </ng-container>
+
+          <!-- Refresh Button -->
+          <div class="refresh">
+            <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
+              <mat-icon>refresh</mat-icon> Refresh Status
+            </button>
+          </div>
+        </ng-template>
+      </div>
+    </section>
+  </div>
+`,
 
 styles: [`
   :host {
@@ -461,6 +531,43 @@ styles: [`
       text-align: center;
       margin-top: 24px;
     }
+
+.content.p-4 {
+      padding: 16px;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .gap-4 {
+      gap: 16px;
+    }
+
+    .gap-2 {
+      gap: 8px;
+    }
+
+    .items-center {
+      align-items: center;
+    }
+
+    .text-success-600 {
+      color: #16a34a;
+    }
+
+    .dark .text-success-600 {
+      color: #86efac;
+    }
+
+    .text-amber-600 {
+      color: #d97706;
+    }
+
+    .dark .text-amber-600 {
+      color: #fbbf24;
+    }
+
     /* ==========================================
    Tablet (≤ 960px)
    ========================================== */
@@ -615,7 +722,7 @@ styles: [`
 export class VaultComponent implements OnInit, OnDestroy {
   loading = signal(false);
   copied = signal(false);
-  private lastErrorShown: number | null = null; // Prevent spam snackbars
+  private lastErrorShown: number | null = null;
 
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
@@ -623,13 +730,19 @@ export class VaultComponent implements OnInit, OnDestroy {
   public wallet = inject(WalletService);
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
-  private profileState = inject(ProfileStateService); // ← NEW: shared state
+  private profileState = inject(ProfileStateService);
 
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
   erasedAt = this.profileState.erasedAt;
 
   private sub?: Subscription;
+
+  // Pinata JWT fields
+  userPinataJwt = signal<string>('');
+  hasUserJwt = signal<boolean>(false);
+
+  private readonly USER_PINATA_JWT_KEY = 'user_pinata_jwt';
 
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
 
@@ -643,18 +756,23 @@ export class VaultComponent implements OnInit, OnDestroy {
       if (erasedDid) {
         this.profileState.setProfileStatus(false, true, erasedAt);
       }
+
+      // Load saved JWT
+      const savedJwt = localStorage.getItem(this.USER_PINATA_JWT_KEY);
+      if (savedJwt) {
+        this.userPinataJwt.set(savedJwt);
+        this.hasUserJwt.set(true);
+      }
     }
 
-    // React to wallet changes
     this.sub = this.wallet.address$.subscribe(address => {
       if (address) {
-        if (isBrowser) {
+        if (isPlatformBrowser(this.platformId)) {
           sessionStorage.removeItem('erasedDid');
           sessionStorage.removeItem('erasedAt');
         }
         this.checkProfile();
       } else {
-        // Wallet disconnected → reset state
         this.profileState.reset();
       }
     });
@@ -664,14 +782,17 @@ export class VaultComponent implements OnInit, OnDestroy {
     this.sub?.unsubscribe();
   }
 
-    async checkProfile() {
+  // ────────────────────────────────────────────────
+  // All your existing methods remain unchanged
+  // ────────────────────────────────────────────────
+
+  async checkProfile() {
     const address = this.wallet.address;
     if (!address) {
       this.profileState.reset();
       return;
     }
 
-    // If we already know the state from previous check, skip API call
     if (this.profileExists() || this.isErased()) {
       this.loading.set(false);
       return;
@@ -683,21 +804,14 @@ export class VaultComponent implements OnInit, OnDestroy {
       const profile: any = await firstValueFrom(
         this.api.getProfile(address)
       );
-
-      // Success → profile exists
       this.profileState.setProfileStatus(true, false, null);
-
     } catch (err: any) {
       if (err.status === 410) {
-        // Erased (expected)
         this.profileState.setProfileStatus(false, true, err.error?.erasedAt || null);
       } else if (err.status === 404) {
-        // No profile (expected)
         this.profileState.setProfileStatus(false, false, null);
       } else {
-        // Unexpected error → show snackbar only once
         console.error('Unexpected profile check failed', err);
-        // Optional: only show if not already shown recently
         if (!this.lastErrorShown || Date.now() - this.lastErrorShown > 10000) {
           this.snackBar.open('Failed to check vault status', 'Close', { duration: 5000 });
           this.lastErrorShown = Date.now();
@@ -742,5 +856,34 @@ export class VaultComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(address);
     this.copied.set(true);
     setTimeout(() => this.copied.set(false), 2000);
+  }
+
+  // ────────────────────────────────────────────────
+  // Pinata JWT methods
+  // ────────────────────────────────────────────────
+
+  saveUserPinataJwt() {
+    const jwt = this.userPinataJwt().trim();
+    if (!jwt) {
+      this.snackBar.open('Please enter a JWT', 'Close', { duration: 4000 });
+      return;
+    }
+
+    // Basic JWT format validation
+    if (!jwt.startsWith('eyJ') || jwt.split('.').length !== 3) {
+      this.snackBar.open('Invalid JWT format', 'Close', { duration: 5000 });
+      return;
+    }
+
+    localStorage.setItem(this.USER_PINATA_JWT_KEY, jwt);
+    this.hasUserJwt.set(true);
+    this.snackBar.open('Your Pinata JWT saved — uploads will use your account', 'Close', { duration: 6000 });
+  }
+
+  clearUserPinataJwt() {
+    localStorage.removeItem(this.USER_PINATA_JWT_KEY);
+    this.userPinataJwt.set('');
+    this.hasUserJwt.set(false);
+    this.snackBar.open('Removed — now using shared test key', 'Close', { duration: 5000 });
   }
 }

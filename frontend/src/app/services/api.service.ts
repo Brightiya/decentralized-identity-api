@@ -11,7 +11,7 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   // ────────────────────────────────────────────────
-  // Helper: Headers with optional Accept-Language
+  // Helper: Base headers with optional Accept-Language
   // ────────────────────────────────────────────────
   private getHeaders(acceptLanguage = 'en'): HttpHeaders {
     return new HttpHeaders({
@@ -20,8 +20,22 @@ export class ApiService {
     });
   }
 
+  // ────────────────────────────────────────────────
+  // NEW: Pinata JWT header (uses user's stored JWT if available)
+  // ────────────────────────────────────────────────
+  private getPinataHeaders(baseHeaders: HttpHeaders = new HttpHeaders()): HttpHeaders {
+    const userJwt = localStorage.getItem('user_pinata_jwt');
+
+    if (userJwt) {
+      return baseHeaders.set('X-Pinata-User-JWT', userJwt);
+    }
+
+    // If no user JWT → backend will fallback to shared key
+    return baseHeaders;
+  }
+
   /* -------------------------------------------------
-     Advanced / Diagnostic DID endpoints (Legacy)
+     Advanced / Diagnostic DID endpoints (Legacy) - unchanged
   -------------------------------------------------- */
 
   registerDID(payload: { address: string }): Observable<any> {
@@ -37,7 +51,7 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
-     VC endpoints (Hybrid / GDPR-aware)
+     VC endpoints (Hybrid / GDPR-aware) - added Pinata header where needed
   -------------------------------------------------- */
 
   issueVC(payload: {
@@ -48,7 +62,8 @@ export class ApiService {
     context?: string;
     consent?: { purpose?: string; expiresAt?: string };
   }): Observable<any> {
-    return this.http.post(`${this.base}/api/vc/issue`, payload);
+    const headers = this.getPinataHeaders(this.getHeaders());
+    return this.http.post(`${this.base}/api/vc/issue`, payload, { headers });
   }
 
   verifyVC(payload: {
@@ -59,15 +74,17 @@ export class ApiService {
     consent: boolean;
     credentials: { cid: string; claimId: string }[];
   }): Observable<any> {
+    // verifyVC only reads → no need for Pinata JWT
     return this.http.post(`${this.base}/api/vc/verify`, payload);
   }
 
   validateRawVC(vc: any): Observable<any> {
+    // validateRawVC only reads → no Pinata JWT needed
     return this.http.post(`${this.base}/api/vc/validate`, vc);
   }
 
   /* -------------------------------------------------
-     Consent endpoints (GDPR-compliant)
+     Consent endpoints (GDPR-compliant) - unchanged
   -------------------------------------------------- */
 
   getActiveConsents(owner: string, context: string): Observable<any[]> {
@@ -76,7 +93,6 @@ export class ApiService {
     );
   }
 
-  // NEW: Get suggestable claims for consent granting
   getSuggestableClaims(subjectDid: string): Observable<any> {
     return this.http.get(
       `${this.base}/api/consent/suggestable/${encodeURIComponent(subjectDid)}`
@@ -103,12 +119,9 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
-     Profile endpoints (UPDATED & COMPATIBLE)
+     Profile endpoints (UPDATED & COMPATIBLE) - added Pinata header
   -------------------------------------------------- */
 
-  /**
-   * Primary: Get profile (supports optional context)
-   */
   getProfile(address: string, context?: string, acceptLanguage = 'en'): Observable<any> {
     let params = new HttpParams();
     if (context) {
@@ -126,48 +139,40 @@ export class ApiService {
     );
   }
 
-  /**
-   * Legacy alias: Restore original method name for compatibility
-   */
   getProfileByContext(address: string, context: string): Observable<any> {
     return this.getProfile(address, context);
   }
 
   /**
-   * Create or update profile (merged strategy)
+   * Create or update profile (uses user's Pinata JWT if available)
    */
   createProfile(payload: any): Observable<any> {
-    return this.http.post(`${this.base}/api/profile`, payload);
+    const headers = this.getPinataHeaders(this.getHeaders());
+    return this.http.post(`${this.base}/api/profile`, payload, { headers });
   }
 
   /**
-   * NEW: Partial update profile (recommended for edit form)
+   * Partial update profile (uses user's Pinata JWT if available)
    */
   updateProfile(address: string, payload: any): Observable<any> {
+    const headers = this.getPinataHeaders(this.getHeaders());
     return this.http.put(
       `${this.base}/api/profile/${encodeURIComponent(address)}`,
-      payload
+      payload,
+      { headers }
     );
   }
 
   /* -------------------------------------------------
-     Disclosure audit & GDPR rights
+     Disclosure audit & GDPR rights - unchanged
   -------------------------------------------------- */
 
-  /**
-   * Legacy (still kept — DO NOT REMOVE)
-   * For backward compatibility, returns full disclosure list without pagination.
-   */
   getDisclosuresForSubject(subjectDid: string): Observable<any> {
     return this.http.get(
       `${this.base}/api/disclosures/subject/${encodeURIComponent(subjectDid)}`
     );
   }
 
-  /**
-   * 🆕 Modern GDPR endpoint
-   * Supports pagination + optional context filtering.
-   */
   getDisclosuresBySubject(
     subjectDid: string,
     limit = 50,
@@ -188,9 +193,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * 🆕 GDPR Art. 15 export (JSON bundle)
-   */
   exportDisclosures(subjectDid: string): Observable<any> {
     return this.http.get(
       `${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`

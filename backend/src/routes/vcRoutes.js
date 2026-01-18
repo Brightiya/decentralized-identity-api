@@ -1,6 +1,7 @@
 import express from "express";
 import { issueVC, verifyVC, validateRawVC } from "../controllers/vcController.js";
 import { contextMiddleware } from "../../middleware/context.js";
+import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ const router = express.Router();
 router.post(
   "/issue",
   contextMiddleware,
+  pinataUserAuth,
   issueVC
 );
 

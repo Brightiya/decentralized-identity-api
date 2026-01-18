@@ -64,6 +64,22 @@ const didToAddress = (didOrAddress) => {
 };
 
 /* ------------------------------------------------------------------
+   Helper: Get Pinata JWT for this request (user > shared)
+------------------------------------------------------------------- */
+function getPinataJwtForRequest(req) {
+  const userJwt = req.headers['x-pinata-user-jwt'];
+  if (userJwt) {
+    return userJwt;
+  }
+
+  // Fallback to shared key
+  if (process.env.NODE_ENV !== 'development') {
+    console.warn('[SECURITY] Using shared Pinata JWT in production mode - recommend per-user keys');
+  }
+  return process.env.PINATA_JWT;
+}
+
+/* ------------------------------------------------------------------
    1️⃣ Issue Context-Aware Verifiable Credential
 ------------------------------------------------------------------- */
 export const issueVC = async (req, res) => {
@@ -132,10 +148,13 @@ export const issueVC = async (req, res) => {
       jws: signature
     };
 
+    // Use per-request JWT for uploads
+    const pinataJwt = getPinataJwtForRequest(req);
+
     /* -------------------------------------------------
        Upload signed VC to IPFS
     --------------------------------------------------*/
-    const ipfsUri = await uploadJSON(vc);
+    const ipfsUri = await uploadJSON(vc, pinataJwt);
     const cid = ipfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
@@ -149,7 +168,7 @@ export const issueVC = async (req, res) => {
       }
     };
 
-    const enrichedIpfsUri = await uploadJSON(enrichedVC);
+    const enrichedIpfsUri = await uploadJSON(enrichedVC, pinataJwt);
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
@@ -192,7 +211,7 @@ export const issueVC = async (req, res) => {
         updatedAt: new Date().toISOString()
       };
 
-      const profileUri = await uploadJSON(updatedProfile);
+      const profileUri = await uploadJSON(updatedProfile, pinataJwt);
       const newProfileCid = profileUri.replace("ipfs://", "");
 
       await registry.setProfileCID(subjectAddress, newProfileCid).then(tx => tx.wait());

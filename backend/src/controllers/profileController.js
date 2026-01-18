@@ -47,6 +47,22 @@ const genderLabels = {
 };
 
 /* ------------------------------------------------------------------
+   Helper: Get Pinata JWT for this request (user > shared)
+------------------------------------------------------------------- */
+function getPinataJwtForRequest(req) {
+  const userJwt = req.headers['x-pinata-user-jwt'];
+  if (userJwt) {
+    return userJwt;
+  }
+
+  // Fallback to shared key
+  if (process.env.NODE_ENV !== 'development') {
+    console.warn('[SECURITY] Using shared Pinata JWT in production mode - recommend per-user keys');
+  }
+  return process.env.PINATA_JWT;
+}
+
+/* ------------------------------------------------------------------
    CREATE / UPDATE PROFILE (MERGED, STATE-SAFE)
 ------------------------------------------------------------------- */
 
@@ -97,7 +113,10 @@ export const createOrUpdateProfile = async (req, res) => {
     delete mergedProfile.attributes;
     delete mergedProfile.online_links;
 
-    const ipfsUri = await uploadJSON(mergedProfile);
+    // Use per-request JWT (user's key preferred)
+    const pinataJwt = getPinataJwtForRequest(req);
+
+    const ipfsUri = await uploadJSON(mergedProfile, pinataJwt);
     const cid = ipfsUri.replace("ipfs://", "");
 
     await (await registry.setProfileCID(subjectAddress, cid)).wait();
@@ -217,13 +236,16 @@ export const eraseProfile = async (req, res) => {
       await unpinCID(oldCid).catch(() => {}); // best-effort
     }
 
+    // Use per-request JWT for tombstone upload
+    const pinataJwt = getPinataJwtForRequest(req);
+
     const tombstone = {
       id: `did:ethr:${subjectAddress}`,
       erased: true,
       erasedAt: new Date().toISOString()
     };
 
-    const ipfsUri = await uploadJSON(tombstone);
+    const ipfsUri = await uploadJSON(tombstone, pinataJwt);
     const newCid = ipfsUri.replace("ipfs://", "");
 
     await (await registry.setProfileCID(subjectAddress, newCid)).wait();

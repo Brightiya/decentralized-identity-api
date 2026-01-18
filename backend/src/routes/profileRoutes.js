@@ -17,13 +17,14 @@ export default router;
 import express from "express";
 import { getProfile, createOrUpdateProfile } from "../controllers/profileController.js";
 import { contextMiddleware } from "../../middleware/context.js";
+import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
 
 
 const router = express.Router();
 
 // Create or update profile (vault creation)
-router.post("/", contextMiddleware,createOrUpdateProfile);
+router.post("/", contextMiddleware,pinataUserAuth,createOrUpdateProfile);
 
 // Enforced disclosure read
 router.get(

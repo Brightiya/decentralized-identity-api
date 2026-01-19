@@ -5,32 +5,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
 
 dotenv.config();
-
-/* ------------------------------------------------------------------
-   Contract bootstrap (global registry)
-------------------------------------------------------------------- */
-
-const contractData = (async () => {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  const contractDataPath = path.resolve(__dirname, "../../src/contractData.json");
-  return JSON.parse(await readFile(contractDataPath, "utf8"));
-})();
-
-const providerUrl = process.env.PROVIDER_URL || "http://127.0.0.1:8545";
-const privateKey = process.env.PRIVATE_KEY;
-
-if (!privateKey) throw new Error("❌ Missing PRIVATE_KEY in .env");
-
-const provider = new ethers.JsonRpcProvider(providerUrl);
-const signer = new ethers.Wallet(privateKey, provider);
-
-(async () => {
-  const { address, abi } = await contractData;
-  globalThis.registry = new ethers.Contract(address, abi, signer);
-})();
 
 /* ------------------------------------------------------------------
    English labels for translatable fields
@@ -121,13 +98,31 @@ export const createOrUpdateProfile = async (req, res) => {
     const ipfsUri = await uploadJSON(mergedProfile, pinataJwt, nftStorageKey);
     const cid = ipfsUri.replace("ipfs://", "");
 
-    await (await registry.setProfileCID(subjectAddress, cid)).wait();
-
-    return res.json({
-      message: "✅ Profile merged & stored",
+    let responseData = {
+      message: "✅ Profile merged & stored on IPFS",
       cid,
       ipfsUri
-    });
+    };
+
+    if (isHybridMode()) {
+      // Hybrid mode: Prepare unsigned tx for frontend to sign & send
+      const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, cid);
+      responseData = {
+        ...responseData,
+        message: "✅ Profile prepared - please sign & send transaction in your wallet",
+        unsignedTx
+      };
+      console.log('[Hybrid] Prepared unsigned setProfileCID tx');
+    } else {
+      // Dev mode: Backend signs and submits
+      const tx = await registry.setProfileCID(subjectAddress, cid);
+      await tx.wait();
+      responseData.txHash = tx.hash;
+      responseData.message = "✅ Profile merged & stored on-chain (backend signed)";
+      console.log('[Dev] Backend signed & submitted setProfileCID tx');
+    }
+
+    return res.json(responseData);
   } catch (err) {
     console.error("❌ createOrUpdateProfile error:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -254,12 +249,30 @@ export const eraseProfile = async (req, res) => {
     const ipfsUri = await uploadJSON(tombstone, pinataJwt, nftStorageKey);
     const newCid = ipfsUri.replace("ipfs://", "");
 
-    await (await registry.setProfileCID(subjectAddress, newCid)).wait();
-
-    return res.json({
-      message: "✅ Profile erased (GDPR compliant)",
+    let responseData = {
+      message: "✅ Profile erased on IPFS",
       newCid
-    });
+    };
+
+    if (isHybridMode()) {
+      // Hybrid mode: Prepare unsigned tx
+      const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, newCid);
+      responseData = {
+        ...responseData,
+        message: "✅ Erasure prepared - please sign & send transaction in your wallet",
+        unsignedTx
+      };
+      console.log('[Hybrid] Prepared unsigned setProfileCID (erase) tx');
+    } else {
+      // Dev mode: Backend signs
+      const tx = await registry.setProfileCID(subjectAddress, newCid);
+      await tx.wait();
+      responseData.txHash = tx.hash;
+      responseData.message = "✅ Profile erased on-chain (backend signed)";
+      console.log('[Dev] Backend signed & submitted setProfileCID (erase) tx');
+    }
+
+    return res.json(responseData);
   } catch (err) {
     console.error("❌ eraseProfile error:", err);
     return res.status(500).json({ error: "Internal server error" });

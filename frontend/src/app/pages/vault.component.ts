@@ -498,10 +498,12 @@ styles: [`
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 20px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
     border-radius: 14px;
     margin: 20px 0;
     border: 1px solid transparent;
+    background: rgba(0,0,0,0.03);
   }
 
   .status.success {
@@ -545,6 +547,10 @@ styles: [`
     width: 40px;
     height: 40px;
   }
+
+  .dark .status {
+  background: rgba(255,255,255,0.05);
+}
 
   /* Buttons */
   .connect-btn,
@@ -829,7 +835,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private profileState = inject(ProfileStateService);
-  private storage = inject(StorageService); // Secure IndexedDB
+  private storage = inject(StorageService);
 
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
@@ -905,10 +911,6 @@ export class VaultComponent implements OnInit, OnDestroy {
     this.sub?.unsubscribe();
   }
 
-  // ────────────────────────────────────────────────
-  // Existing methods (checkProfile, createProfile, connect, copyAddress) - unchanged
-  // ────────────────────────────────────────────────
-
   async checkProfile() {
     const address = this.wallet.address;
     if (!address) {
@@ -945,30 +947,10 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
-  createProfile() {
-    const address = this.wallet.address;
-    if (!address || this.isErased()) return;
-
-    this.loading.set(true);
-
-    this.api.createProfile({ owner: address }).subscribe({
-      next: () => {
-        this.profileState.setProfileStatus(true, false, null);
-        this.loading.set(false);
-        this.snackBar.open('Vault profile created successfully!', 'Close', { duration: 4000 });
-      },
-      error: () => {
-        this.snackBar.open('Failed to create vault profile', 'Close', { duration: 5000 });
-        this.loading.set(false);
-      }
-    });
-  }
-
   async connect() {
     try {
       this.loading.set(true);
       await this.wallet.connect();
-      // Re-init encryption after wallet connect (important!)
       await this.storage.initEncryption();
     } catch (e: any) {
       this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
@@ -984,7 +966,84 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────────────────────────────
-  // Pinata JWT methods (async + secure IndexedDB)
+  // Hybrid signing for createProfile
+  // ────────────────────────────────────────────────
+
+  async createProfile() {
+    const address = this.wallet.address;
+    if (!address || this.isErased()) {
+      this.snackBar.open('Wallet not connected or identity erased', 'Close', { duration: 4000 });
+      return;
+    }
+
+    this.loading.set(true);
+
+    try {
+      const payload = { owner: address };
+      const response = await firstValueFrom(this.api.createProfile(payload));
+
+      if (response.unsignedTx) {
+        // Hybrid mode: User signs & sends
+        this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
+
+        const txHash = await this.wallet.signAndSendTransaction(response.unsignedTx);
+
+        this.snackBar.open(`Profile created on-chain! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
+      } else if (response.txHash) {
+        // Dev mode: Backend signed
+        this.snackBar.open('Vault profile created successfully!', 'Close', { duration: 4000 });
+      }
+
+      this.profileState.setProfileStatus(true, false, null);
+      await this.checkProfile();
+    } catch (err: any) {
+      console.error('Create profile failed:', err);
+      this.snackBar.open(err.message || 'Failed to create profile', 'Close', { duration: 5000 });
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Hybrid signing for eraseProfile (fixed payload type)
+  // ────────────────────────────────────────────────
+
+  async eraseProfile() {
+    const address = this.wallet.address;
+    if (!address || this.isErased()) return;
+
+    if (!confirm('This action is permanent (GDPR Right to be Forgotten). Continue?')) return;
+
+    this.loading.set(true);
+
+    try {
+      // FIXED: Use { did: ... } to match ApiService type
+      const payload = { did: `did:ethr:${address}` };
+      const response = await firstValueFrom(this.api.eraseProfile(payload));
+
+      if (response.unsignedTx) {
+        // Hybrid mode
+        this.snackBar.open('Please sign the erasure transaction in your wallet...', 'Close', { duration: 8000 });
+
+        const txHash = await this.wallet.signAndSendTransaction(response.unsignedTx);
+
+        this.snackBar.open(`Identity erased permanently! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
+      } else if (response.txHash) {
+        // Dev mode
+        this.snackBar.open('Identity erased successfully!', 'Close', { duration: 4000 });
+      }
+
+      this.profileState.setProfileStatus(false, true, new Date().toISOString());
+    } catch (err: any) {
+      console.error('Erase profile failed:', err);
+      this.snackBar.open(err.message || 'Failed to erase identity', 'Close', { duration: 5000 });
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Pinata JWT, Custom Gateway, nft.storage methods (unchanged)
   // ────────────────────────────────────────────────
 
   async saveUserPinataJwt() {
@@ -994,7 +1053,6 @@ export class VaultComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Basic JWT format validation
     if (!jwt.startsWith('eyJ') || jwt.split('.').length !== 3) {
       this.snackBar.open('Invalid JWT format', 'Close', { duration: 5000 });
       return;
@@ -1022,15 +1080,10 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ────────────────────────────────────────────────
-  // Custom Gateway methods
-  // ────────────────────────────────────────────────
-
   async saveCustomGateway() {
     let url = this.customGateway().trim();
 
     if (url) {
-      // Basic validation
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         this.snackBar.open('Gateway must start with http:// or https://', 'Close', { duration: 4000 });
         return;
@@ -1057,10 +1110,6 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ────────────────────────────────────────────────
-  // nft.storage methods
-  // ────────────────────────────────────────────────
-
   async saveNftStorageKey() {
     const key = this.nftStorageKey().trim();
     if (!key) {
@@ -1068,7 +1117,6 @@ export class VaultComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Basic JWT-like check
     if (!key.startsWith('eyJ') || key.split('.').length !== 3) {
       this.snackBar.open('Invalid nft.storage API key format', 'Close', { duration: 5000 });
       return;

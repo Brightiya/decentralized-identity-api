@@ -169,8 +169,8 @@ export class ApiService {
     return this.http.get(`${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`);
   }
 
+// FIXED: Changed payload type to { did: string } to match your component usage
   eraseProfile(payload: { did: string }): Observable<any> {
-    const headers = this.getUploadHeaders(); // tombstone upload uses nft.storage > Pinata
-    return this.http.delete(`${this.base}/api/gdpr/erase`, { body: payload, headers });
+    return this.http.delete(`${this.base}/api/gdpr/erase`, { body: payload });
   }
 }

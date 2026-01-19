@@ -15,9 +15,11 @@ import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 
-
 // Middleware
 import { authMiddleware } from "../middleware/auth.js";
+
+// Contract utils (hybrid mode)
+import contract, { isHybridMode } from "./utils/contract.js";
 
 dotenv.config();
 
@@ -43,7 +45,6 @@ if (process.env.NODE_ENV !== 'production') {
 // PERMANENT CACHE FIX: Prevent caching of profile endpoints
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/profile/') && req.method === 'GET') {
-    // No caching for profile reads (prevents stale 403/empty responses)
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -60,6 +61,7 @@ app.use((req, res, next) => {
   }
   next();
 });
+
 // ────────────────────────────────────────────────
 // Public Routes (no auth required)
 // ────────────────────────────────────────────────
@@ -68,7 +70,8 @@ app.get('/health', (req, res) => {
     status: 'ok',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'development',
+    hybridSigning: isHybridMode() ? 'enabled (frontend signs)' : 'disabled (backend signs)'
   });
 });
 
@@ -118,6 +121,7 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`✅ PIMV Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Signing mode: ${isHybridMode() ? 'Hybrid (frontend signs)' : 'Backend (PRIVATE_KEY)'}`);
   console.log(`Auth endpoints: /api/auth/challenge, /api/auth/verify`);
   console.log(`Protected APIs: /api/vc, /api/profile, etc.`);
 });

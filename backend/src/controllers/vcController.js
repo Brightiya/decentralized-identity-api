@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { pool } from "../utils/db.js";
+import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
 
 dotenv.config();
 
@@ -173,21 +174,51 @@ export const issueVC = async (req, res) => {
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
     /* -------------------------------------------------
-       Anchor signed VC CID on-chain
+       Prepare anchoring on-chain (hybrid or dev)
     --------------------------------------------------*/
     const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
     const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
     const subjectAddress = didToAddress(subject);
 
-    const tx = await registry.setClaim(
-      subjectAddress,
-      claimIdBytes32,
-      claimHash
-    );
-    await tx.wait();
+    let responseData = {
+      message: "✅ VC issued and anchored on IPFS",
+      cid: enrichedCid,
+      signedCid: cid,
+      claimId,
+      context,
+      claimHash,
+      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`
+    };
+
+    if (isHybridMode()) {
+      // Hybrid mode: Prepare unsigned tx for frontend
+      const unsignedTx = await prepareUnsignedTx(
+        'setClaim',
+        subjectAddress,
+        claimIdBytes32,
+        claimHash
+      );
+      responseData = {
+        ...responseData,
+        message: "✅ VC prepared - please sign & send transaction in your wallet",
+        unsignedTx
+      };
+      console.log('[Hybrid] Prepared unsigned setClaim tx');
+    } else {
+      // Dev mode: Backend signs and submits
+      const tx = await registry.setClaim(
+        subjectAddress,
+        claimIdBytes32,
+        claimHash
+      );
+      await tx.wait();
+      responseData.txHash = tx.hash;
+      responseData.message = "✅ VC issued and anchored on-chain (backend signed)";
+      console.log('[Dev] Backend signed & submitted setClaim tx');
+    }
 
     /* -------------------------------------------------
-       Auto-update profile (optional)
+       Auto-update profile (optional) - also hybrid
     --------------------------------------------------*/
     try {
       let profile = {};
@@ -216,21 +247,27 @@ export const issueVC = async (req, res) => {
       const profileUri = await uploadJSON(updatedProfile, pinataJwt, nftStorageKey);
       const newProfileCid = profileUri.replace("ipfs://", "");
 
-      await registry.setProfileCID(subjectAddress, newProfileCid).then(tx => tx.wait());
+      if (isHybridMode()) {
+        // Prepare unsigned tx for profile update
+        const profileUnsignedTx = await prepareUnsignedTx(
+          'setProfileCID',
+          subjectAddress,
+          newProfileCid
+        );
+        responseData.profileUnsignedTx = profileUnsignedTx;
+        responseData.message += " + profile update prepared (sign both txs)";
+        console.log('[Hybrid] Prepared unsigned setProfileCID (profile update) tx');
+      } else {
+        // Dev mode: backend signs profile update
+        const tx = await registry.setProfileCID(subjectAddress, newProfileCid);
+        await tx.wait();
+        console.log('[Dev] Backend signed & submitted setProfileCID (profile update) tx');
+      }
     } catch (e) {
       console.warn("Profile auto-update skipped:", e.message);
     }
 
-    return res.json({
-      message: "✅ VC issued and anchored",
-      cid: enrichedCid,
-      signedCid: cid,
-      claimId,
-      context,
-      claimHash,
-      txHash: tx.hash,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`
-    });
+    return res.json(responseData);
 
   } catch (err) {
     console.error("issueVC error:", err);

@@ -1,10 +1,12 @@
 // src/app/pages/login.component.ts
-import { Component, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, inject, PLATFORM_ID, signal } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // ← NEW: for ngModel
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { AuthService, AppRole } from '../services/auth.service';
 import { WalletService } from '../services/wallet.service';
+import { StorageService } from '../services/storage.service'; // ← NEW: for saving RPC
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,147 +15,177 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { ThemeService } from '../services/theme.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule, // ← Added for ngModel
     MatCardModule,
     MatButtonModule,
     MatProgressSpinnerModule,
     MatIconModule,
     MatDividerModule,
     MatButtonToggleModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatFormFieldModule,
+    MatInputModule
   ],
   template: `
     <div class="login-page" [class.dark]="darkMode()">
-  <div class="bg-overlay"></div>
+      <div class="bg-overlay"></div>
 
-  <div class="login-wrapper">
-    <mat-card class="login-card glass-card" appearance="outlined">
-      <!-- Header -->
-      <mat-card-header class="card-header">
-        <div class="header-icon-wrapper">
-          <!-- Custom SVG Keyhole Shield -->
-          <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-              class="custom-shield">
-            <!-- Very bold shield outline -->
-            <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
-                  fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
-            
-            <!-- Larger, thicker keyhole circle -->
-            <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
-            
-            <!-- Much thicker keyhole stem/rectangle -->
-            <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
-            
-            <!-- Subtle inner highlight for depth -->
-            <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
-          </svg>
-        </div>
-        <mat-card-title>PIMV Identity Vault</mat-card-title>
-        <mat-card-subtitle>Secure • Decentralized • Role-Based</mat-card-subtitle>
-      </mat-card-header>
-
-      <mat-card-content class="card-content">
-        <!-- Step 1: Connect Wallet -->
-        <div class="step-section" *ngIf="!(wallet.address$ | async)">
-          <h3>1. Connect Your Wallet</h3>
-          <p class="step-desc">
-            Link your Ethereum wallet to access your decentralized identity.
-          </p>
-
-          <button mat-raised-button color="primary" 
-                  class="action-btn large-btn"
-                  (click)="connectWallet()"
-                  [disabled]="connecting()">
-            <mat-icon *ngIf="!connecting()">wallet</mat-icon>
-            <mat-spinner diameter="22" *ngIf="connecting()"></mat-spinner>
-            {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
-          </button>
-        </div>
-
-        <!-- Wallet Connected -->
-        <ng-container *ngIf="wallet.address$ | async as addr">
-          <!-- Step 2: Choose Role -->
-          <div class="step-section" *ngIf="!auth.isAuthenticated()">
-            <h3>2. Choose Access Mode</h3>
-            <p class="step-desc">Select your role to proceed</p>
-
-            <mat-button-toggle-group class="role-group"
-                                    [value]="selectedRole()"
-                                    (change)="selectRole($event.value)"
-                                    exclusive>
-              <mat-button-toggle value="USER" class="role-btn">
-                <mat-icon>person</mat-icon>
-                <span>User</span>
-              </mat-button-toggle>
-
-              <mat-button-toggle value="ADMIN" class="role-btn">
-                <mat-icon>admin_panel_settings</mat-icon>
-                <span>Admin</span>
-              </mat-button-toggle>
-
-              <mat-button-toggle value="VERIFIER" class="role-btn">
-                <mat-icon>verified</mat-icon>
-                <span>Verifier</span>
-              </mat-button-toggle>
-            </mat-button-toggle-group>
-
-            <div class="role-info" *ngIf="selectedRole()">
-              {{ roleDescription[selectedRole()!] }}
+      <div class="login-wrapper">
+        <mat-card class="login-card glass-card" appearance="outlined">
+          <!-- Header -->
+          <mat-card-header class="card-header">
+            <div class="header-icon-wrapper">
+              <!-- Custom SVG Keyhole Shield -->
+              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  class="custom-shield">
+                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+              </svg>
             </div>
-          </div>
+            <mat-card-title>PIMV Identity Vault</mat-card-title>
+            <mat-card-subtitle>Secure • Decentralized • Role-Based</mat-card-subtitle>
+          </mat-card-header>
 
-          <!-- Step 3: Sign Message -->
-          <div class="step-section sign-step" *ngIf="selectedRole() && !auth.isAuthenticated()">
-            <h3>3. Authenticate</h3>
+          <mat-card-content class="card-content">
+            <!-- NEW: Custom Hardhat RPC Input (Step 0 - before connect) -->
+            <div class="step-section rpc-section">
+              <h3>0. Local Hardhat RPC (Optional)</h3>
+              <p class="step-desc">
+                For local development/testing — enter your Hardhat node URL.<br>
+                Default: http://127.0.0.1:8545
+              </p>
 
-            <div class="wallet-preview">
-              <div class="label">Connected Wallet</div>
-              <code class="address">{{ addr | slice:0:8 }}…{{ addr | slice:-6 }}</code>
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Custom Hardhat RPC URL</mat-label>
+                <input matInput
+                       [(ngModel)]="customRpcUrl"
+                       placeholder="http://127.0.0.1:8545"
+                       (blur)="saveCustomRpc()" />
+                      
+                <mat-hint>
+                  Leave empty for default. Only used for local Hardhat. <br>
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="status mt-3 flex items-center gap-2" *ngIf="customRpcUrl()">
+                <mat-icon color="primary">check_circle</mat-icon>
+                <span>Custom RPC: <code>{{ customRpcUrl() }}</code></span>
+              </div>
+              <div class="status mt-6 gap-4">
+              <div class="status mt-6 flex items-center gap-4 text-gray-600" *ngIf="!customRpcUrl()">
+                <mat-icon>info</mat-icon>
+                <span>Using default: http://127.0.0.1:8545</span>
+              </div>
+             </div>
             </div>
 
-            <!-- SIGN BUTTON – made more prominent & guaranteed visible -->
-            <button mat-raised-button color="primary"
-                    class="action-btn large-btn sign-btn"
-                    (click)="signIn()"
-                    [disabled]="signing()">
-              <mat-icon *ngIf="!signing()">draw</mat-icon>
-              <mat-spinner diameter="22" *ngIf="signing()"></mat-spinner>
-              {{ signing() ? 'Signing...' : 'Sign & Login' }}
-            </button>
+            <!-- Step 1: Connect Wallet -->
+            <div class="step-section" *ngIf="!(wallet.address$ | async)">
+              <h3>1. Connect Your Wallet</h3>
+              <p class="step-desc">
+                Link your Ethereum wallet to access your decentralized identity.
+              </p>
 
-            <button mat-stroked-button class="switch-btn"
-                    (click)="wallet.disconnect()">
-              Switch Wallet
-            </button>
-          </div>
+              <button mat-raised-button color="primary" 
+                      class="action-btn large-btn"
+                      (click)="connectWallet()"
+                      [disabled]="connecting()">
+                <mat-icon *ngIf="!connecting()">wallet</mat-icon>
+                <mat-spinner diameter="22" *ngIf="connecting()"></mat-spinner>
+                {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
+              </button>
+            </div>
 
-          <div class="hint-box" *ngIf="!selectedRole() && !auth.isAuthenticated()">
-            <mat-icon>info_outline</mat-icon>
-            Please choose an access mode above
-          </div>
-        </ng-container>
+            <!-- Wallet Connected -->
+            <ng-container *ngIf="wallet.address$ | async as addr">
+              <!-- Step 2: Choose Role -->
+              <div class="step-section" *ngIf="!auth.isAuthenticated()">
+                <h3>2. Choose Access Mode</h3>
+                <p class="step-desc">Select your role to proceed</p>
 
-        <!-- Error -->
-        <div class="error-message" *ngIf="error()">
-          <mat-icon>error_outline</mat-icon>
-          {{ error() }}
-        </div>
-      </mat-card-content>
+                <mat-button-toggle-group class="role-group"
+                                        [value]="selectedRole()"
+                                        (change)="selectRole($event.value)"
+                                        exclusive>
+                  <mat-button-toggle value="USER" class="role-btn">
+                    <mat-icon>person</mat-icon>
+                    <span>User</span>
+                  </mat-button-toggle>
 
-      <mat-card-actions class="card-footer">
-        <p class="session-info">
-          Role selection applies only to this browser session
-        </p>
-      </mat-card-actions>
-    </mat-card>
-  </div>
-</div>
+                  <mat-button-toggle value="ADMIN" class="role-btn">
+                    <mat-icon>admin_panel_settings</mat-icon>
+                    <span>Admin</span>
+                  </mat-button-toggle>
+
+                  <mat-button-toggle value="VERIFIER" class="role-btn">
+                    <mat-icon>verified</mat-icon>
+                    <span>Verifier</span>
+                  </mat-button-toggle>
+                </mat-button-toggle-group>
+
+                <div class="role-info" *ngIf="selectedRole()">
+                  {{ roleDescription[selectedRole()!] }}
+                </div>
+              </div>
+
+              <!-- Step 3: Sign Message -->
+              <div class="step-section sign-step" *ngIf="selectedRole() && !auth.isAuthenticated()">
+                <h3>3. Authenticate</h3>
+
+                <div class="wallet-preview">
+                  <div class="label">Connected Wallet</div>
+                  <code class="address">{{ addr | slice:0:8 }}…{{ addr | slice:-6 }}</code>
+                </div>
+
+                <button mat-raised-button color="primary"
+                        class="action-btn large-btn sign-btn"
+                        (click)="signIn()"
+                        [disabled]="signing()">
+                  <mat-icon *ngIf="!signing()">draw</mat-icon>
+                  <mat-spinner diameter="22" *ngIf="signing()"></mat-spinner>
+                  {{ signing() ? 'Signing...' : 'Sign & Login' }}
+                </button>
+
+                <button mat-stroked-button class="switch-btn"
+                        (click)="wallet.disconnect()">
+                  Switch Wallet
+                </button>
+              </div>
+
+              <div class="hint-box" *ngIf="!selectedRole() && !auth.isAuthenticated()">
+                <mat-icon>info_outline</mat-icon>
+                Please choose an access mode above
+              </div>
+            </ng-container>
+
+            <!-- Error -->
+            <div class="error-message" *ngIf="error()">
+              <mat-icon>error_outline</mat-icon>
+              {{ error() }}
+            </div>
+          </mat-card-content>
+
+          <mat-card-actions class="card-footer">
+            <p class="session-info">
+              Role selection applies only to this browser session
+            </p>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </div>
   `,
 
   styles: [`
@@ -510,22 +542,57 @@ import { ThemeService } from '../services/theme.service';
   .login-wrapper {
     padding-bottom: 100px;                    /* safety buffer */
   }
+
+  .rpc-section {
+      background: rgba(99, 102, 241, 0.05);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .login-page.dark .rpc-section {
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .rpc-section h3 {
+      margin-top: 0;
+    }
+
+    .rpc-section .status {
+      font-size: 0.95rem;
+    }
+
+    .rpc-section code {
+      font-family: 'Courier New', monospace;
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .login-page.dark .rpc-section code {
+      background: rgba(255,255,255,0.1);
+    }
 `]
 })
+
 export class LoginComponent {
   auth = inject(AuthService);
   wallet = inject(WalletService);
+  storage = inject(StorageService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private snackBar = inject(MatSnackBar);
+  private platformId = inject(PLATFORM_ID); // ← NEW: for platform checks
 
   connecting = signal(false);
   signing = signal(false);
   error = signal<string | null>(null);
 
   selectedRole = signal<AppRole | null>(null);
+  customRpcUrl = signal<string>('');
 
   private themeService = inject(ThemeService);
-  darkMode = this.themeService.darkMode;   // readonly signal
+  darkMode = this.themeService.darkMode;
 
   roleDescription: Record<AppRole, string> = {
     USER: 'Access your personal identity vault, create secured profiles and manage credentials.',
@@ -534,61 +601,163 @@ export class LoginComponent {
   };
 
   constructor() {
-    // Already authenticated → go to role home
     if (this.auth.isAuthenticated()) {
       this.redirectByRole(this.auth.role());
     }
   }
 
-  selectRole(role: AppRole) {
-    this.selectedRole.set(role);
-    this.error.set(null);
+  async ngOnInit() {
+    // Only run browser-specific code (IndexedDB) in browser
+    if (isPlatformBrowser(this.platformId)) {
+      try {
+        const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
+        if (savedRpc) {
+          this.customRpcUrl.set(savedRpc);
+          this.wallet.setCustomRpc(savedRpc);
+        }
+      } catch (err) {
+        console.warn('Failed to load custom RPC (browser-only):', err);
+      }
+    }
+  }
+
+  // Save custom Hardhat RPC (browser-only)
+  async saveCustomRpc() {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    let url = this.customRpcUrl().trim();
+
+    if (url) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        this.snackBar.open('RPC URL must start with http:// or https://', 'Close', { duration: 5000 });
+        return;
+      }
+
+      try {
+        await this.storage.setItem('custom_hardhat_rpc', url);
+        this.wallet.setCustomRpc(url);
+        this.snackBar.open('Custom Hardhat RPC saved — will be used on next connect', 'Close', { duration: 5000 });
+      } catch (err) {
+        this.snackBar.open('Failed to save RPC URL', 'Close', { duration: 5000 });
+      }
+    } else {
+      try {
+        await this.storage.removeItem('custom_hardhat_rpc');
+        this.wallet.setCustomRpc('http://127.0.0.1:8545');
+        this.snackBar.open('Reverted to default Hardhat RPC', 'Close', { duration: 4000 });
+      } catch (err) {
+        console.warn('Failed to clear custom RPC:', err);
+      }
+    }
   }
 
   async connectWallet() {
-    this.connecting.set(true);
-    this.error.set(null);
+  this.connecting.set(true);
+  this.error.set(null);
 
-    try {
-      await this.wallet.connect();
-
-      // Reset role when wallet changes
-      this.selectedRole.set(null);
-    } catch (err: any) {
-      this.error.set(err.message || 'Failed to connect wallet');
-    } finally {
-      this.connecting.set(false);
+  try {
+    // Apply custom RPC first (if set)
+    if (isPlatformBrowser(this.platformId)) {
+      const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
+      if (savedRpc) {
+        this.wallet.setCustomRpc(savedRpc);
+      } else {
+        this.wallet.setCustomRpc('http://127.0.0.1:8545');
+      }
     }
+
+    // Connect wallet
+    await this.wallet.connect();
+
+    // Wait for address to be available (reliable way using observable)
+    const address = await firstValueFrom(this.wallet.address$);
+    if (!address) {
+      throw new Error('Wallet connected but no address received');
+    }
+
+    console.log('Wallet connected with address:', address);
+
+    // Now safe to init encryption
+    if (isPlatformBrowser(this.platformId)) {
+      const success = await this.storage.initEncryption();
+      if (success) {
+        this.snackBar.open('Wallet connected & secure storage ready!', 'Close', { duration: 4000 });
+      } else {
+        this.snackBar.open(
+          'Secure storage failed (signature issue). You can try again later.',
+          'Close',
+          { duration: 8000, panelClass: ['warn-snackbar'] }
+        );
+      }
+    }
+
+    // Reset role on new connection
+    this.selectedRole.set(null);
+  } catch (err: any) {
+    console.error('Wallet connect failed:', err);
+    this.error.set(err.message || 'Failed to connect wallet');
+    this.snackBar.open(err.message || 'Wallet connection failed', 'Close', { duration: 5000 });
+  } finally {
+    this.connecting.set(false);
   }
+}
 
   async signIn() {
-    const role = this.selectedRole();
+  const role = this.selectedRole();
 
-    if (!role) {
-      this.error.set('Please select a login mode.');
-      return;
-    }
-
-    this.signing.set(true);
-    this.error.set(null);
-
-    try {
-      await this.auth.login(role);
-
-      // Redirect safely after login
-      this.redirectByRole(role);
-    } catch (err: any) {
-      this.error.set(err.message || 'Authentication failed');
-    } finally {
-      this.signing.set(false);
-    }
+  if (!role) {
+    this.error.set('Please select a login mode.');
+    return;
   }
 
-  private redirectByRole(role: AppRole) {
-    const returnUrl =
-      this.route.snapshot.queryParamMap.get('returnUrl');
+  this.signing.set(true);
+  this.error.set(null);
 
-    // Prevent cross-role navigation
+  try {
+    // Step 1: Ensure wallet is connected at all
+    if (!this.wallet.address) {
+      throw new Error('Wallet not connected - please connect first');
+    }
+
+    // Step 2: Wait for signer with progressive retries + longer total time
+    let signerReady = false;
+    const maxRetries = 20; // ~10 seconds total (500ms × 20)
+    for (let i = 0; i < maxRetries; i++) {
+      if (this.wallet.signer) {
+        signerReady = true;
+        break;
+      }
+      console.log(`Waiting for signer... attempt ${i + 1}/${maxRetries}`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!signerReady) {
+      console.error('Signer failed to initialize after retries');
+      throw new Error('Wallet signer not ready - please logout and reconnect wallet and try again');
+    }
+
+    console.log('Signer ready! Proceeding with sign-in');
+
+    // Step 3: Now safe to sign (MetaMask will pop up)
+    await this.auth.login(role);
+
+    this.redirectByRole(role);
+  } catch (err: any) {
+    console.error('Sign-in failed:', err);
+    this.error.set(err.message || 'Authentication failed');
+    this.snackBar.open(
+      err.message || 'Sign-in failed - reconnect wallet and try again',
+      'Close',
+      { duration: 8000 }
+    );
+  } finally {
+    this.signing.set(false);
+  }
+}
+
+  private redirectByRole(role: AppRole) {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+
     if (returnUrl && this.isReturnUrlAllowed(role, returnUrl)) {
       this.router.navigateByUrl(returnUrl);
       return;
@@ -617,5 +786,11 @@ export class LoginComponent {
       url.startsWith('/disclosures') ||
       url.startsWith('/gdpr')
     );
+  }
+
+  // NEW: Method to fix the template binding error
+  selectRole(role: AppRole) {
+    this.selectedRole.set(role);
+    this.error.set(null);
   }
 }

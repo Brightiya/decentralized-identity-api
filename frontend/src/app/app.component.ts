@@ -602,6 +602,7 @@ export class AppComponent implements OnInit {
 
   logout() {
     this.auth.logout();
+    this.wallet.disconnect();
     this.cdr.detectChanges();
   }
 

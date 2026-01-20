@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { pool } from "../utils/db.js";
 import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
+import contract from "../utils/contract.js";
 
 dotenv.config();
 
@@ -90,7 +91,7 @@ export const issueVC = async (req, res) => {
       subject,
       claimId,
       claim,
-      context = "default",  // ← will be normalized below
+      context = "default",
       consent
     } = req.body;
 
@@ -105,19 +106,14 @@ export const issueVC = async (req, res) => {
       });
     }
 
-    // ────────────────────────────────
-    // Normalize context (simple lowercase trim)
-    // ────────────────────────────────
+    // Normalize context
     const normalizeContext = (ctx) => {
       if (!ctx) return 'profile';
       return ctx.trim().toLowerCase();
     };
-
     context = normalizeContext(context);
 
-    /* -------------------------------------------------
-       Build VC payload — FINAL version (no cid yet)
-    --------------------------------------------------*/
+    // Build VC payload
     const vc = {
       "@context": ["https://www.w3.org/2018/credentials/v1"],
       type: ["VerifiableCredential"],
@@ -128,16 +124,14 @@ export const issueVC = async (req, res) => {
         claim
       },
       pimv: {
-        context,        // ← normalized & passthrough compatible
+        context,
         claimId,
         purpose: consent.purpose,
         consentRequired: true
       }
     };
 
-    /* -------------------------------------------------
-       Sign VC
-    --------------------------------------------------*/
+    // Sign VC
     const vcString = JSON.stringify(vc);
     const signature = await signer.signMessage(vcString);
 
@@ -149,19 +143,15 @@ export const issueVC = async (req, res) => {
       jws: signature
     };
 
-    // Get both keys from headers
+    // Pinata / nft.storage keys
     const pinataJwt = getPinataJwtForRequest(req);
     const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
-    /* -------------------------------------------------
-       Upload signed VC to IPFS (nft.storage preferred)
-    --------------------------------------------------*/
+    // Upload signed VC to IPFS
     const ipfsUri = await uploadJSON(vc, pinataJwt, nftStorageKey);
     const cid = ipfsUri.replace("ipfs://", "");
 
-    /* -------------------------------------------------
-       Enriched version (adds CID, not signed)
-    --------------------------------------------------*/
+    // Enriched VC with CID (not signed)
     const enrichedVC = {
       ...vc,
       pimv: {
@@ -173,9 +163,7 @@ export const issueVC = async (req, res) => {
     const enrichedIpfsUri = await uploadJSON(enrichedVC, pinataJwt, nftStorageKey);
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
-    /* -------------------------------------------------
-       Prepare anchoring on-chain (hybrid or dev)
-    --------------------------------------------------*/
+    // Prepare on-chain anchoring
     const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
     const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
     const subjectAddress = didToAddress(subject);
@@ -190,22 +178,67 @@ export const issueVC = async (req, res) => {
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`
     };
 
+    // ────────────────────────────────
+    // HYBRID MODE: Prepare unsigned txs for frontend
+    // ────────────────────────────────
     if (isHybridMode()) {
-      // Hybrid mode: Prepare unsigned tx for frontend
       const unsignedTx = await prepareUnsignedTx(
         'setClaim',
         subjectAddress,
         claimIdBytes32,
         claimHash
       );
-      responseData = {
-        ...responseData,
-        message: "✅ VC prepared - please sign & send transaction in your wallet",
-        unsignedTx
-      };
+      responseData.unsignedTx = unsignedTx;
+      responseData.message = "✅ VC prepared - please sign & send transaction in your wallet";
+
       console.log('[Hybrid] Prepared unsigned setClaim tx');
-    } else {
-      // Dev mode: Backend signs and submits
+
+      // Optional profile auto-update
+      try {
+        let profile = {};
+        const profileCID = await contract.getProfileCID(subjectAddress); // read-only OK
+
+        if (profileCID && profileCID.length > 0) {
+          const preferred = req.headers['x-preferred-gateway'] || null;
+          profile = await fetchJSON(profileCID, 3, preferred);
+        }
+
+        const updatedProfile = {
+          ...profile,
+          credentials: [
+            ...(profile.credentials || []),
+            {
+              type: "ContextualCredential",
+              cid,
+              context,
+              claimId,
+              issuedAt: new Date().toISOString()
+            }
+          ],
+          updatedAt: new Date().toISOString()
+        };
+
+        const profileUri = await uploadJSON(updatedProfile, pinataJwt, nftStorageKey);
+        const newProfileCid = profileUri.replace("ipfs://", "");
+
+        const profileUnsignedTx = await prepareUnsignedTx(
+          'setProfileCID',
+          subjectAddress,
+          newProfileCid
+        );
+        responseData.profileUnsignedTx = profileUnsignedTx;
+        responseData.message += " + profile update prepared (sign both txs)";
+
+        console.log('[Hybrid] Prepared unsigned setProfileCID tx');
+      } catch (profileErr) {
+        console.warn("[Hybrid] Profile auto-update skipped:", profileErr.message);
+      }
+    } 
+    // ────────────────────────────────
+    // DEV MODE: Backend signs and submits
+    // ────────────────────────────────
+    else {
+      // Backend signs setClaim
       const tx = await registry.setClaim(
         subjectAddress,
         claimIdBytes32,
@@ -215,56 +248,41 @@ export const issueVC = async (req, res) => {
       responseData.txHash = tx.hash;
       responseData.message = "✅ VC issued and anchored on-chain (backend signed)";
       console.log('[Dev] Backend signed & submitted setClaim tx');
-    }
 
-    /* -------------------------------------------------
-       Auto-update profile (optional) - also hybrid
-    --------------------------------------------------*/
-    try {
-      let profile = {};
-      const profileCID = await registry.getProfileCID(subjectAddress);
+      // Optional profile update (backend signs)
+      try {
+        let profile = {};
+        const profileCID = await registry.getProfileCID(subjectAddress);
 
-      if (profileCID && profileCID.length > 0) {
-        const preferred = req.headers['x-preferred-gateway'] || null;
-        profile = await fetchJSON(profileCID, 3, preferred);
+        if (profileCID && profileCID.length > 0) {
+          const preferred = req.headers['x-preferred-gateway'] || null;
+          profile = await fetchJSON(profileCID, 3, preferred);
+        }
+
+        const updatedProfile = {
+          ...profile,
+          credentials: [
+            ...(profile.credentials || []),
+            {
+              type: "ContextualCredential",
+              cid,
+              context,
+              claimId,
+              issuedAt: new Date().toISOString()
+            }
+          ],
+          updatedAt: new Date().toISOString()
+        };
+
+        const profileUri = await uploadJSON(updatedProfile, pinataJwt, nftStorageKey);
+        const newProfileCid = profileUri.replace("ipfs://", "");
+
+        const profileTx = await registry.setProfileCID(subjectAddress, newProfileCid);
+        await profileTx.wait();
+        console.log('[Dev] Backend signed & submitted setProfileCID tx');
+      } catch (profileErr) {
+        console.warn("[Dev] Profile auto-update skipped:", profileErr.message);
       }
-
-      const updatedProfile = {
-        ...profile,
-        credentials: [
-          ...(profile.credentials || []),
-          {
-            type: "ContextualCredential",
-            cid,
-            context,
-            claimId,
-            issuedAt: new Date().toISOString()
-          }
-        ],
-        updatedAt: new Date().toISOString()
-      };
-
-      const profileUri = await uploadJSON(updatedProfile, pinataJwt, nftStorageKey);
-      const newProfileCid = profileUri.replace("ipfs://", "");
-
-      if (isHybridMode()) {
-        // Prepare unsigned tx for profile update
-        const profileUnsignedTx = await prepareUnsignedTx(
-          'setProfileCID',
-          subjectAddress,
-          newProfileCid
-        );
-        responseData.profileUnsignedTx = profileUnsignedTx;
-        responseData.message += " + profile update prepared (sign both txs)";
-        console.log('[Hybrid] Prepared unsigned setProfileCID (profile update) tx');
-      } else {
-        // Dev mode: backend signs profile update
-        const tx = await registry.setProfileCID(subjectAddress, newProfileCid);
-        await tx.wait();
-        console.log('[Dev] Backend signed & submitted setProfileCID (profile update) tx');
-      }
-    } catch (e) {
-      console.warn("Profile auto-update skipped:", e.message);
     }
 
     return res.json(responseData);

@@ -1,0 +1,164 @@
+})();
+  }
+    console.log("→ setProfileCID FAILED:", e.reason || e.message);
+  } catch (e) {
+    console.log("→ setProfileCID PASSED");
+    await contract.setProfileCID.staticCall(signerAddr, "QmTestCIDForDebug1234567890", { from: signerAddr });
+  try {
+  // 4. Simulate setProfileCID
+  }
+    if (e.data) console.log("  Revert data:", e.data);
+    console.log("  Reason:", e.reason || e.message || "Unknown");
+    console.log("→ setClaim FAILED:");
+  } catch (e) {
+    console.log("→ setClaim PASSED (no revert)");
+    await contract.setClaim.staticCall(signerAddr, claimIdBytes32, claimHash, { from: signerAddr });
+  try {
+  console.log("  claimHash:", claimHash);
+  console.log("  claimId (keccak):", claimIdBytes32);
+  console.log("  owner:", signerAddr);
+  console.log("\nTrying setClaim simulation with:");
+  const claimHash = "0x75ccf02fb00ae85e3bd29b35f9bdad122267b05da75db28da7a6531cccdc1d63";
+  const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimIdStr));
+  const claimIdStr = "Email identity";
+  const signerAddr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  // 3. Simulate setClaim
+  }
+    console.log("No paused() function or error:", e.message);
+  } catch (e) {
+    console.log("Is paused?", paused);
+    const paused = await contract.paused();
+  try {
+  // 2. Paused?
+  }
+    console.log("Cannot call owner():", e.message);
+  } catch (e) {
+    console.log("Contract owner:", owner);
+    const owner = await contract.owner();
+  try {
+  // 1. Owner
+  console.log("Contract address:", contract.target);
+  const contract = await ethers.getContractAt("IdentityRegistry", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
+(async () => {
+}
+  console.log("→ setProfileCID simulation FAILED:", e.reason || e.message);
+} catch (e) {
+  console.log("→ setProfileCID simulation PASSED");
+  );
+    { from: signerAddr }
+    "QmTestCIDForDebug1234567890",
+    signerAddr,
+  await contract.setProfileCID.staticCall(
+try {
+// 4. Quick test for setProfileCID (usually fails for same reason)
+}
+  if (e.data) console.log("  Revert data:", e.data);
+  console.log("  Reason/message:", e.reason || e.message || "Unknown");
+  console.log("→ setClaim simulation FAILED:");
+} catch (e) {
+  console.log("→ setClaim simulation PASSED (no revert)");
+  );
+    { from: signerAddr }
+    claimHash,
+    claimIdBytes32,
+    signerAddr,
+  await contract.setClaim.staticCall(
+try {
+console.log("  claimHash:", claimHash);
+console.log("  claimId (keccak256):", claimIdBytes32);
+console.log("  owner:", signerAddr);
+console.log("Trying setClaim with:");
+const claimHash = "0x75ccf02fb00ae85e3bd29b35f9bdad122267b05da75db28da7a6531cccdc1d63";
+const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimIdStr));
+const claimIdStr = "Email identity";
+const signerAddr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+// 3. Simulate setClaim call (this usually reveals the real revert reason)
+}
+  console.log("No paused() function or error:", e.message);
+} catch (e) {
+  console.log("Is contract paused?", paused);
+  const paused = await contract.paused();
+try {
+// 2. Is the contract pausable?
+}
+  console.log("Cannot call owner() — error:", e.message);
+} catch (e) {
+  console.log("Contract owner:", owner);
+  const owner = await contract.owner();
+try {
+// 1. Who is the owner?
+console.log("Contract address:", contract.target);
+const contract = await ethers.getContractAt("IdentityRegistry", contractAddress);
+const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const { ethers } = require("hardhat");
+const contract = await ethers.getContractAt("IdentityRegistry", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
+}
+  console.log("setProfileCID simulation failed:", e.reason || e.message);
+} catch (e) {
+  console.log("setProfileCID simulation succeeded");
+  );
+    { from: signerAddr }
+    "QmTestCID1234567890",
+    signerAddr,
+  await contract.setProfileCID.staticCall(
+try {
+// 4. Same for setProfileCID (usually less restrictive)
+}
+  console.log("setClaim simulation failed with reason:", e.reason || e.message);
+} catch (e) {
+  console.log("setClaim simulation succeeded (no revert)");
+  );
+    { from: signerAddr }
+    claimHash,
+    claimIdBytes32,
+    signerAddr,
+  await contract.setClaim.staticCall(
+try {
+const claimHash = "0x75ccf02fb00ae85e3bd29b35f9bdad122267b05da75db28da7a6531cccdc1d63";
+const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes("Email identity"));
+const signerAddr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+// 3. Try to simulate setClaim call (this will show real revert reason if any)
+}
+  console.log("No paused() function or other error:", e.message);
+} catch (e) {
+  console.log("Is contract paused?", paused);
+  const paused = await contract.paused();
+try {
+// 2. Check if the contract is pausable (some contracts revert when paused)
+console.log("Contract owner:", owner);
+const owner = await contract.owner();
+// 1. Check contract owner (most common cause of silent revert)
+const contract = await ethers.getContractAt("IdentityRegistry", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
+// Re-define the contract (important!)
+console.log("Contract owner:", owner);
+const owner = await contract.owner();
+// 1. Get the current owner of the contract (most common revert reason)
+).catch(e => console.log("setProfileCID staticCall failed:", e));
+  { from: signerAddr }
+  "QmSomeTestCIDHere",
+  signerAddr,
+await contract.setProfileCID.staticCall(
+// 4. Same for profileCID (easier, just string)
+).catch(e => console.log("setClaim staticCall failed:", e));
+  { from: signerAddr }
+  claimHash,
+  claimIdBytes32,
+  signerAddr,
+await contract.setClaim.staticCall(
+const claimHash = "0x75ccf02fb00ae85e3bd29b35f9bdad122267b05da75db28da7a6531cccdc1d63";
+const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes("Email identity"));
+const signerAddr = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+// 3. Try a minimal static call (eth_call simulation) with correct parameters
+}
+  console.log("No paused() function or error:", e.message);
+} catch (e) {
+  console.log("Is paused?", paused);
+  const paused = await contract.paused();
+try {
+// 2. Check if the contract has pause functionality
+console.log("Contract owner:", owner);
+const owner = await contract.owner();
+// 1. Get the current owner of the contract (most common revert reason)
+console.log(await contract.interface.getFunction("setProfileCID"));
+console.log(await contract.interface.getFunction("setClaim"));
+const contract = await ethers.getContractAt("IdentityRegistry", "0x5FbDB2315678afecb367f032d93F642f64180aa3");

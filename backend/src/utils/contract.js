@@ -11,42 +11,42 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load contract data
+// Load contract data synchronously
 const contractPath = path.resolve(__dirname, "../contractData.json");
 let contractData;
 try {
-  contractData = JSON.parse(fs.readFileSync(contractPath));
+  contractData = JSON.parse(fs.readFileSync(contractPath, "utf8"));
 } catch (err) {
   console.error("Failed to load contractData.json:", err);
   process.exit(1);
 }
 
 // Provider from env (default local Hardhat)
-const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL || "http://127.0.0.1:8545");
+const provider = new ethers.JsonRpcProvider(
+  process.env.PROVIDER_URL || "http://127.0.0.1:8545"
+);
 
 // Hybrid mode check
 export function isHybridMode() {
-  return process.env.HYBRID_SIGNING === 'true';
+  return process.env.HYBRID_SIGNING === "true";
 }
 
-// Create contract instance
+// Create contract instance synchronously
 let contract;
 if (isHybridMode()) {
-  // Production/hybrid: read-only contract (frontend signs txs)
   contract = new ethers.Contract(contractData.address, contractData.abi, provider);
-  console.log('Hybrid mode enabled: Contract is read-only (frontend will sign transactions)');
+  console.log("Hybrid mode enabled: Contract is read-only (frontend signs txs)");
 } else {
-  // Dev mode: backend signs with PRIVATE_KEY
   const privateKey = process.env.PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error("❌ Missing PRIVATE_KEY in .env for dev mode (HYBRID_SIGNING=false)");
+    throw new Error("❌ Missing PRIVATE_KEY in .env for dev mode");
   }
-
   const signer = new ethers.Wallet(privateKey, provider);
   contract = new ethers.Contract(contractData.address, contractData.abi, signer);
-  console.log('Dev mode enabled: Backend signing with PRIVATE_KEY');
+  console.log("Dev mode enabled: Backend signing with PRIVATE_KEY");
 }
 
+// Export contract for controllers
 export default contract;
 
 /**
@@ -56,53 +56,63 @@ export default contract;
  * @returns {Promise<object>} Unsigned tx data for frontend to sign/send
  */
 export async function prepareUnsignedTx(methodName, ...args) {
-  if (typeof contract[methodName] !== 'function') {
-    throw new Error(`Method '${methodName}' does not exist on contract`);
+  if (!contract) {
+    throw new Error("Contract not initialized - check server startup logs");
   }
 
-  const tx = await contract.populateTransaction[methodName](...args);
+  // Ensure ABI has the function
+  const fn = contract.getFunction(methodName);
+  if (!fn) {
+    throw new Error(`Method '${methodName}' does not exist in contract ABI`);
+  }
+
+  // Populate transaction (works without signer in hybrid mode)
+  const tx = await fn.populateTransaction(...args);
 
   const feeData = await provider.getFeeData();
+  const chain = await provider.getNetwork();
 
-  // Safely estimate nonce (try to find address arg, default to 0)
-  let nonce = 0n;
-  const subjectAddress = args.find(arg => typeof arg === 'string' && ethers.isAddress(arg));
-  if (subjectAddress) {
-    nonce = await provider.getTransactionCount(subjectAddress);
-  } else {
-    console.warn(`Could not determine nonce - using 0 (may need manual adjustment)`);
-  }
+  // We deliberately DO NOT set nonce in hybrid mode
+  // → Let the frontend / ethers.js query the current pending nonce at the moment of signing
+  const nonce = isHybridMode() ? undefined : "0"; // only fallback for non-hybrid
 
-  return {
+  // Convert BigInts → strings for JSON compatibility
+  const unsignedTx = {
     to: contract.target,
     data: tx.data,
-    chainId: Number((await provider.getNetwork()).chainId),
-    nonce,
-    gasLimit: tx.gasLimit || 300000n,
-    maxFeePerGas: feeData.maxFeePerGas,
-    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    value: 0n,
-    type: 2 // EIP-1559
+    chainId: Number(chain.chainId),
+    // nonce: intentionally omitted in hybrid mode
+    gasLimit: (tx.gasLimit || 400000n).toString(), // increased default a bit
+    maxFeePerGas: (feeData.maxFeePerGas || 0n).toString(),
+    maxPriorityFeePerGas: (feeData.maxPriorityFeePerGas || 0n).toString(),
+    value: "0",
+    type: 2,
   };
+
+  // Only include nonce if we're in dev mode (backend signing)
+  if (!isHybridMode() && nonce !== undefined) {
+    unsignedTx.nonce = nonce;
+  }
+
+  console.log(`[prepareUnsignedTx] Prepared tx for ${methodName}:`, {
+    to: unsignedTx.to,
+    nonce: unsignedTx.nonce ?? "(let frontend resolve)",
+    gasLimit: unsignedTx.gasLimit,
+  });
+
+  return unsignedTx;
 }
 
 /**
  * Convenience wrapper: Prepare unsigned tx for setClaim
- * @param {string} subjectAddress - Address of the subject
- * @param {string} claimIdBytes32 - claimId as bytes32
- * @param {string} claimHash - keccak256 hash of the claim CID
- * @returns {Promise<object>} Unsigned tx data
  */
 export async function prepareUnsignedSetClaim(subjectAddress, claimIdBytes32, claimHash) {
-  return prepareUnsignedTx('setClaim', subjectAddress, claimIdBytes32, claimHash);
+  return prepareUnsignedTx("setClaim", subjectAddress, claimIdBytes32, claimHash);
 }
 
 /**
  * Convenience wrapper: Prepare unsigned tx for setProfileCID
- * @param {string} subjectAddress - Address of the subject
- * @param {string} cid - IPFS CID
- * @returns {Promise<object>} Unsigned tx data
  */
 export async function prepareUnsignedSetProfileCID(subjectAddress, cid) {
-  return prepareUnsignedTx('setProfileCID', subjectAddress, cid);
+  return prepareUnsignedTx("setProfileCID", subjectAddress, cid);
 }

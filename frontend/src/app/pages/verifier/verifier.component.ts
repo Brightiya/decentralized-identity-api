@@ -121,12 +121,23 @@ import { computed, signal } from '@angular/core';
                      placeholder="e.g., KYC verification, age check, address confirmation"
                      [matAutocomplete]="purposeAuto" />
 
-              <mat-autocomplete #purposeAuto="matAutocomplete">
-                <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
-                  <span>Purpose:({{ claim.purpose }})</span>
-                  <small class="muted ml-2">Claim Id:({{ claim.claim_id }}) Context: {{ claim.context }})</small>
-                </mat-option>
-              </mat-autocomplete>
+              <!-- Auto-complete panel -->
+          <mat-autocomplete #purposeAuto="matAutocomplete">
+            <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
+              <div class="purpose-option">
+                <span class="purpose-text">{{ claim.purpose }}
+                <span class="recency-badge" *ngIf="isLatest(claim)">
+                   Latest
+                </span></span>
+                <small class="muted">
+                  Claim ID: {{ claim.claim_id }} <br> Context: {{ claim.context }}
+                  <span *ngIf="claim.issued_at" class="recency">
+                    • {{ getRelativeTime(claim.issued_at) }}
+                  </span>
+                </small>
+              </div>
+            </mat-option>
+          </mat-autocomplete>
 
               <!-- Improved hints -->
               <mat-hint class="subtle-context-hint" *ngIf="!form.get('context')?.value">
@@ -398,6 +409,51 @@ styles: [`
     color: #fca5a5;
   }
 
+.purpose-option {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
+.purpose-text {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.consent-container.dark .purpose-text {
+  color: #e2e8f0;
+}
+
+.purpose-option small {
+  opacity: 0.7;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.recency {
+  color: #6366f1;
+  font-style: italic;
+}
+
+.consent-container.dark .recency {
+  color: #a5b4fc;
+}
+
+.recency-badge {
+  font-size: 0.8rem;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.consent-container.dark .recency-badge {
+  background: #0e7490;
+  color: #e0f2fe;
+}
+
   /* Misc */
   .muted { color: var(--text-secondary); }
 
@@ -629,6 +685,7 @@ export class VerifierComponent {
   result: any = null;
   error: string | null = null;
   connecting = false;
+  purposeValue = '';
 
   // Signals
   suggestedClaims = signal<any[]>([]);
@@ -644,35 +701,67 @@ export class VerifierComponent {
     return ctx?.toLowerCase()?.trim()?.replace(/\s+/g, '-') || '';
   }
 
-  sortedSuggestedClaims = computed(() => {
-    return [...this.suggestedClaims()].reverse();
-  });
-
   filteredSuggestedPurposes = computed(() => {
-    const search = (this.form.get('purpose')?.value || '').toLowerCase().trim();
-    const currentContext = this.selectedContext(); // ← now using signal!
+  const search = this.purposeValue?.toLowerCase().trim() || '';
+  const currentContext = this.selectedContext()?.toLowerCase() || '';
 
-    let baseList = this.sortedSuggestedClaims();
+  let claims = [...this.suggestedClaims()]; // backend already sorted newest first
 
-    if (currentContext) {
-      const normalizedCurrent = this.normalizeContext(currentContext);
-      baseList = baseList.filter(claim =>
-        this.normalizeContext(claim.context || '') === normalizedCurrent
-      );
-    }
-
-    if (!search) return baseList;
-
-    return baseList.filter(claim =>
-      (claim.purpose || '').toLowerCase().includes(search)
+  if (currentContext) {
+    const contextMatches = claims.filter(claim =>
+      (claim.context || '').toLowerCase() === currentContext
     );
-  });
+    const otherClaims = claims.filter(claim =>
+      (claim.context || '').toLowerCase() !== currentContext
+    );
+    claims = [...contextMatches, ...otherClaims];
+  }
+
+  if (!search) return claims;
+
+  return claims.filter(claim =>
+    claim.purpose.toLowerCase().includes(search)
+  );
+});
+
+getRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return 'recent';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 1) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours < 1) return 'just now';
+    return `${diffHours}h ago`;
+  }
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  
+  // ← Here: Add "Older" for anything 30+ days old
+  return 'Older';  // or 'Older (before 2025)' or date.toLocaleDateString()
+}
+
+isLatest(claim: any): boolean {
+  if (!claim.issued_at) return false;
+
+  const filtered = this.filteredSuggestedPurposes();
+  const allTimestamps = filtered
+    .filter(c => c.issued_at)
+    .map(c => new Date(c.issued_at).getTime());
+
+  if (allTimestamps.length === 0) return false;
+
+  const maxTime = Math.max(...allTimestamps);
+  return new Date(claim.issued_at).getTime() === maxTime;
+}
 
   filteredClaimIdsByContext = computed(() => {
     const currentContext = this.selectedContext();
     const normalizedCurrent = this.normalizeContext(currentContext);
 
-    return this.sortedSuggestedClaims()
+    return this.suggestedClaims()
       .filter(claim =>
         !normalizedCurrent ||
         this.normalizeContext(claim.context || '') === normalizedCurrent

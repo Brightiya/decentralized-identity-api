@@ -1,7 +1,16 @@
 // src/app/services/wallet.service.ts
 import { Injectable, inject, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { BrowserProvider, JsonRpcSigner, Eip1193Provider, JsonRpcProvider, ethers } from 'ethers';
+import {
+  ethers,
+  BrowserProvider,
+  JsonRpcProvider,
+  Eip1193Provider,
+  Wallet,
+  JsonRpcSigner,
+  TransactionResponse,
+  TransactionReceipt
+} from 'ethers';
 import { BehaviorSubject } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { environment } from '../../environments/environment';
@@ -15,10 +24,8 @@ export class WalletService {
   private addressSubject = new BehaviorSubject<string | null>(null);
   address$ = this.addressSubject.asObservable();
 
-  // Custom Hardhat RPC (user-configurable)
   customRpc = signal<string>('');
 
-  // Authentication state
   private authState = new BehaviorSubject<{ token: string | null; isAuthenticated: boolean }>({
     token: null,
     isAuthenticated: false
@@ -26,7 +33,7 @@ export class WalletService {
   authState$ = this.authState.asObservable();
 
   provider: BrowserProvider | JsonRpcProvider | null = null;
-  signer: JsonRpcSigner | null = null;
+  signer: JsonRpcSigner | Wallet | null = null;
 
   private snackBar = inject(MatSnackBar);
 
@@ -50,7 +57,7 @@ export class WalletService {
       return;
     }
 
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!/^https?:\/\//i.test(url)) {
       this.snackBar.open('Invalid RPC URL - must start with http(s)://', 'Close', { duration: 5000 });
       return;
     }
@@ -60,47 +67,22 @@ export class WalletService {
   }
 
   async connect() {
-    if (!this.isBrowser) {
-      throw new Error('Wallet connection only available in browser');
-    }
+    if (!this.isBrowser) throw new Error('Wallet connection only available in browser');
+
+    this.signer = null;
+    this.provider = null;
 
     try {
-      // Always reset state
-      this.signer = null;
-      this.provider = null;
-
-      console.log('Starting wallet connect...');
-
       if (this.customRpc()) {
         await this.useHardhat(this.customRpc());
       } else if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (!accounts?.length) throw new Error('No accounts returned from wallet');
-
-        const addr = accounts[0];
-        this.provider = new BrowserProvider(window.ethereum as Eip1193Provider);
-        this.signer = await this.provider.getSigner();
-
-        this.addressSubject.next(addr);
-        localStorage.setItem('walletAddress', addr);
-
-        this.snackBar.open(`MetaMask connected: ${addr.slice(0,6)}...${addr.slice(-4)}`, 'Close', { duration: 4000 });
+        await this.useMetaMask();
       } else {
         await this.useHardhat(environment.PROVIDER_URL || 'http://127.0.0.1:8545');
       }
 
-      let attempts = 0;
-      while (!this.signer && attempts < 20) {
-        console.log(`Waiting for signer... attempt ${attempts + 1}/20`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
+      if (!this.signer) throw new Error('Signer did not initialize, please refresh the browser and try again');
 
-      if (!this.signer) {
-        throw new Error('Signer failed to initialize after 10s - reconnect wallet');
-      }
-
-      console.log('Connect complete - signer ready');
     } catch (err: any) {
       console.error('Wallet connect failed:', err);
       this.snackBar.open(err.message || 'Connection failed', 'Close', { duration: 8000 });
@@ -108,67 +90,125 @@ export class WalletService {
     }
   }
 
+  private async useMetaMask() {
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    if (!accounts?.length) throw new Error('No accounts returned from MetaMask');
+
+    const addr = accounts[0];
+
+    this.provider = new BrowserProvider(window.ethereum as Eip1193Provider);
+    this.signer = await this.provider.getSigner();
+
+    this.addressSubject.next(addr);
+    localStorage.setItem('walletAddress', addr);
+
+    this.snackBar.open(`MetaMask connected: ${addr.slice(0, 6)}...${addr.slice(-4)}`, 'Close', { duration: 4000 });
+  }
+
   private async useHardhat(rpcUrl: string) {
     try {
       this.provider = new JsonRpcProvider(rpcUrl);
 
-      let signer: JsonRpcSigner | null = null;
-      let addr: string | undefined = undefined; // ← Changed from null to undefined to match getSigner type
+      let addr: string | undefined;
+      let signer: Wallet | null = null;
 
       if (environment.PRIVATE_KEY) {
-        const wallet = new ethers.Wallet(environment.PRIVATE_KEY, this.provider);
-        signer = wallet as unknown as JsonRpcSigner;
-        addr = await wallet.getAddress();
+        signer = new Wallet(environment.PRIVATE_KEY, this.provider);
+        addr = await signer.getAddress();
       } else {
-        try {
-          const accounts = await this.provider.send('eth_accounts', []);
-          if (accounts?.length > 0) {
-            addr = accounts[0];
-            // FIXED: Only call getSigner when addr is defined
-            if (addr) {
-              signer = await this.provider.getSigner(addr);
-              console.log('Fetched Hardhat signer for account:', addr);
-            }
-          }
-        } catch (fetchErr) {
-          console.warn('Could not fetch/sign Hardhat accounts:', fetchErr);
+        const accounts = await this.provider.send('eth_accounts', []);
+        if (accounts?.length > 0) {
+          addr = accounts[0];
+          // No signer for JSON-RPC without private key
+          signer = null;
         }
       }
 
-      // Final fallback if no valid account
       if (!addr) {
-        addr = '0x0000000000000000000000000000000000000000';
-        console.warn('No Hardhat accounts - using dummy address (read-only mode)');
+        addr = ethers.ZeroAddress;
+        console.warn('Hardhat returned no accounts - using zero address (read-only)');
       }
 
       this.signer = signer;
       this.addressSubject.next(addr);
-      if (this.isBrowser) {
-        localStorage.setItem('walletAddress', addr);
-      }
+      localStorage.setItem('walletAddress', addr);
 
-      this.snackBar.open(`Connected to Hardhat RPC: ${rpcUrl} (${addr.slice(0,6)}...)`, 'Close', { duration: 5000 });
+      this.snackBar.open(`Connected to Hardhat RPC: ${rpcUrl} (${addr.slice(0, 6)}...)`, 'Close', { duration: 5000 });
     } catch (err: any) {
-      this.snackBar.open('Failed to connect to Hardhat RPC', 'Close', { duration: 5000 });
       console.error('Hardhat connection error:', err);
+      this.snackBar.open('Failed to connect to Hardhat RPC', 'Close', { duration: 5000 });
       throw err;
     }
   }
 
   async signMessage(message: string): Promise<string> {
-    if (!this.isBrowser) throw new Error('Signing only available in browser');
     if (!this.signer) throw new Error('No signer - connect wallet first');
-
-    return this.signer.signMessage(message);
+    return await this.signer.signMessage(message);
   }
 
-  async signAndSendTransaction(unsignedTx: any): Promise<string> {
+  /**
+   * Sends a transaction and waits for confirmation
+   * Returns both hash and receipt for more flexibility
+   */
+  async signAndSendTransaction(unsignedTx: any): Promise<{ hash: string; receipt: TransactionReceipt }> {
     if (!this.signer) throw new Error('No signer - connect wallet first');
+    if (!this.provider) throw new Error('Provider not initialized');
 
-    const txResponse = await this.signer.sendTransaction(unsignedTx);
-    await txResponse.wait();
+    try {
+      const tx: TransactionResponse = await this.signer.sendTransaction({
+        ...unsignedTx,
+        gasLimit: unsignedTx.gasLimit ? BigInt(unsignedTx.gasLimit) : undefined,
+        maxFeePerGas: unsignedTx.maxFeePerGas ? BigInt(unsignedTx.maxFeePerGas) : undefined,
+        maxPriorityFeePerGas: unsignedTx.maxPriorityFeePerGas ? BigInt(unsignedTx.maxPriorityFeePerGas) : undefined,
+        value: unsignedTx.value ? BigInt(unsignedTx.value) : 0n,
+      });
 
-    return txResponse.hash;
+      console.log('[WalletService] Transaction sent:', tx.hash);
+
+      // Wait for at least 1 confirmation
+      const receipt = await tx.wait(1);
+
+      if (!receipt) {
+        throw new Error('Transaction receipt is null - likely dropped or timeout');
+      }
+
+      console.log('[WalletService] Confirmed in block:', receipt.blockNumber);
+
+      return { hash: tx.hash, receipt };
+    } catch (err: any) {
+      console.error('[WalletService] Transaction failed:', err);
+
+      // Improve error messages for common MetaMask codes
+      if (err.code === 4001) {
+        throw new Error('User rejected transaction');
+      }
+      if (err.code === -32603 && err.message?.includes('nonce')) {
+        throw new Error('Nonce too low/high - try resetting MetaMask account');
+      }
+      if (err.message?.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for gas');
+      }
+
+      throw err;
+    }
+  }
+
+  setAuthenticated(token: string) {
+    this.authState.next({ token, isAuthenticated: true });
+    localStorage.setItem('authToken', token);
+  }
+
+  clearAuth() {
+    this.authState.next({ token: null, isAuthenticated: false });
+    localStorage.removeItem('authToken');
+  }
+
+  getToken(): string | null {
+    return this.authState.value.token || localStorage.getItem('authToken');
+  }
+
+  isAuthenticated(): boolean {
+    return this.authState.value.isAuthenticated;
   }
 
   disconnect() {
@@ -176,30 +216,7 @@ export class WalletService {
     this.signer = null;
     this.addressSubject.next(null);
     this.clearAuth();
-
-    if (this.isBrowser) {
-      localStorage.removeItem('walletAddress');
-    }
-
+    localStorage.removeItem('walletAddress');
     this.snackBar.open('Wallet disconnected', 'Close', { duration: 3000 });
-  }
-
-  // Authentication helpers
-  setAuthenticated(token: string) {
-    this.authState.next({ token, isAuthenticated: true });
-    if (this.isBrowser) localStorage.setItem('authToken', token);
-  }
-
-  clearAuth() {
-    this.authState.next({ token: null, isAuthenticated: false });
-    if (this.isBrowser) localStorage.removeItem('authToken');
-  }
-
-  getToken(): string | null {
-    return this.authState.value.token || (this.isBrowser ? localStorage.getItem('authToken') : null);
-  }
-
-  isAuthenticated(): boolean {
-    return this.authState.value.isAuthenticated;
   }
 }

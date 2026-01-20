@@ -17,7 +17,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { ThemeService } from '../services/theme.service';
-import { take } from 'rxjs';
+import { firstValueFrom, take } from 'rxjs';
 
 @Component({
   selector: 'app-credentials',
@@ -175,7 +175,7 @@ import { take } from 'rxjs';
                     [disabled]="!isIssueValid() || issuing()">
                     <mat-icon *ngIf="!issuing()">verified</mat-icon>
                     <mat-spinner diameter="20" *ngIf="issuing()"></mat-spinner>
-                    <span>{{ issuing() ? 'Issuing Credential...' : 'Issue Credential' }}</span>
+                    <span>{{ issuing() ? 'Signing & Issuing...' : 'Issue Credential' }}</span>
                   </button>
                 </div>
 
@@ -709,23 +709,17 @@ export class CredentialsComponent implements OnInit {
     this.contextService.addContext(ctx);
     this.context = ctx;
     this.newContext = '';
-    this.snackBar.open(`Custom context "${ctx}" added (will be stored as 'profile')`, 'Close', { duration: 5000 });
+    this.snackBar.open(`Custom context "${ctx}" added`, 'Close', { duration: 5000 });
   }
 
   // --------------------
-  // Validation (enhanced for backend requirements)
+  // Validation
   // --------------------
   isIssueValid(): boolean {
-    // Context must be selected
     if (!this.context || this.context.trim().length === 0) return false;
-
-    // Claim ID must exist
     if (!this.claimId || this.claimId.trim().length === 0) return false;
-
-    // Purpose is mandatory (backend enforces it)
     if (!this.purpose || this.purpose.trim().length === 0) return false;
 
-    // Claim must be valid JSON object
     try {
       const parsed = JSON.parse(this.claim);
       return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
@@ -734,58 +728,192 @@ export class CredentialsComponent implements OnInit {
     }
   }
 
-  // --------------------
-  // Issue VC
-  // --------------------
-  issueVC() {
-    if (!this.isIssueValid()) {
-      this.snackBar.open('Please complete all required fields (context, purpose, claim ID, valid JSON)', 'Close', { duration: 5000 });
-      return;
-    }
+  // --------------------------
+// Issue VC - with full hybrid signing support
+// --------------------------
+async issueVC() {
+  if (!this.isIssueValid()) {
+    this.snackBar.open(
+      'Please complete all required fields (context, purpose, claim ID, valid JSON)',
+      'Close',
+      { duration: 6000 }
+    );
+    return;
+  }
 
-    this.issuing.set(true);
-    this.result = null;
+  const addr = this.wallet.address;
+  if (!addr) {
+    this.snackBar.open('Wallet not connected', 'Close', { duration: 4000 });
+    return;
+  }
 
+  this.issuing.set(true);
+  this.result = null;
+
+  try {
     let claimObj: any;
     try {
       claimObj = JSON.parse(this.claim);
     } catch {
-      this.snackBar.open('Invalid JSON in claim field', 'Close', { duration: 5000 });
-      this.issuing.set(false);
+      throw new Error('Invalid JSON in claim field');
+    }
+
+    const payload = {
+      issuer: `did:ethr:${addr}`,
+      subject: `did:ethr:${addr}`, // self-issue for now
+      claimId: this.claimId,
+      claim: claimObj,
+      context: this.context,
+      consent: {
+        purpose: this.purpose.trim(),
+        expiresAt: this.expiresAt || undefined,
+      },
+    };
+
+    const response = await firstValueFrom(this.api.issueVC(payload));
+
+    // ── Backend-signed (dev) mode ────────────────────────────────
+    if (!response.unsignedTx && response.txHash) {
+      this.snackBar.open(`Success! Credential anchored on-chain (2 txs confirmed)`, 'Close', {
+        duration: 9000,
+        panelClass: ['success-snackbar'],
+      });
+      this.result = response;
       return;
     }
 
-    this.wallet.address$.pipe(take(1)).subscribe(addr => {
-      if (!addr) {
-        this.snackBar.open('Wallet not connected', 'Close', { duration: 3000 });
-        this.issuing.set(false);
-        return;
+    // ── Hybrid mode: Frontend must sign ──────────────────────────
+    if (!response.unsignedTx) {
+      throw new Error('Unexpected server response - missing unsignedTx in hybrid mode');
+    }
+
+    // 1. Main credential issuance transaction
+    this.snackBar.open(
+      'Please sign the credential issuance transaction in your wallet...',
+      'Close',
+      { duration: 15000 }
+    );
+
+    let mainTxHash: string;
+
+    try {
+      const { hash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
+      mainTxHash = hash;
+    } catch (signError: any) {
+      console.error('Main tx signing failed:', signError);
+
+      const msg =
+        signError.code === 4001
+          ? 'Transaction was rejected by user'
+          : signError.shortMessage || signError.message || 'Failed to sign/send transaction';
+
+      this.snackBar.open(msg, 'Close', {
+        duration: 8000,
+        panelClass: ['error-snackbar'],
+      });
+      return; // Stop here — credential not issued
+    }
+
+    // Wait for confirmation — strongly recommended when doing multiple txs
+    this.snackBar.open('Waiting for on-chain confirmation...', 'Close', {
+      duration: 12000,
+    });
+
+    try {
+      const receipt = await this.wallet.provider!.waitForTransaction(mainTxHash, 1, 90000); // 90s timeout
+
+      if (!receipt) {
+        throw new Error('No receipt received after waiting');
       }
 
-      this.api.issueVC({
-        issuer: `did:ethr:${addr}`,
-        subject: `did:ethr:${addr}`,
-        claimId: this.claimId,
-        claim: claimObj,
-        context: this.context,
-        consent: {
-          purpose: this.purpose.trim(),
-          expiresAt: this.expiresAt || undefined
-        }
-      }).subscribe({
-        next: (r) => {
-          this.result = r;
-          this.issuing.set(false);
-          this.snackBar.open(r.message || 'Credential issued & anchored successfully!', 'Close', { duration: 5000 });
-        },
-        error: (e) => {
-          this.result = e.error || e;
-          this.issuing.set(false);
-          this.snackBar.open(e.error?.error || 'Failed to issue credential', 'Close', { duration: 5000 });
-        }
-      });
+      console.log(`Main tx confirmed in block ${receipt.blockNumber}`);
+    } catch (waitErr: any) {
+      console.warn('Confirmation wait failed (timeout or dropped?):', waitErr);
+      // We still proceed — second tx might work (especially with fresh nonce)
+    }
+
+    // 2. Optional profile CID update
+    let profileTxHash: string | undefined;
+
+    if (response.profileUnsignedTx) {
+      this.snackBar.open(
+        'Please sign the profile update transaction...',
+        'Close',
+        { duration: 12000 }
+      );
+
+      try {
+        const { hash } = await this.wallet.signAndSendTransaction(response.profileUnsignedTx);
+        profileTxHash = hash;
+
+        this.snackBar.open(
+          `Profile updated successfully! Tx: ${profileTxHash.slice(0, 10)}...`,
+          'Close',
+          { duration: 6000, panelClass: ['success-snackbar'] }
+        );
+      } catch (profileErr: any) {
+        console.warn('Profile tx failed/rejected:', profileErr);
+
+        const msg =
+          profileErr.code === 4001
+            ? 'Profile update was rejected (skipped)'
+            : 'Profile update failed — credential still issued';
+
+        this.snackBar.open(msg, 'Close', {
+          duration: 7000,
+          panelClass: ['warn-snackbar'],
+        });
+        // We don't fail the whole flow — main credential is already anchored
+      }
+    }
+
+    // ── Final success ───────────────────────────────────────────────
+    this.snackBar.open(
+      `Credential successfully issued & anchored! Tx: ${mainTxHash.slice(0, 10)}...`,
+      'Close',
+      { duration: 9000, panelClass: ['success-snackbar'] }
+    );
+
+    // Auto-add the context to the dropdown if it's new
+    if (this.context && !this.contextService.contexts.includes(this.context)) {
+      this.contextService.addContext(this.context);
+      this.snackBar.open(
+        `New context "${this.context}" added to your list`,
+        'Close',
+        { duration: 5000, panelClass: ['info-snackbar'] }
+      );
+    }
+
+    this.result = {
+      ...response,
+      txHash: mainTxHash,
+      profileTxHash,
+    };
+  } catch (err: any) {
+    console.error('Issue VC failed:', err);
+
+    let displayMessage = 'Failed to issue credential';
+
+    if (err.code === 4001) {
+      displayMessage = 'Transaction was rejected by user';
+    } else if (err.code === -32603) {
+      displayMessage = 'Internal JSON-RPC error — check gas/network';
+    } else if (err.message?.includes('nonce')) {
+      displayMessage = 'Nonce error — try again or reset MetaMask account';
+    } else if (err.message?.includes('insufficient funds')) {
+      displayMessage = 'Insufficient funds for gas';
+    }
+
+    this.snackBar.open(displayMessage, 'Close', {
+      duration: 9000,
+      panelClass: ['error-snackbar'],
     });
+
+    this.result = { error: err.shortMessage || err.message || 'Unknown error' };
+  } finally {
+    this.issuing.set(false);
   }
+}
 
   // --------------------
   // Helpers
@@ -793,8 +921,8 @@ export class CredentialsComponent implements OnInit {
   isSuccessResult(): boolean {
     return !!(
       this.result &&
-      typeof this.result.message === 'string' &&
-      this.result.message.toLowerCase().includes('issued')
+      (this.result.message?.toLowerCase().includes('issued') ||
+       this.result.txHash)
     );
   }
 }

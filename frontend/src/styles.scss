@@ -49,3 +49,18 @@ html, body {
 
 }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+
+::ng-deep .success-snackbar {
+  background-color: #2e7d32 !important;
+  color: white !important;
+}
+
+::ng-deep .error-snackbar {
+  background-color: #c62828 !important;
+  color: white !important;
+}
+
+::ng-deep .info-snackbar {
+  background-color: #0288d1 !important; /* nice blue */
+  color: white !important;
+}

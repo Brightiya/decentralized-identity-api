@@ -160,28 +160,47 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
             <mat-card-title>Purpose & Explicit Consent</mat-card-title>
           </mat-card-header>
           <mat-card-content>
-            <!-- Auto-complete Purpose Field -->
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Purpose of Disclosure</mat-label>
-              <input matInput [(ngModel)]="purposeValue" 
-                    placeholder="e.g., Personal address"
-                    [matAutocomplete]="purposeAuto"
-                    required />
-              
-              <!-- Auto-complete panel -->
-              <mat-autocomplete #purposeAuto="matAutocomplete">
-                <mat-option *ngFor="let claim of filteredSuggestedPurposes()"
-                          [value]="claim.purpose">
-                 Purpose: {{ claim.purpose }} 
-                  <small class="muted"> (Claim Id: {{ claim.claim_id }} ) Context: {{ claim.context }})</small>
-                </mat-option>
-              </mat-autocomplete>
 
-              <!-- Hint when suggestions exist -->
-              <mat-hint *ngIf="suggestedClaims.length > 0">
-                Type to filter suggestions from your issued claims
-              </mat-hint>
-            </mat-form-field>
+            <!-- Auto-complete Purpose Field -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Purpose of Disclosure</mat-label>
+          <input 
+            matInput 
+            [(ngModel)]="purposeValue" 
+            placeholder="e.g., Personal address verification"
+            [matAutocomplete]="purposeAuto"
+            required 
+          />
+
+          <!-- Auto-complete panel -->
+          <mat-autocomplete #purposeAuto="matAutocomplete">
+            <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
+              <div class="purpose-option">
+                <span class="purpose-text">{{ claim.purpose }}
+                <span class="recency-badge" *ngIf="isLatest(claim)">
+                   Latest
+                </span></span>
+                <small class="muted">
+                  Claim ID: {{ claim.claim_id }} <br> Context: {{ claim.context }}
+                  <span *ngIf="claim.issued_at" class="recency">
+                    • {{ getRelativeTime(claim.issued_at) }}
+                  </span>
+                </small>
+              </div>
+            </mat-option>
+          </mat-autocomplete>
+
+          <!-- Hint when suggestions exist -->
+          <mat-hint *ngIf="suggestedClaims.length > 0">
+            Type to filter suggestions from your issued claims (newest first)
+          </mat-hint>
+
+          <!-- Hint when no suggestions for current context -->
+          <mat-hint class="subtle-context-hint" *ngIf="selectedContext() && filteredSuggestedPurposes().length === 0">
+            No purposes available for <strong>{{ selectedContext() | titlecase }}</strong> context yet.<br>
+            Issue a VC in this context first.
+          </mat-hint>
+        </mat-form-field>
 
             <!-- Add this right after the mat-autocomplete block -->
               <mat-hint class="subtle-context-hint" *ngIf="selectedContext() && filteredSuggestedPurposes().length === 0">
@@ -644,6 +663,51 @@ styles: [`
   font-size: clamp(40px, 10vw, 80px);
 }
 
+.purpose-option {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
+.purpose-text {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.consent-container.dark .purpose-text {
+  color: #e2e8f0;
+}
+
+.purpose-option small {
+  opacity: 0.7;
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+.recency {
+  color: #6366f1;
+  font-style: italic;
+}
+
+.consent-container.dark .recency {
+  color: #a5b4fc;
+}
+
+.recency-badge {
+  font-size: 0.8rem;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.consent-container.dark .recency-badge {
+  background: #0e7490;
+  color: #e0f2fe;
+}
+
 /* Stepped breakpoints */
 @media (max-width: 960px) {
   .consent-container {
@@ -724,35 +788,62 @@ export class ConsentComponent implements OnInit {
   explicitConsent = signal<boolean>(false);
   activeConsents = signal<any[]>([]);
   result = signal<any>(null);
-
- // NEW: Computed for sorted + filtered suggestions (newest first)
-  sortedSuggestedClaims = computed(() => {
-    const claims = this.suggestedClaims();
-    // Reverse to show newest/latest first (assuming backend sends in chronological order)
-    return [...claims].reverse();
-  })
-
+  
   filteredSuggestedPurposes = computed(() => {
   const search = this.purposeValue?.toLowerCase().trim() || '';
   const currentContext = this.selectedContext()?.toLowerCase() || '';
 
-  // Get the sorted base list
-  let baseList = this.sortedSuggestedClaims();
+  let claims = [...this.suggestedClaims()]; // backend already sorted newest first
 
-  // Filter by context if one is selected
   if (currentContext) {
-    baseList = baseList.filter(claim =>
+    const contextMatches = claims.filter(claim =>
       (claim.context || '').toLowerCase() === currentContext
     );
+    const otherClaims = claims.filter(claim =>
+      (claim.context || '').toLowerCase() !== currentContext
+    );
+    claims = [...contextMatches, ...otherClaims];
   }
 
-  // Then apply search filter
-  if (!search) return baseList;
+  if (!search) return claims;
 
-  return baseList.filter(claim =>
+  return claims.filter(claim =>
     claim.purpose.toLowerCase().includes(search)
   );
 });
+
+getRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return 'recent';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 1) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffHours < 1) return 'just now';
+    return `${diffHours}h ago`;
+  }
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  
+  // ← Here: Add "Older" for anything 30+ days old
+  return 'Older';  // or 'Older (before 2025)' or date.toLocaleDateString()
+}
+
+isLatest(claim: any): boolean {
+  if (!claim.issued_at) return false;
+
+  const filtered = this.filteredSuggestedPurposes();
+  const allTimestamps = filtered
+    .filter(c => c.issued_at)
+    .map(c => new Date(c.issued_at).getTime());
+
+  if (allTimestamps.length === 0) return false;
+
+  const maxTime = Math.max(...allTimestamps);
+  return new Date(claim.issued_at).getTime() === maxTime;
+}
 
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
@@ -968,6 +1059,7 @@ export class ConsentComponent implements OnInit {
     const did = `did:ethr:${this.walletAddress()}`;
     this.api.getSuggestableClaims(did).subscribe({
       next: (res: any) => {
+        console.log('Raw suggestable claims from backend:', res.suggestableClaims);
         this.suggestedClaims.set(res.suggestableClaims || []);
         this.cdr.detectChanges(); // Ensure UI updates immediately
       },

@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
+import contract from "../utils/contract.js";
 
 dotenv.config();
 
@@ -42,7 +43,6 @@ function getPinataJwtForRequest(req) {
 /* ------------------------------------------------------------------
    CREATE / UPDATE PROFILE (MERGED, STATE-SAFE)
 ------------------------------------------------------------------- */
-
 export const createOrUpdateProfile = async (req, res) => {
   try {
     const { owner, contexts = {}, credentials = [], attributes = {} } = req.body;
@@ -51,12 +51,12 @@ export const createOrUpdateProfile = async (req, res) => {
       return res.status(400).json({ error: "owner address required" });
     }
 
-    const subjectAddress = owner.toLowerCase(); // normalize
+    const subjectAddress = owner.toLowerCase();
 
     let existingProfile = {};
 
     // GDPR HARD STOP — erased profiles cannot be recreated
-    const existingCid = await registry.getProfileCID(subjectAddress);
+    const existingCid = await contract.getProfileCID(subjectAddress); // read-only OK
     if (existingCid && existingCid.length > 0) {
       try {
         const preferred = req.headers['x-preferred-gateway'] || null;
@@ -87,11 +87,10 @@ export const createOrUpdateProfile = async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    // Optional: clean up any old top-level fields from previous saves
+    // Clean old top-level fields
     delete mergedProfile.attributes;
     delete mergedProfile.online_links;
 
-    // Get both keys from headers
     const pinataJwt = getPinataJwtForRequest(req);
     const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
@@ -104,8 +103,10 @@ export const createOrUpdateProfile = async (req, res) => {
       ipfsUri
     };
 
+    // ────────────────────────────────
+    // HYBRID MODE: Prepare unsigned tx
+    // ────────────────────────────────
     if (isHybridMode()) {
-      // Hybrid mode: Prepare unsigned tx for frontend to sign & send
       const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, cid);
       responseData = {
         ...responseData,
@@ -113,9 +114,12 @@ export const createOrUpdateProfile = async (req, res) => {
         unsignedTx
       };
       console.log('[Hybrid] Prepared unsigned setProfileCID tx');
-    } else {
-      // Dev mode: Backend signs and submits
-      const tx = await registry.setProfileCID(subjectAddress, cid);
+    } 
+    // ────────────────────────────────
+    // DEV MODE: Backend signs
+    // ────────────────────────────────
+    else {
+      const tx = await contract.setProfileCID(subjectAddress, cid);
       await tx.wait();
       responseData.txHash = tx.hash;
       responseData.message = "✅ Profile merged & stored on-chain (backend signed)";
@@ -125,7 +129,7 @@ export const createOrUpdateProfile = async (req, res) => {
     return res.json(responseData);
   } catch (err) {
     console.error("❌ createOrUpdateProfile error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -142,7 +146,7 @@ export const getProfile = async (req, res) => {
       return res.status(400).json({ error: "address required" });
     }
 
-    const cid = await registry.getProfileCID(address.toLowerCase());
+    const cid = await contract.getProfileCID(address.toLowerCase());
     if (!cid || cid.length === 0) {
       return res.status(404).json({ error: "Profile not found" });
     }
@@ -221,22 +225,20 @@ export const getProfile = async (req, res) => {
 /* ------------------------------------------------------------------
    GDPR ART.17 — RIGHT TO ERASURE
 ------------------------------------------------------------------- */
-
 export const eraseProfile = async (req, res) => {
   try {
-    const { owner } = req.body;
-    if (!owner) {
-      return res.status(400).json({ error: "owner required" });
+    const { did } = req.body; // ← Matches ApiService payload { did: string }
+    if (!did) {
+      return res.status(400).json({ error: "did required" });
     }
 
-    const subjectAddress = owner.toLowerCase();
+    const subjectAddress = didToAddress(did);
 
-    const oldCid = await registry.getProfileCID(subjectAddress);
+    const oldCid = await contract.getProfileCID(subjectAddress); // read-only OK
     if (oldCid && oldCid.length > 0) {
       await unpinCID(oldCid).catch(() => {}); // best-effort
     }
 
-    // Get both keys from headers
     const pinataJwt = getPinataJwtForRequest(req);
     const nftStorageKey = req.headers['x-nft-storage-key'] || null;
 
@@ -254,8 +256,10 @@ export const eraseProfile = async (req, res) => {
       newCid
     };
 
+    // ────────────────────────────────
+    // HYBRID MODE: Prepare unsigned tx
+    // ────────────────────────────────
     if (isHybridMode()) {
-      // Hybrid mode: Prepare unsigned tx
       const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, newCid);
       responseData = {
         ...responseData,
@@ -263,9 +267,12 @@ export const eraseProfile = async (req, res) => {
         unsignedTx
       };
       console.log('[Hybrid] Prepared unsigned setProfileCID (erase) tx');
-    } else {
-      // Dev mode: Backend signs
-      const tx = await registry.setProfileCID(subjectAddress, newCid);
+    } 
+    // ────────────────────────────────
+    // DEV MODE: Backend signs
+    // ────────────────────────────────
+    else {
+      const tx = await contract.setProfileCID(subjectAddress, newCid);
       await tx.wait();
       responseData.txHash = tx.hash;
       responseData.message = "✅ Profile erased on-chain (backend signed)";
@@ -275,6 +282,6 @@ export const eraseProfile = async (req, res) => {
     return res.json(responseData);
   } catch (err) {
     console.error("❌ eraseProfile error:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: err.message });
   }
 };

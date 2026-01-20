@@ -74,22 +74,25 @@ import { firstValueFrom } from 'rxjs';
                        [(ngModel)]="customRpcUrl"
                        placeholder="http://127.0.0.1:8545"
                        (blur)="saveCustomRpc()" />
-                      
-                <mat-hint>
-                  Leave empty for default. Only used for local Hardhat. <br>
-                </mat-hint>
-              </mat-form-field>
 
-              <div class="status mt-3 flex items-center gap-2" *ngIf="customRpcUrl()">
-                <mat-icon color="primary">check_circle</mat-icon>
-                <span>Custom RPC: <code>{{ customRpcUrl() }}</code></span>
+             <!-- Status messages - moved ABOVE the hint for better flow -->
+              <div class="status mt-2 flex items-center gap-2" *ngIf="customRpcUrl()">
+                <mat-icon color="primary" class="text-lg">check_circle</mat-icon>
+                <span class="text-sm font-medium text-primary-700">
+                  Custom RPC active: <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">{{ customRpcUrl() }}</code>
+                </span>
               </div>
-              <div class="status mt-6 gap-4">
-              <div class="status mt-6 flex items-center gap-4 text-gray-600" *ngIf="!customRpcUrl()">
-                <mat-icon>info</mat-icon>
-                <span>Using default: http://127.0.0.1:8545</span>
+
+              <div class="status mt-2 flex items-center gap-2 text-gray-600" *ngIf="!customRpcUrl()">
+                <mat-icon class="text-lg">info</mat-icon>
+                <span class="text-sm">Using default: <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">http://127.0.0.1:8545</code></span>
               </div>
-             </div>
+                      
+               <mat-hint class="mt-3 text-sm text-gray-500">
+                Leave empty to use default (local Hardhat node).
+              </mat-hint>
+              </mat-form-field>
+            
             </div>
 
             <!-- Step 1: Connect Wallet -->
@@ -443,6 +446,45 @@ import { firstValueFrom } from 'rxjs';
     color: #e2e8f0;
   }
 
+  /* Inside your component's styles array */
+:host ::ng-deep .mat-mdc-form-field {
+  margin-bottom: 24px; /* more space below each field */
+}
+
+.status {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.status mat-icon {
+  font-size: 1.125rem;
+  height: 1.125rem;
+  width: 1.125rem;
+}
+
+mat-hint {
+  font-size: 0.8125rem !important;
+  line-height: 1.4;
+  color: #6b7280 !important;
+  opacity: 1 !important;
+  margin-top: 8px !important;
+}
+
+.login-page.dark mat-hint {
+  color: #9ca3af !important;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  background: rgba(0,0,0,0.05);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.login-page.dark code {
+  background: rgba(255,255,255,0.1);
+}
+
   /* Error & Hints */
   .error-message {
     margin: 28px 0;
@@ -733,7 +775,7 @@ export class LoginComponent {
 
     if (!signerReady) {
       console.error('Signer failed to initialize after retries');
-      throw new Error('Wallet signer not ready - please logout and reconnect wallet and try again');
+      throw new Error('Wallet signer not ready - please logout, reconnect wallet and sign again');
     }
 
     console.log('Signer ready! Proceeding with sign-in');

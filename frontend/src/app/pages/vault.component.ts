@@ -986,7 +986,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         // Hybrid mode: User signs & sends
         this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
 
-        const txHash = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        const { hash: txHash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
 
         this.snackBar.open(`Profile created on-chain! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
       } else if (response.txHash) {
@@ -1005,7 +1005,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────────────────────────────
-  // Hybrid signing for eraseProfile (fixed payload type)
+  // Hybrid signing for eraseProfile
   // ────────────────────────────────────────────────
 
   async eraseProfile() {
@@ -1017,7 +1017,6 @@ export class VaultComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     try {
-      // FIXED: Use { did: ... } to match ApiService type
       const payload = { did: `did:ethr:${address}` };
       const response = await firstValueFrom(this.api.eraseProfile(payload));
 
@@ -1025,7 +1024,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         // Hybrid mode
         this.snackBar.open('Please sign the erasure transaction in your wallet...', 'Close', { duration: 8000 });
 
-        const txHash = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        const { hash: txHash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
 
         this.snackBar.open(`Identity erased permanently! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
       } else if (response.txHash) {

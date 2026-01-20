@@ -242,7 +242,9 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
               suggestions.set(cred.claimId, {
                 claim_id: cred.claimId,
                 purpose,
-                context
+                context,
+                issued_at: cred.issuedAt || vc?.issuanceDate || new Date(0).toISOString()
+
               });
             } catch (e) {
               console.warn(`Failed to fetch VC ${cred.cid} for suggestion:`, e.message);
@@ -270,7 +272,8 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
           suggestions.set(claimId, {
             claim_id: claimId,
             purpose: `Verification of ${claimId}`,
-            context: 'identity' // default fallback
+            context: 'identity', // default fallback
+            issued_at: new Date(0).toISOString()
           });
         }
       } catch (e) {
@@ -280,10 +283,10 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
 
     // 3. Historical consents (as additional memory aid)
     const historicalRes = await pool.query(`
-      SELECT DISTINCT claim_id, purpose, context
+      SELECT DISTINCT claim_id, purpose, context, issued_at
       FROM consents
       WHERE subject_did = $1
-      ORDER BY claim_id
+      ORDER BY issued_at DESC
     `, [subjectAddress]);
 
     historicalRes.rows.forEach(row => {
@@ -291,14 +294,22 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
         suggestions.set(row.claim_id, {
           claim_id: row.claim_id,
           purpose: row.purpose,
-          context: row.context || 'unknown'
+          context: row.context || 'unknown',
+          issued_at: row.issued_at ? row.issued_at.toISOString() : new Date(0).toISOString()
+
+          
         });
       }
     });
 
-    // Convert to array + sort
-    const uniqueSuggestions = Array.from(suggestions.values())
-      .sort((a, b) => a.claim_id.localeCompare(b.claim_id));
+    // Convert to array + sort by issued_at DESC (newest first)
+const uniqueSuggestions = Array.from(suggestions.values())
+  .sort((a, b) => {
+    // Use issued_at if available, otherwise fall back to claim_id
+    const dateA = a.issued_at ? new Date(a.issued_at).getTime() : 0;
+    const dateB = b.issued_at ? new Date(b.issued_at).getTime() : 0;
+    return dateB - dateA; // newest first
+  });
 
     return res.json({
       subjectDid,

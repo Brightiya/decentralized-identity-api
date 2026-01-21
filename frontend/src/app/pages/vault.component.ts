@@ -34,794 +34,742 @@ import { StorageService } from '../services/storage.service';
   ],
   template: `
   <div class="vault-container" [class.dark]="darkMode()">
-    <div class="vault-header">
-      <h1>Identity Vault</h1>
-      <p class="subtitle">
-        Your sovereign digital identity starts here. Connect your wallet to manage credentials, contexts, and consents.
-      </p>
-    </div>
-
-    <!-- Wallet Connection Card -->
-    <section class="card elevated">
-      <div class="card-header">
-        <mat-icon class="header-icon">account_balance_wallet</mat-icon>
-        <h3>Wallet Connection</h3>
-      </div>
-
-      <div class="wallet-info" *ngIf="wallet.address$ | async as address; else connectPrompt">
-        <div class="address-row">
-          <input class="address-input" [value]="address" disabled />
-          <button mat-icon-button class="copy-btn" (click)="copyAddress(address)">
-            <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
-          </button>
+    <!-- Hero Header -->
+    <header class="vault-header">
+      <div class="header-content">
+        <div class="header-icon-wrapper">
+          <mat-icon class="vault-icon">shield</mat-icon>
         </div>
-
-        <div class="did-display">
-          <span class="label">Decentralized Identifier (DID)</span>
-          <code class="did">did:ethr:{{ address }}</code>
-        </div>
-
-        <p class="status success">
-          <mat-icon inline>check_circle</mat-icon>
-          Wallet connected successfully
+        <h1>Identity Vault</h1>
+        <p class="subtitle">
+          Securely manage your sovereign digital identity. Connect your wallet to control your credentials, contexts, and consents.
         </p>
       </div>
+    </header>
 
-      <ng-template #connectPrompt>
-        <p class="muted">
-          Connect your Ethereum wallet to access your personal identity vault.
-        </p>
-        <button class="connect-btn" (click)="connect()" [disabled]="loading()">
-          <mat-icon *ngIf="!loading()">wallet</mat-icon>
-          <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
-        </button>
-      </ng-template>
-    </section>
+    <main class="vault-content">
+      <!-- Wallet Connection -->
+      <section class="vault-card primary-card">
+        <div class="card-header">
+          <mat-icon class="header-icon">account_balance_wallet</mat-icon>
+          <h2>Wallet Connection</h2>
+        </div>
 
-    <!-- Profile Status Card -->
-    <section class="card elevated mt-6" *ngIf="wallet.address$ | async">
-      <div class="card-header">
-        <mat-icon class="header-icon">shield</mat-icon>
-        <h3>Vault Profile</h3>
-      </div>
+        <div class="card-body">
+          <div *ngIf="wallet.address$ | async as address; else connectPrompt" class="wallet-connected">
+            <div class="address-container">
+              <div class="address-display">
+                <span class="address">{{ address | slice:0:6 }}...{{ address | slice:-4 }}</span>
+                <span class="full-address-tooltip">{{ address }}</span>
+              </div>
+              <button mat-icon-button class="copy-button" (click)="copyAddress(address)" matTooltip="Copy address">
+                <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+              </button>
+            </div>
 
-      <div class="profile-content">
-        <!-- Pinata JWT Section -->
-        <section class="card elevated mt-6">
-          <div class="card-header">
-            <mat-icon class="header-icon">vpn_key</mat-icon>
-            <h3>Your Pinata JWT (for pinning)</h3>
+            <div class="did-row">
+              <span class="label">DID:</span>
+              <code class="did">did:ethr:{{ address }}</code>
+            </div>
+
+            <div class="connection-status success">
+              <mat-icon>check_circle</mat-icon>
+              <span>Wallet connected successfully</span>
+            </div>
           </div>
 
-          <div class="content p-4">
-            <p class="muted mb-4">
-              Provide your own Pinata JWT so uploads use <strong>your account</strong> instead of the shared test key.<br>
-              <strong>Security note:</strong> Create a dedicated key in Pinata with Admin permissions only.
-            </p>
+          <ng-template #connectPrompt>
+            <div class="connect-prompt">
+              <p class="muted">
+                Connect your Ethereum wallet to unlock your personal identity vault.
+              </p>
+              <button class="connect-wallet-btn" (click)="connect()" [disabled]="loading()">
+                <mat-icon *ngIf="!loading()">wallet</mat-icon>
+                <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
+              </button>
+            </div>
+          </ng-template>
+        </div>
+      </section>
 
-           
-            <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
+      <!-- Vault Profile & Settings (only shown when wallet is connected) -->
+      <section class="vault-card" *ngIf="wallet.address$ | async">
+        <div class="card-header">
+          <mat-icon class="header-icon">shield</mat-icon>
+          <h2>Vault Profile</h2>
+        </div>
+
+        <div class="card-body settings-grid">
+          <!-- Pinata JWT -->
+          <div class="setting-card">
+            <div class="setting-header">
+              <mat-icon class="setting-icon">vpn_key</mat-icon>
+              <h3>Pinata JWT</h3>
+            </div>
+            <div class="setting-content">
+              <p class="help-text">
+                Use your own Pinata account for pinning (recommended for production).
+                <strong>Security tip:</strong> Create a dedicated Admin key.
+              </p>
+
+              <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Pinata JWT</mat-label>
+                  <input matInput
+                         type="password"
+                         name="jwt"
+                         [(ngModel)]="userPinataJwt"
+                         placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                         required
+                         autocomplete="new-password" />
+                  <mat-hint>
+                    <a href="https://app.pinata.cloud/keys" target="_blank" class="external-link">
+                      Get your key → Pinata Dashboard
+                    </a>
+                  </mat-hint>
+                </mat-form-field>
+
+                <div class="button-group">
+                  <button mat-flat-button color="primary" type="submit"
+                          [disabled]="!userPinataJwt().trim() || jwtForm.invalid">
+                    Save JWT
+                  </button>
+                  <button mat-stroked-button color="warn" type="button"
+                          *ngIf="hasUserJwt()"
+                          (click)="clearUserPinataJwt()">
+                    Remove
+                  </button>
+                </div>
+              </form>
+
+              <div class="status-pill" *ngIf="hasUserJwt()" [ngClass]="{ 'success': true }">
+                <mat-icon>check_circle</mat-icon>
+                Using your own Pinata account
+              </div>
+              <div class="status-pill warning" *ngIf="!hasUserJwt()">
+                <mat-icon>warning</mat-icon>
+                Using shared test key
+              </div>
+            </div>
+          </div>
+
+          <!-- Custom IPFS Gateway -->
+          <div class="setting-card">
+            <div class="setting-header">
+              <mat-icon class="setting-icon">cloud_download</mat-icon>
+              <h3>IPFS Gateway (Reading)</h3>
+            </div>
+            <div class="setting-content">
+              <p class="help-text">
+                Where your credentials are fetched from. Default = public gateways.
+              </p>
+
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Pinata JWT</mat-label>
+                <mat-label>Gateway URL</mat-label>
                 <input matInput
-                       type="password"
-                       name="jwt"
-                       [(ngModel)]="userPinataJwt"
-                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                       required
-                       autocomplete="new-password" />
+                       [(ngModel)]="customGateway"
+                       placeholder="https://ipfs.io/ipfs/"
+                       (blur)="saveCustomGateway()" />
                 <mat-hint>
-                  Get it from: 
-                  <a href="https://app.pinata.cloud/keys" target="_blank" class="text-primary underline">
-                    Pinata Dashboard → API Keys → New Key (Admin)
+                  Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain...
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="status-pill" *ngIf="customGateway()">
+                <mat-icon color="primary">check_circle</mat-icon>
+                Custom: <code>{{ customGateway() }}</code>
+              </div>
+              <div class="status-pill" *ngIf="!customGateway()">
+                <mat-icon>info</mat-icon>
+                Using public gateways
+              </div>
+            </div>
+          </div>
+
+          <!-- nft.storage -->
+          <div class="setting-card">
+            <div class="setting-header">
+              <mat-icon class="setting-icon">cloud_upload</mat-icon>
+              <h3>nft.storage Key</h3>
+            </div>
+            <div class="setting-content">
+              <p class="help-text">
+                Optional: Use <strong>nft.storage</strong> for permanent, decentralized pinning (free).
+              </p>
+
+              <form (ngSubmit)="saveNftStorageKey()" #nftForm="ngForm">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>nft.storage API Key</mat-label>
+                  <input matInput
+                         type="password"
+                         name="nftKey"
+                         [(ngModel)]="nftStorageKey"
+                         placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+                  <mat-hint>
+                    <a href="https://nft.storage" target="_blank" class="external-link">
+                      Get key at nft.storage →
+                    </a>
+                  </mat-hint>
+                </mat-form-field>
+
+                <div class="button-group">
+                  <button mat-flat-button color="primary" type="submit"
+                          [disabled]="!nftStorageKey().trim()">
+                    Save Key
+                  </button>
+                  <button mat-stroked-button color="warn" type="button"
+                          *ngIf="hasNftStorageKey()"
+                          (click)="clearNftStorageKey()">
+                    Remove
+                  </button>
+                </div>
+              </form>
+
+              <div class="status-pill accent" *ngIf="hasNftStorageKey()">
+                <mat-icon>check_circle</mat-icon>
+                Pinning via nft.storage (decentralized)
+              </div>
+              <div class="status-pill" *ngIf="!hasNftStorageKey()">
+                <mat-icon>info</mat-icon>
+                Pinning via Pinata
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile Status -->
+        <div class="profile-status-section">
+          <ng-container *ngIf="loading(); else profileLoaded">
+            <div class="loading-state">
+              <mat-spinner diameter="40"></mat-spinner>
+              <p>Checking vault status...</p>
+            </div>
+          </ng-container>
+
+          <ng-template #profileLoaded>
+            <!-- Erased -->
+            <div class="status-card erased" *ngIf="isErased()">
+              <mat-icon class="status-icon">privacy_tip</mat-icon>
+              <div class="status-content">
+                <h3>Identity Permanently Erased</h3>
+                <p class="muted">
+                  Exercised Right to be Forgotten on {{ erasedAt() | date:'mediumDate' }}
+                </p>
+                <p class="muted small">
+                  Cryptographically proven on-chain — no data recoverable.
+                </p>
+              </div>
+            </div>
+
+            <!-- Active Profile -->
+            <div class="status-card success" *ngIf="!isErased() && profileExists()">
+              <mat-icon class="status-icon">verified</mat-icon>
+              <div class="status-content">
+                <h3>Vault Active</h3>
+                <p class="muted">Your identity is ready. Manage contexts and credentials.</p>
+                <div class="action-buttons">
+                  <a routerLink="/contexts" mat-flat-button color="primary">
+                    <mat-icon>layers</mat-icon> Manage Contexts
                   </a>
-                </mat-hint>
-              </mat-form-field>
-
-              <div class="actions mt-4 flex gap-4">
-                <button mat-raised-button 
-                        color="primary" 
-                        type="submit"
-                        [disabled]="!userPinataJwt().trim() || jwtForm.invalid">
-                  Save My JWT
-                </button>
-
-                <button mat-stroked-button 
-                        color="warn" 
-                        type="button"
-                        *ngIf="hasUserJwt()" 
-                        (click)="clearUserPinataJwt()">
-                  Remove / Use Shared Key
-                </button>
+                  <a routerLink="/credentials" mat-stroked-button color="primary">
+                    <mat-icon>badge</mat-icon> Issue Credential
+                  </a>
+                </div>
               </div>
-            </form>
-
-            <div class="status mt-4 flex items-center gap-2" 
-                 *ngIf="hasUserJwt()" 
-                 [ngClass]="{'text-success-600 dark:text-success-400': true}">
-              <mat-icon>check_circle</mat-icon>
-              <span>Using <strong>your own Pinata account</strong> for uploads</span>
             </div>
 
-            <div class="status mt-4 flex items-center gap-2 text-amber-600 dark:text-amber-400" 
-                 *ngIf="!hasUserJwt()">
-              <mat-icon>warning</mat-icon>
-              <span>Using shared app key — <strong>only for testing</strong></span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Custom IPFS Gateway (Reading) -->
-       <section class="card elevated mt-6">
-          <div class="card-header">
-            <mat-icon class="header-icon">cloud_download</mat-icon>
-            <h3>Preferred IPFS Gateway (for reading)</h3>
-          </div>
-
-          <div class="content p-4">
-            <p class="muted mb-4">
-              Choose where the app fetches your credentials and profiles from.<br>
-              <strong>Default:</strong> public gateways (fast & reliable)<br>
-              <strong>Advanced:</strong> your local node or custom gateway
-            </p>
-
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Gateway URL</mat-label>
-              <input matInput
-                    [(ngModel)]="customGateway"
-                    placeholder="https://ipfs.io/ipfs/"
-                    (blur)="saveCustomGateway()" />
-              <mat-hint>
-                Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain.mypinata.cloud/ipfs/
-              </mat-hint>
-            </mat-form-field>
-           <div class="actions mt-4">
-            <div class="status mt-4 flex items-center gap-4" *ngIf="customGateway()">
-              <mat-icon color="primary">check_circle</mat-icon>
-              <span>Using custom gateway: <code>{{ customGateway() }}</code></span>
-            </div>
-
-            <div class="status mt-4 flex items-center gap-4 text-amber-600 dark:text-amber-400" *ngIf="!customGateway()">
-              <mat-icon>info</mat-icon>
-              <span>Using default public gateways</span>
-            </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="card elevated mt-6">
-          <div class="card-header">
-            <mat-icon class="header-icon">cloud_upload</mat-icon>
-            <h3>nft.storage API Key (alternative pinning)</h3>
-          </div>
-
-          <div class="content p-4">
-            <p class="muted mb-4">
-              Optionally use <strong>nft.storage</strong> instead of Pinata for pinning credentials.<br>
-              <strong>Free, decentralized, permanent</strong> — great for self-sovereign identity.<br>
-              Get your key at: <a href="https://nft.storage" target="_blank" class="text-primary underline">nft.storage → Login → API Keys</a>
-            </p>
-
-            <form (ngSubmit)="saveNftStorageKey()" #nftForm="ngForm">
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>nft.storage API Key</mat-label>
-                <input matInput
-                      type="password"
-                      name="nftKey"
-                      [(ngModel)]="nftStorageKey"
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                      autocomplete="new-password" />
-                <mat-hint>
-                  Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                </mat-hint>
-              </mat-form-field>
-
-              <div class="actions mt-4 flex gap-4">
-                <button mat-raised-button 
-                        color="primary" 
-                        type="submit"
-                        [disabled]="!nftStorageKey().trim() || nftForm.invalid">
-                  Save nft.storage Key
-                </button>
-
-                <button mat-stroked-button 
-                        color="warn" 
-                        type="button"
-                        *ngIf="hasNftStorageKey()" 
-                        (click)="clearNftStorageKey()">
-                  Remove / Use Pinata
+            <!-- No Profile -->
+            <div class="status-card warning" *ngIf="!isErased() && !profileExists()">
+              <mat-icon class="status-icon">info</mat-icon>
+              <div class="status-content">
+                <h3>No Vault Profile Found</h3>
+                <p class="muted">Create your vault profile to get started.</p>
+                <button mat-flat-button color="primary" (click)="createProfile()" [disabled]="loading()">
+                  <mat-icon *ngIf="!loading()">add_box</mat-icon>
+                  {{ loading() ? 'Creating...' : 'Create Vault Profile' }}
                 </button>
               </div>
-            </form>
-
-            <div class="status mt-6 flex items-center gap-3 text-base font-medium text-purple-700 dark:text-purple-300" 
-                *ngIf="hasNftStorageKey()">
-              <mat-icon>check_circle</mat-icon>
-              <span>Pinning via <strong>nft.storage</strong> (decentralized & free)</span>
             </div>
 
-            <div class="status mt-6 flex items-center gap-3 text-base font-medium text-gray-600 dark:text-gray-400" 
-                *ngIf="!hasNftStorageKey()">
-              <mat-icon>info</mat-icon>
-              <span>Pinning via Pinata (or shared test key)</span>
+            <div class="refresh-section">
+              <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
+                <mat-icon>refresh</mat-icon> Refresh Status
+              </button>
             </div>
-          </div>
-        </section>
-
-        <!-- Existing Profile Status -->
-        <ng-container *ngIf="loading(); else profileLoaded">
-          <div class="loading-state">
-            <mat-spinner diameter="32"></mat-spinner>
-            <p class="muted">Checking vault status...</p>
-          </div>
-        </ng-container>
-
-        <ng-template #profileLoaded>
-          <!-- Erased State -->
-          <ng-container *ngIf="isErased()">
-            <div class="status erased">
-              <mat-icon inline color="warn">privacy_tip</mat-icon>
-              <div>
-                <strong>Your identity has been permanently erased</strong>
-                <p class="muted small">
-                  You exercised your Right to be Forgotten on {{ erasedAt() | date:'medium' }}.
-                </p>
-                <p class="muted small">
-                  No credentials or personal data are accessible. This is cryptographically proven on-chain.
-                </p>
-              </div>
-            </div>
-          </ng-container>
-
-          <!-- Active Profile -->
-          <ng-container *ngIf="!isErased() && profileExists()">
-            <div class="status success">
-              <mat-icon>verified</mat-icon>
-              <div>
-                <strong>Your identity vault is active</strong>
-                <p class="muted small">All credentials and contexts are ready.</p>
-              </div>
-            </div>
-
-            <div class="actions">
-              <a routerLink="/contexts" class="btn-primary">
-                <mat-icon>layers</mat-icon>
-                Manage Contexts
-              </a>
-              <a routerLink="/credentials" class="btn-secondary">
-                <mat-icon>badge</mat-icon>
-                Issue Credential
-              </a>
-            </div>
-          </ng-container>
-
-          <!-- No Profile -->
-          <ng-container *ngIf="!isErased() && !profileExists()">
-            <div class="status warning">
-              <mat-icon>info</mat-icon>
-              <div>
-                <strong>No vault profile found</strong>
-                <p class="muted small">Create one to start issuing and managing credentials.</p>
-              </div>
-            </div>
-
-            <button class="btn-primary" (click)="createProfile()" [disabled]="loading()">
-              <mat-icon *ngIf="!loading()">add_box</mat-icon>
-              <span>{{ loading() ? 'Creating...' : 'Create Vault Profile' }}</span>
-            </button>
-          </ng-container>
-
-          <!-- Refresh Button -->
-          <div class="refresh">
-            <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
-              <mat-icon>refresh</mat-icon> Refresh Status
-            </button>
-          </div>
-        </ng-template>
-      </div>
-    </section>
+          </ng-template>
+        </div>
+      </section>
+    </main>
   </div>
-`,
+  `,
 
-styles: [`
-  :host {
-    display: block;
-    min-height: 100vh;
-  }
+  styles: [`
+    :host {
+      display: block;
+      min-height: 100vh;
+      background: var(--bg, #f8fafc);
+    }
 
-  .vault-container {
-    padding: 24px 32px 64px;
-    max-width: 900px;
-    margin: 0 auto;
-    transition: background 0.4s ease;
-  }
+    .vault-container.dark {
+      --bg: #0f0f1a;
+      --card-bg: rgba(30, 41, 59, 0.65);
+      --card-border: rgba(59, 69, 94, 0.6);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --input-bg: rgba(30, 41, 59, 0.7);
+      --input-border: #4b5563;
+    }
 
-  .vault-container.dark {
-    background: #0f0f1a;
-    color: #e2e8f0;
-  }
-
-  /* Header */
-  .vault-header {
-    margin: 0 0 48px;
-    text-align: center;
-  }
-
-  h1 {
-    font-size: clamp(1.3rem, 4vw + 1rem, 2.8rem);
-    font-weight: 800;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0 0 16px;
-    letter-spacing: -0.8px;
-  }
-
-  .subtitle {
-    font-size: 1.15rem;
-    color: var(--text-secondary, #94a3b8);
-    max-width: 720px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
-
-  /* Cards */
-  .card {
-    background: var(--card-bg, white);
-    border-radius: 20px;
-    padding: 32px;
-    margin-bottom: 32px;
-    border: 1px solid var(--card-border, #e2e8f0);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .vault-container.dark .card {
-    background: rgba(30, 41, 59, 0.6);
-    border-color: #2d2d44;
-    backdrop-filter: blur(10px);
-  }
-
-  .elevated {
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  }
-
-  .vault-container.dark .elevated {
-    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-  }
-
-  .card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.12);
-  }
-
-  .vault-container.dark .card:hover {
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
-  .header-icon {
-    font-size: 32px;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--icon-bg, rgba(99,102,241,0.12));
-    border-radius: 14px;
-    color: #6366f1;
-  }
-
-  .vault-container.dark .header-icon {
-    background: rgba(99,102,241,0.25);
-    color: #a5b4fc;
-  }
-
-  .card-header h3 {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary, #1e293b);
-  }
-
-  .vault-container.dark .card-header h3 {
-    color: #f1f5f9;
-  }
-
-  /* Wallet Info */
-  .address-row {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  .address-input {
-    flex: 1;
-    padding: 14px 18px;
-    border: 1px solid var(--input-border, #cbd5e1);
-    border-radius: 14px;
-    background: var(--input-bg, #f8fafc);
-    font-family: 'Courier New', monospace;
-    font-size: 1rem;
-    color: var(--text-primary);
-  }
-
-  .vault-container.dark .address-input {
-    background: rgba(30,41,59,0.5);
-    border-color: #4b5563;
-    color: #f1f5f9;
-  }
-
-  .copy-btn {
-    color: var(--text-secondary);
-  }
-
-  .vault-container.dark .copy-btn {
-    color: #cbd5e1;
-  }
-
-  .did-display {
-    margin: 20px 0;
-  }
-
-  .label {
-    font-size: 0.95rem;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-    display: block;
-    font-weight: 500;
-  }
-
-  .did {
-    background: var(--code-bg, #f1f5f9);
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-family: 'Courier New', monospace;
-    font-size: 1rem;
-    color: #1d4ed8;
-    word-break: break-all;
-    display: block;
-  }
-
-  .vault-container.dark .did {
-    background: rgba(30,41,59,0.6);
-    color: #c7d2fe;
-  }
-
-  /* Status blocks */
-  .status {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px 16px;
-    font-size: 0.95rem;
-    border-radius: 14px;
-    margin: 20px 0;
-    border: 1px solid transparent;
-    background: rgba(0,0,0,0.03);
-  }
-
-  .status.success {
-    background: var(--success-bg, #f0fdf4);
-    border-color: #bbf7d0;
-    color: var(--success-text, #166534);
-  }
-
-  .vault-container.dark .status.success {
-    background: rgba(34,197,94,0.15);
-    border-color: rgba(34,197,94,0.4);
-    color: #86efac;
-  }
-
-  .status.warning {
-    background: var(--warning-bg, #fffbeb);
-    border-color: #fed7aa;
-    color: var(--warning-text, #9a3412);
-  }
-
-  .vault-container.dark .status.warning {
-    background: rgba(249,115,22,0.15);
-    border-color: rgba(249,115,22,0.4);
-    color: #fdba74;
-  }
-
-  .status.erased {
-    background: var(--warning-bg, #fffbeb);
-    border-color: #fed7aa;
-    color: var(--warning-text, #9a3412);
-  }
-
-  .vault-container.dark .status.erased {
-    background: rgba(239,68,68,0.15);
-    border-color: rgba(239,68,68,0.4);
-    color: #fca5a5;
-  }
-
-  .status mat-icon {
-    font-size: 32px;
-    width: 40px;
-    height: 40px;
-  }
-
-  .dark .status {
-  background: rgba(255,255,255,0.05);
-}
-
-  /* Buttons */
-  .connect-btn,
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 28px;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    color: white;
-    border: none;
-    border-radius: 14px;
-    font-size: 1.05rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.25s ease;
-  }
-
-  .connect-btn:hover,
-  .btn-primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(99,102,241,0.35);
-  }
-
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 24px;
-    background: var(--btn-secondary-bg, #f8fafc);
-    color: #6366f1;
-    border: 1px solid #e0e7ff;
-    border-radius: 14px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.25s ease;
-  }
-
-  .vault-container.dark .btn-secondary {
-    background: rgba(30,41,59,0.6);
-    border-color: #4b5563;
-    color: #a5b4fc;
-  }
-
-  .btn-secondary:hover {
-    background: var(--btn-secondary-hover, #eef2ff);
-    border-color: #c7d2fe;
-    transform: translateY(-2px);
-  }
-
-  .vault-container.dark .btn-secondary:hover {
-    background: rgba(99,102,241,0.2);
-    border-color: #818cf8;
-  }
-
-  .actions {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-top: 24px;
-  }
-
-  /* Loading & Muted */
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 40px 0;
-    color: var(--text-secondary);
-  }
-
-  .muted {
-    color: var(--text-secondary);
-  }
-
-  .small {
-    font-size: 0.95rem;
-    margin: 6px 0 0;
-  }
-    .refresh {
+    .vault-header {
       text-align: center;
-      margin-top: 24px;
+      padding: 4rem 1rem 5rem;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(167, 139, 250, 0.05) 100%);
     }
 
-.content.p-4 {
-      padding: 16px;
+    .vault-container.dark .vault-header {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(167, 139, 250, 0.08) 100%);
     }
 
-    .flex {
+    .header-content {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .header-icon-wrapper {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      border-radius: 24px;
       display: flex;
-    }
-
-    .gap-4 {
-      gap: 16px;
-    }
-
-    .gap-2 {
-      gap: 8px;
-    }
-
-    .items-center {
       align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
     }
 
-    .text-success-600 {
-      color: #16a34a;
+    .vault-icon {
+      font-size: 44px;
+      color: white;
     }
 
-    .dark .text-success-600 {
+    h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0 0 1rem;
+      letter-spacing: -1px;
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .vault-content {
+      max-width: 1100px;
+      margin: -3.5rem auto 0;
+      padding: 0 1.5rem;
+    }
+
+    .vault-card {
+      background: var(--card-bg, white);
+      border-radius: 24px;
+      border: 1px solid var(--card-border, #e2e8f0);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .vault-container.dark .vault-card {
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .primary-card {
+      margin-bottom: 2.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.75rem 2rem;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .vault-container.dark .card-header {
+      background: rgba(99, 102, 241, 0.12);
+    }
+
+    .header-icon {
+      font-size: 32px;
+      width: 48px;
+      height: 48px;
+      background: rgba(99, 102, 241, 0.15);
+      border-radius: 14px;
+      color: #6366f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vault-container.dark .header-icon {
+      background: rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+    }
+
+    h2, h3 {
+      margin: 0;
+      font-weight: 700;
+      color: var(--text-primary, #1e293b);
+    }
+
+    .vault-container.dark h2, .vault-container.dark h3 {
+      color: #f1f5f9;
+    }
+
+    .card-body {
+      padding: 2rem;
+    }
+
+    /* Wallet Connected */
+    .address-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 16px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+
+    .address-display {
+      flex: 1;
+      font-family: 'Courier New', monospace;
+      font-size: 1.05rem;
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .full-address-tooltip {
+      visibility: hidden;
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .address-display:hover .full-address-tooltip {
+      visibility: visible;
+    }
+
+    .address {
+      font-weight: 500;
+    }
+
+    .copy-button {
+      color: #64748b;
+    }
+
+    .vault-container.dark .copy-button {
+      color: #cbd5e1;
+    }
+
+    .did-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .label {
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .did {
+      background: rgba(99, 102, 241, 0.1);
+      padding: 0.35rem 0.75rem;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      color: #6366f1;
+      word-break: break-all;
+    }
+
+    .vault-container.dark .did {
+      background: rgba(99, 102, 241, 0.2);
+      color: #c7d2fe;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      border-radius: 16px;
+      background: rgba(34, 197, 94, 0.1);
+      color: #166534;
+      font-weight: 500;
+    }
+
+    .vault-container.dark .connection-status.success {
+      background: rgba(34, 197, 94, 0.2);
       color: #86efac;
     }
 
-    .text-amber-600 {
-      color: #d97706;
+    .connect-wallet-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 2.25rem;
+      background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
     }
 
-    .dark .text-amber-600 {
+    .connect-wallet-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(99, 102, 241, 0.45);
+    }
+
+    /* Settings Grid */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 1.75rem;
+      padding: 2rem;
+    }
+
+    .setting-card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      overflow: hidden;
+      transition: transform 0.3s ease;
+    }
+
+    .setting-card:hover {
+      transform: translateY(-6px);
+    }
+
+    .setting-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.25rem 1.75rem;
+      background: rgba(99, 102, 241, 0.06);
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .vault-container.dark .setting-header {
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .setting-icon {
+      font-size: 28px;
+      width: 44px;
+      height: 44px;
+      background: rgba(99, 102, 241, 0.15);
+      border-radius: 12px;
+      color: #6366f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .vault-container.dark .setting-icon {
+      background: rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+    }
+
+    .setting-content {
+      padding: 1.75rem;
+    }
+
+    .help-text {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+
+    .external-link {
+      color: #6366f1;
+      text-decoration: underline;
+      font-weight: 500;
+    }
+
+    .vault-container.dark .external-link {
+      color: #a5b4fc;
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+      padding: 0.75rem 1.25rem;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.1);
+      color: #1e40af;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .status-pill.success {
+      background: rgba(34, 197, 94, 0.15);
+      color: #166534;
+    }
+
+    .vault-container.dark .status-pill.success {
+      background: rgba(34, 197, 94, 0.25);
+      color: #86efac;
+    }
+
+    .status-pill.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: #92400e;
+    }
+
+    .vault-container.dark .status-pill.warning {
+      background: rgba(245, 158, 11, 0.25);
       color: #fbbf24;
     }
 
-    /* ==========================================
-   Tablet (≤ 960px)
-   ========================================== */
-@media (max-width: 960px) {
-  .vault-container {
-    padding: 20px 24px 48px;
-  }
+    .status-pill.accent {
+      background: rgba(168, 85, 247, 0.15);
+      color: #6b21a8;
+    }
 
-  .vault-header {
-    margin-bottom: 36px;
-  }
+    .vault-container.dark .status-pill.accent {
+      background: rgba(168, 85, 247, 0.25);
+      color: #c4b5fd;
+    }
 
-  h1 {
-    font-size: clamp(1.8rem, 3vw + 1rem, 2.4rem);
-  }
+    /* Profile Status Section */
+    .profile-status-section {
+      margin-top: 2.5rem;
+      padding: 2rem;
+      background: var(--card-bg);
+      border-radius: 24px;
+      border: 1px solid var(--card-border);
+    }
 
-  .subtitle {
-    font-size: 1.05rem;
-    max-width: 600px;
-  }
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 4rem 0;
+      color: var(--text-secondary);
+    }
 
-  .card {
-    padding: 28px;
-  }
+    .status-card {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 2rem;
+      border-radius: 20px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
 
-  .card-header h3 {
-    font-size: 1.35rem;
-  }
+    .status-card.success {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.4);
+    }
 
-  .actions {
-    gap: 12px;
-  }
-}
+    .vault-container.dark .status-card.success {
+      background: rgba(34, 197, 94, 0.22);
+    }
 
-/* ==========================================
-   Phones (≤ 480px)
-   ========================================== */
-@media (max-width: 480px) {
-  .vault-container {
-    padding: 16px 16px 48px;
-  }
+    .status-card.warning {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
 
-  .vault-header {
-    margin-bottom: 28px;
-  }
+    .vault-container.dark .status-card.warning {
+      background: rgba(245, 158, 11, 0.22);
+    }
 
-  h1 {
-    font-size: clamp(1.4rem, 4vw + 1rem, 2rem);
-    text-align: center;
-  }
+    .status-card.erased {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
 
-  .subtitle {
-    font-size: 1rem;
-    max-width: 100%;
-    line-height: 1.5;
-    text-align: center;
-  }
+    .vault-container.dark .status-card.erased {
+      background: rgba(239, 68, 68, 0.22);
+    }
 
-  .card {
-    padding: 22px;
-    border-radius: 16px;
-  }
+    .status-icon {
+      font-size: 48px;
+      width: 64px;
+      height: 64px;
+    }
 
-  .card:hover {
-    transform: none; /* avoid jumpiness on touch */
-  }
+    .status-content h3 {
+      margin: 0 0 0.5rem;
+    }
 
-  .card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
 
-  .card-header h3 {
-    font-size: 1.2rem;
-    text-align: left;
-  }
+    .refresh-section {
+      text-align: center;
+      margin-top: 2rem;
+    }
 
-  .address-row {
-    flex-direction: column;
-  }
+    @media (max-width: 960px) {
+      .vault-content {
+        padding: 0 1rem;
+      }
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+    }
 
-  .actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-
-  .actions button,
-  .btn-primary,
-  .btn-secondary,
-  .connect-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .status {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px;
-  }
-
-  .status mat-icon {
-    font-size: 28px;
-    width: 32px;
-    height: 32px;
-  }
-}
-
-/* ==========================================
-   Very Small Phones (≤ 320px)
-   ========================================== */
-@media (max-width: 320px) {
-  h1 {
-    font-size: 1.3rem;
-  }
-
-  .subtitle {
-    font-size: 0.9rem;
-  }
-
-  .card {
-    padding: 18px;
-  }
-
-  .btn-primary,
-  .btn-secondary,
-  .connect-btn {
-    padding: 10px 14px;
-    font-size: 0.9rem;
-  }
-
-  .status {
-    padding: 10px;
-  }
-
-  .status mat-icon {
-    font-size: 24px;
-    width: 28px;
-    height: 28px;
-  }
-
-  .address-input,
-  .did {
-    font-size: 0.9rem;
-  }
-}
-
-`]
+    @media (max-width: 600px) {
+      h1 { font-size: 2.25rem; }
+      .vault-header { padding: 3rem 1rem 4rem; }
+      .action-buttons { flex-direction: column; }
+    }
+  `]
 })
 export class VaultComponent implements OnInit, OnDestroy {
   loading = signal(false);

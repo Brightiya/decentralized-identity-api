@@ -1,5 +1,5 @@
 // src/app/pages/login.component.ts
-import { Component, inject, PLATFORM_ID, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, PLATFORM_ID, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // ← NEW: for ngModel
 import { ActivatedRoute, Router } from '@angular/router';
@@ -621,6 +621,7 @@ export class LoginComponent {
   auth = inject(AuthService);
   wallet = inject(WalletService);
   storage = inject(StorageService);
+  private cdr = inject(ChangeDetectorRef);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private snackBar = inject(MatSnackBar);
@@ -710,6 +711,7 @@ export class LoginComponent {
 
     // Connect wallet
     await this.wallet.connect();
+    this.cdr.detectChanges();
 
     // Wait for address to be available (reliable way using observable)
     const address = await firstValueFrom(this.wallet.address$);
@@ -788,9 +790,9 @@ export class LoginComponent {
     console.error('Sign-in failed:', err);
     this.error.set(err.message || 'Authentication failed');
     this.snackBar.open(
-      err.message || 'Sign-in failed - reconnect wallet and try again',
+      err.message || 'Sign-in failed - logout, reconnect wallet and try again',
       'Close',
-      { duration: 8000 }
+      { duration: 9000 }
     );
   } finally {
     this.signing.set(false);

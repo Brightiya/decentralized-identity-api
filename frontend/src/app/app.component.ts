@@ -66,9 +66,17 @@ import { ThemeService } from './services/theme.service';
              (click)="toggleMini()"
              matTooltip="Privacy Identity Management Vault"
              matTooltipPosition="right">
-          <div class="brand-icon">
-            <mat-icon>shield</mat-icon>
-          </div>
+          <div class="header-icon-wrapper">
+              <!-- Custom SVG Keyhole Shield -->
+              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  class="custom-shield">
+                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+              </svg>
+            </div>
           <div class="brand-text" [class.collapsed]="miniSidebar()">
             <div class="brand-name">PIMV</div>
             <div class="brand-subtitle">Identity Vault</div>
@@ -269,19 +277,6 @@ import { ThemeService } from './services/theme.service';
       background: rgba(99,102,241,0.08);
     }
 
-    .brand-icon {
-      width: 54px;
-      height: 54px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 6px 16px rgba(99,102,241,0.35);
-      color: white;
-      font-size: 30px;
-    }
-
     .brand-text {
       transition: opacity 0.4s ease;
     }
@@ -306,6 +301,47 @@ import { ThemeService } from './services/theme.service';
       color: #94a3b8;
       margin-top: 2px;
     }
+
+    .header-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.4);
+  }
+
+  .header-icon {
+    font-size: 42px;
+    color: white;
+  }
+
+  .header-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.45);
+  overflow: hidden;                    /* keeps SVG clean */
+  transition: transform 0.3s ease;
+}
+
+  .header-icon-wrapper:hover {
+    transform: scale(1.08);
+  }
+
+  .custom-shield {
+    width: 56px;                         /* adjust size as needed */
+    height: 56px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+  }
 
     /* Navigation */
     .nav-list .nav-item {

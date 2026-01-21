@@ -73,11 +73,13 @@ export class WalletService {
     this.provider = null;
 
     try {
-      if (this.customRpc()) {
+      if (window.ethereum) {
+      await this.useMetaMask();
+    }
+      else if (this.customRpc()) {
         await this.useHardhat(this.customRpc());
-      } else if (window.ethereum) {
-        await this.useMetaMask();
-      } else {
+      } 
+       else {
         await this.useHardhat(environment.PROVIDER_URL || 'http://127.0.0.1:8545');
       }
 

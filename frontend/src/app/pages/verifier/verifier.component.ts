@@ -17,6 +17,7 @@ import { WalletService } from '../../services/wallet.service';
 import { ThemeService } from '../../services/theme.service';
 import { ContextService } from '../../services/context.service';
 import { computed, signal } from '@angular/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-verifier',
@@ -34,7 +35,8 @@ import { computed, signal } from '@angular/core';
     MatDividerModule,
     MatAutocompleteModule,
     MatOptionModule,
-    MatSelectModule
+    MatSelectModule,
+    MatTooltipModule
   ],
   template: `
   <div class="verifier-container" [class.dark]="darkMode()">

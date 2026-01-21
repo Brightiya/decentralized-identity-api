@@ -50,8 +50,8 @@ import { ThemeService } from '../services/theme.service';
           <button 
             mat-icon-button 
             (click)="loadContext()" 
-            [disabled]="loading() || !currentContext()"
-            matTooltip="Refresh current context">
+            matTooltip="Refresh current context"
+            [disabled]="loading() || !currentContext()">
             <mat-icon>refresh</mat-icon>
           </button>
         </div>
@@ -105,9 +105,6 @@ import { ThemeService } from '../services/theme.service';
           </button>
         </div>
 
-        <p class="small muted">
-          Custom contexts are mapped to "profile" on the backend for storage and disclosure.
-        </p>
       </section>
 
       <!-- Attributes Display -->

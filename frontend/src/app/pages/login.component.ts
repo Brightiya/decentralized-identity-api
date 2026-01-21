@@ -25,7 +25,7 @@ import { firstValueFrom } from 'rxjs';
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule, // ← Added for ngModel
+    FormsModule,
     MatCardModule,
     MatButtonModule,
     MatProgressSpinnerModule,
@@ -45,9 +45,8 @@ import { firstValueFrom } from 'rxjs';
           <!-- Header -->
           <mat-card-header class="card-header">
             <div class="header-icon-wrapper">
-              <!-- Custom SVG Keyhole Shield -->
-              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-                  class="custom-shield">
+              <svg width="72" height="72" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                   class="custom-shield">
                 <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
                       fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
                 <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
@@ -56,70 +55,61 @@ import { firstValueFrom } from 'rxjs';
               </svg>
             </div>
             <mat-card-title>PIMV Identity Vault</mat-card-title>
-            <mat-card-subtitle>Secure • Decentralized • Role-Based</mat-card-subtitle>
+            <mat-card-subtitle>Secure • Decentralized • Self-Sovereign</mat-card-subtitle>
           </mat-card-header>
 
           <mat-card-content class="card-content">
-            <!-- NEW: Custom Hardhat RPC Input (Step 0 - before connect) -->
+            <!-- Step 0: Custom RPC (Optional) -->
             <div class="step-section rpc-section">
-              <h3>0. Local Hardhat RPC (Optional)</h3>
+              <h3>Optional: Local Development RPC</h3>
               <p class="step-desc">
-                For local development/testing — enter your Hardhat node URL.<br>
-                Default: http://127.0.0.1:8545
+                For local testing with Hardhat — enter your node URL (default: <code>http://127.0.0.1:8545</code>)
               </p>
 
-              <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Custom Hardhat RPC URL</mat-label>
+              <mat-form-field appearance="outline" class="full-width rpc-input">
+                <mat-label>Hardhat RPC URL</mat-label>
                 <input matInput
                        [(ngModel)]="customRpcUrl"
                        placeholder="http://127.0.0.1:8545"
                        (blur)="saveCustomRpc()" />
-
-             <!-- Status messages - moved ABOVE the hint for better flow -->
-              <div class="status mt-2 flex items-center gap-2" *ngIf="customRpcUrl()">
-                <mat-icon color="primary" class="text-lg">check_circle</mat-icon>
-                <span class="text-sm font-medium text-primary-700">
-                  Custom RPC active: <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">{{ customRpcUrl() }}</code>
-                </span>
-              </div>
-
-              <div class="status mt-2 flex items-center gap-2 text-gray-600" *ngIf="!customRpcUrl()">
-                <mat-icon class="text-lg">info</mat-icon>
-                <span class="text-sm">Using default: <code class="text-xs bg-gray-100 px-1 py-0.5 rounded">http://127.0.0.1:8545</code></span>
-              </div>
-                      
-               <mat-hint class="mt-3 text-sm text-gray-500">
-                Leave empty to use default (local Hardhat node).
-              </mat-hint>
+                <mat-hint>Leave blank to use default local node</mat-hint>
               </mat-form-field>
-            
+
+              <div class="status-pill" *ngIf="customRpcUrl()">
+                <mat-icon color="primary">check_circle</mat-icon>
+                Using custom RPC: <code>{{ customRpcUrl() }}</code>
+              </div>
+              <div class="status-pill neutral" *ngIf="!customRpcUrl()">
+                <mat-icon>info</mat-icon>
+                Using default: <code>http://127.0.0.1:8545</code>
+              </div>
             </div>
 
             <!-- Step 1: Connect Wallet -->
             <div class="step-section" *ngIf="!(wallet.address$ | async)">
               <h3>1. Connect Your Wallet</h3>
               <p class="step-desc">
-                Link your Ethereum wallet to access your decentralized identity.
+                Link your Ethereum wallet to access your decentralized identity vault.
               </p>
 
-              <button mat-raised-button color="primary" 
-                      class="action-btn large-btn"
+              <button mat-flat-button color="primary"
+                      class="action-btn connect-btn"
                       (click)="connectWallet()"
                       [disabled]="connecting()">
                 <mat-icon *ngIf="!connecting()">wallet</mat-icon>
-                <mat-spinner diameter="22" *ngIf="connecting()"></mat-spinner>
+                <mat-spinner diameter="24" *ngIf="connecting()"></mat-spinner>
                 {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
               </button>
             </div>
 
-            <!-- Wallet Connected -->
+            <!-- Wallet Connected → Steps 2 & 3 -->
             <ng-container *ngIf="wallet.address$ | async as addr">
               <!-- Step 2: Choose Role -->
-              <div class="step-section" *ngIf="!auth.isAuthenticated()">
-                <h3>2. Choose Access Mode</h3>
-                <p class="step-desc">Select your role to proceed</p>
+              <div class="step-section role-section" *ngIf="!auth.isAuthenticated()">
+                <h3>2. Select Access Mode</h3>
+                <p class="step-desc">Choose your role for this session</p>
 
-                <mat-button-toggle-group class="role-group"
+                <mat-button-toggle-group class="role-group" 
                                         [value]="selectedRole()"
                                         (change)="selectRole($event.value)"
                                         exclusive>
@@ -139,42 +129,46 @@ import { firstValueFrom } from 'rxjs';
                   </mat-button-toggle>
                 </mat-button-toggle-group>
 
-                <div class="role-info" *ngIf="selectedRole()">
+                <div class="role-description" *ngIf="selectedRole()">
                   {{ roleDescription[selectedRole()!] }}
                 </div>
               </div>
 
-              <!-- Step 3: Sign Message -->
-              <div class="step-section sign-step" *ngIf="selectedRole() && !auth.isAuthenticated()">
+              <!-- Step 3: Sign & Login -->
+              <div class="step-section sign-section" *ngIf="selectedRole() && !auth.isAuthenticated()">
                 <h3>3. Authenticate</h3>
 
-                <div class="wallet-preview">
-                  <div class="label">Connected Wallet</div>
-                  <code class="address">{{ addr | slice:0:8 }}…{{ addr | slice:-6 }}</code>
+                <div class="wallet-info-card">
+                  <div class="wallet-label">Connected Wallet</div>
+                  <div class="wallet-address">
+                    {{ addr | slice:0:8 }}…{{ addr | slice:-6 }}
+                  </div>
+                  <div class="full-address">{{ addr }}</div>
                 </div>
 
-                <button mat-raised-button color="primary"
-                        class="action-btn large-btn sign-btn"
+                <button mat-flat-button color="primary"
+                        class="action-btn sign-btn"
                         (click)="signIn()"
                         [disabled]="signing()">
                   <mat-icon *ngIf="!signing()">draw</mat-icon>
-                  <mat-spinner diameter="22" *ngIf="signing()"></mat-spinner>
+                  <mat-spinner diameter="24" *ngIf="signing()"></mat-spinner>
                   {{ signing() ? 'Signing...' : 'Sign & Login' }}
                 </button>
 
-                <button mat-stroked-button class="switch-btn"
+                <button mat-stroked-button class="switch-wallet-btn"
                         (click)="wallet.disconnect()">
-                  Switch Wallet
+                  <mat-icon>swap_horiz</mat-icon> Switch Wallet
                 </button>
               </div>
 
+              <!-- Hint when role not selected -->
               <div class="hint-box" *ngIf="!selectedRole() && !auth.isAuthenticated()">
-                <mat-icon>info_outline</mat-icon>
-                Please choose an access mode above
+                <mat-icon>info</mat-icon>
+                Please select an access mode to continue
               </div>
             </ng-container>
 
-            <!-- Error -->
+            <!-- Error Message -->
             <div class="error-message" *ngIf="error()">
               <mat-icon>error_outline</mat-icon>
               {{ error() }}
@@ -182,8 +176,8 @@ import { firstValueFrom } from 'rxjs';
           </mat-card-content>
 
           <mat-card-actions class="card-footer">
-            <p class="session-info">
-              Role selection applies only to this browser session
+            <p class="session-note">
+              Role selection is stored only for this browser session
             </p>
           </mat-card-actions>
         </mat-card>
@@ -192,429 +186,395 @@ import { firstValueFrom } from 'rxjs';
   `,
 
   styles: [`
-  :host {
-    display: block;
-    height: 100vh;
-    overflow: hidden;
-  }
+    :host {
+      display: block;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-  .login-page {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 32px 16px 80px;               /* ← extra bottom padding for safety */
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    transition: background 0.6s ease;
-  }
+    .login-page {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 32px 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: background 0.6s ease;
+    }
 
-  .login-page.dark {
-    background: linear-gradient(135deg, #1a1f35 0%, #0f1421 100%);
-  }
+    .login-page.dark {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
 
-  .bg-overlay {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 30% 70%, rgba(99,102,241,0.12), transparent 60%);
-    pointer-events: none;
-  }
+    .bg-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 30% 70%, rgba(99,102,241,0.18), transparent 70%);
+      pointer-events: none;
+    }
 
-  .login-wrapper {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 520px;
-    max-height: 100vh;
-    overflow-y: auto;                       /* ← allows scrolling if needed */
-    -webkit-overflow-scrolling: touch;     /* smooth on iOS */
-    padding-bottom: 40px;                   /* extra space at bottom */
-  }
+    .login-wrapper {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 540px;
+      max-height: 95vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 0;
+    }
 
-  .glass-card {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 28px;
-    box-shadow: 0 25px 70px rgba(0,0,0,0.22);
-    overflow: visible;                      /* crucial for button visibility */
-    transition: all 0.4s ease;
-  }
+    .glass-card {
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 32px;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.25);
+      overflow: hidden;
+      transition: all 0.4s ease;
+    }
 
-  .login-page.dark .glass-card {
-    background: rgba(30,41,59,0.72);
-    border-color: rgba(100,116,139,0.4);
-    box-shadow: 0 30px 80px rgba(0,0,0,0.55);
-  }
+    .login-page.dark .glass-card {
+      background: rgba(30,41,59,0.78);
+      border-color: rgba(100,116,139,0.45);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+    }
 
-  /* Header */
-  .card-header {
-    text-align: center;
-    padding: 48px 40px 32px;
-    background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(167,139,250,0.08));
-  }
+    /* Header */
+    .card-header {
+      text-align: center;
+      padding: 56px 40px 40px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(167,139,250,0.1));
+    }
 
-  .login-page.dark .card-header {
-    background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(167,139,250,0.12));
-  }
+    .login-page.dark .card-header {
+      background: linear-gradient(135deg, rgba(99,102,241,0.22), rgba(167,139,250,0.15));
+    }
 
-  .header-icon-wrapper {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 20px;
-    background: linear-gradient(135deg, #6366f1, #a78bfa);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 24px rgba(99,102,241,0.4);
-  }
+    .header-icon-wrapper {
+      width: 96px;
+      height: 96px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #6366f1, #a78bfa);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 40px rgba(99,102,241,0.5);
+      transition: transform 0.3s ease;
+    }
 
-  .header-icon {
-    font-size: 42px;
-    color: white;
-  }
+    .header-icon-wrapper:hover {
+      transform: scale(1.08);
+    }
 
-  mat-card-title {
-    font-size: clamp(1.8rem, 5vw, 2.6rem);
-    font-weight: 800;
-    background: linear-gradient(90deg, #6366f1, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+    .custom-shield {
+      width: 68px;
+      height: 68px;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+    }
 
-  mat-card-subtitle {
-    font-size: 1.1rem;
-    color: #64748b;
-  }
+    mat-card-title {
+      font-size: clamp(2rem, 5.5vw, 2.8rem);
+      font-weight: 800;
+      background: linear-gradient(90deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin: 0 0 8px;
+    }
 
-  .login-page.dark mat-card-subtitle {
-    color: #94a3b8;
-  }
+    mat-card-subtitle {
+      font-size: 1.15rem;
+      color: #64748b;
+      margin: 0;
+    }
 
-  /* Content */
-  .card-content {
-    padding: 32px 40px 48px;                /* ← more bottom padding */
-    min-height: 300px;                      /* prevents collapse */
-  }
+    .login-page.dark mat-card-subtitle {
+      color: #94a3b8;
+    }
 
-  .step-section {
-    text-align: center;
-    margin-bottom: 40px;                    /* more space between sections */
-  }
+    /* Content */
+    .card-content {
+      padding: 40px 48px 56px;
+    }
 
-  .sign-step {
-    padding-bottom: 60px !important;        /* extra breathing room for sign button */
-  }
+    .step-section {
+      text-align: center;
+      margin-bottom: 48px;
+    }
 
-  h3 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 12px;
-    color: #1e293b;
-  }
+    h3 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #1e293b;
+    }
 
-  .login-page.dark h3 {
-    color: #f1f5f9;
-  }
+    .login-page.dark h3 {
+      color: #f1f5f9;
+    }
 
-  .step-desc {
-    font-size: 1rem;
-    color: #64748b;
-    margin-bottom: 28px;
-    line-height: 1.5;
-  }
-
-  .login-page.dark .step-desc {
-    color: #cbd5e1;
-  }
-
-  /* Buttons */
-  .action-btn.large-btn {
-    min-width: 260px;
-    height: 58px;
-    font-size: 1.08rem;
-    font-weight: 600;
-    border-radius: 16px;
-    margin: 28px auto 20px;
-    display: block;
-    transition: all 0.3s ease;
-  }
-
-  .action-btn.large-btn.sign-btn {
-    min-width: 280px;                       /* slightly wider for prominence */
-    box-shadow: 0 6px 20px rgba(99,102,241,0.3);
-  }
-
-  .action-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(99,102,241,0.35);
-  }
-
-  .switch-btn {
-    margin-top: 16px;
-    color: #64748b;
-  }
-
-  .login-page.dark .switch-btn {
-    color: #94a3b8;
-  }
-
-  /* Wallet Preview */
-  .wallet-preview {
-    margin: 28px auto;
-    padding: 16px 20px;
-    background: rgba(226,232,240,0.4);
-    border-radius: 16px;
-    max-width: 360px;
-    text-align: center;
-  }
-
-  .login-page.dark .wallet-preview {
-    background: rgba(30,41,59,0.55);
-  }
-
-  .wallet-preview .label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #64748b;
-    margin-bottom: 6px;
-  }
-
-  .login-page.dark .wallet-preview .label {
-    color: #94a3b8;
-  }
-
-  .wallet-preview code {
-    font-family: 'JetBrains Mono', monospace;
-    color: #1d4ed8;
-    font-size: 1rem;
-  }
-
-  .login-page.dark .wallet-preview code {
-    color: #c7d2fe;
-  }
-
-  /* Role Selection */
-  .role-group {
-    width: 100%;
-    max-width: 420px;
-    margin: 24px auto;
-    background: rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 8px;
-  }
-
-  .login-page.dark .role-group {
-    background: rgba(30,41,59,0.45);
-  }
-
-  ::ng-deep .role-btn {
-    flex: 1;
-    border-radius: 12px !important;
-    padding: 16px 12px !important;
-    height: auto !important;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-
-  ::ng-deep .role-btn.mat-button-toggle-checked {
-    background: #6366f1 !important;
-    color: white !important;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
-  }
-
-  ::ng-deep .role-btn mat-icon {
-    margin-right: 10px;
-    font-size: 24px;
-    height: 24px;
-    width: 24px;
-  }
-
-  .role-info {
-    margin-top: 20px;
-    padding: 14px 20px;
-    background: rgba(99,102,241,0.08);
-    border-radius: 12px;
-    font-size: 0.98rem;
-    line-height: 1.5;
-    color: #1e293b;
-  }
-
-  .login-page.dark .role-info {
-    background: rgba(99,102,241,0.15);
-    color: #e2e8f0;
-  }
-
-  /* Inside your component's styles array */
-:host ::ng-deep .mat-mdc-form-field {
-  margin-bottom: 24px; /* more space below each field */
-}
-
-.status {
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-.status mat-icon {
-  font-size: 1.125rem;
-  height: 1.125rem;
-  width: 1.125rem;
-}
-
-mat-hint {
-  font-size: 0.8125rem !important;
-  line-height: 1.4;
-  color: #6b7280 !important;
-  opacity: 1 !important;
-  margin-top: 8px !important;
-}
-
-.login-page.dark mat-hint {
-  color: #9ca3af !important;
-}
-
-code {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  background: rgba(0,0,0,0.05);
-  padding: 2px 5px;
-  border-radius: 4px;
-}
-
-.login-page.dark code {
-  background: rgba(255,255,255,0.1);
-}
-
-  /* Error & Hints */
-  .error-message {
-    margin: 28px 0;
-    padding: 16px 20px;
-    background: rgba(239,68,68,0.12);
-    color: #c62828;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 500;
-  }
-
-  .login-page.dark .error-message {
-    background: rgba(239,68,68,0.18);
-    color: #fca5a5;
-  }
-
-  .hint-box {
-    margin-top: 28px;
-    padding: 14px;
-    background: rgba(99,102,241,0.08);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    color: #4f46e5;
-    font-size: 0.95rem;
-  }
-
-  .login-page.dark .hint-box {
-    background: rgba(99,102,241,0.15);
-    color: #a5b4fc;
-  }
-
-  /* Footer */
-  .card-footer {
-    padding: 28px 40px;
-    text-align: center;
-    background: rgba(0,0,0,0.02);
-  }
-
-  .login-page.dark .card-footer {
-    background: rgba(255,255,255,0.03);
-  }
-
-  .session-info {
-    margin: 0;
-    font-size: 0.88rem;
-    color: #64748b;
-  }
-
-  .login-page.dark .session-info {
-    color: #94a3b8;
-  }
-
-  .header-icon-wrapper {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 24px;
-  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-  border-radius: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 30px rgba(99,102,241,0.45);
-  overflow: hidden;                    /* keeps SVG clean */
-  transition: transform 0.3s ease;
-}
-
-  .header-icon-wrapper:hover {
-    transform: scale(1.08);
-  }
-
-  .custom-shield {
-    width: 56px;                         /* adjust size as needed */
-    height: 56px;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
-  }
-
-  /* Responsive */
-  @media (max-width: 600px) {
-    .login-card { max-width: 100%; }
-    .card-header { padding: 40px 28px 28px; }
-    .card-content { padding: 32px 24px 60px; }  /* more bottom space */
-    .action-btn.large-btn { width: 100%; min-width: unset; }
-    .sign-step { padding-bottom: 80px !important; }
-  }
-
-  @media (max-width: 420px) {
-    .role-group { flex-direction: column; }
-    ::ng-deep .role-btn { width: 100%; margin: 8px 0; }
-  }
-
-  /* Ensure button is always reachable */
-  .login-wrapper {
-    padding-bottom: 100px;                    /* safety buffer */
-  }
-
-  .rpc-section {
-      background: rgba(99, 102, 241, 0.05);
-      border-radius: 16px;
-      padding: 20px;
+    .step-desc {
+      font-size: 1.05rem;
+      color: #64748b;
       margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .login-page.dark .step-desc {
+      color: #cbd5e1;
+    }
+
+    /* RPC Section */
+    .rpc-section {
+      background: rgba(99,102,241,0.06);
+      border-radius: 20px;
+      padding: 28px 32px;
+      margin-bottom: 40px;
     }
 
     .login-page.dark .rpc-section {
-      background: rgba(99, 102, 241, 0.15);
+      background: rgba(99,102,241,0.18);
     }
 
-    .rpc-section h3 {
-      margin-top: 0;
+    .rpc-input {
+      margin: 24px 0;
     }
 
-    .rpc-section .status {
-      font-size: 0.95rem;
+    /* Buttons */
+    .action-btn {
+      min-width: 280px;
+      height: 60px;
+      font-size: 1.12rem;
+      font-weight: 600;
+      border-radius: 16px;
+      margin: 32px auto 20px;
+      display: block;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 24px rgba(99,102,241,0.35);
     }
 
-    .rpc-section code {
-      font-family: 'Courier New', monospace;
-      background: rgba(0,0,0,0.05);
-      padding: 2px 6px;
-      border-radius: 4px;
+    .action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(99,102,241,0.45);
     }
 
-    .login-page.dark .rpc-section code {
+    .connect-btn, .sign-btn {
+      background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%) !important;
+    }
+
+    .switch-wallet-btn {
+      margin-top: 16px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .login-page.dark .switch-wallet-btn {
+      color: #94a3b8;
+    }
+
+    /* Wallet Info */
+    .wallet-info-card {
+      background: rgba(226,232,240,0.45);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 32px auto;
+      max-width: 420px;
+      text-align: center;
+      border: 1px solid rgba(226,232,240,0.8);
+    }
+
+    .login-page.dark .wallet-info-card {
+      background: rgba(30,41,59,0.6);
+      border-color: rgba(100,116,139,0.5);
+    }
+
+    .wallet-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #64748b;
+      margin-bottom: 8px;
+    }
+
+    .login-page.dark .wallet-label {
+      color: #94a3b8;
+    }
+
+    .wallet-address {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.15rem;
+      color: #1d4ed8;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .login-page.dark .wallet-address {
+      color: #c7d2fe;
+    }
+
+    .full-address {
+      font-size: 0.85rem;
+      color: #64748b;
+      word-break: break-all;
+      opacity: 0.8;
+    }
+
+    .login-page.dark .full-address {
+      color: #94a3b8;
+    }
+
+    /* Role Selection */
+    .role-group {
+      width: 100%;
+      max-width: 460px;
+      margin: 32px auto;
       background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 10px;
+      display: flex;
     }
-`]
+
+    .login-page.dark .role-group {
+      background: rgba(30,41,59,0.5);
+    }
+
+    ::ng-deep .role-btn {
+      flex: 1;
+      border-radius: 14px !important;
+      padding: 18px 16px !important;
+      height: auto !important;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    ::ng-deep .role-btn.mat-button-toggle-checked {
+      background: linear-gradient(135deg, #6366f1, #a78bfa) !important;
+      color: white !important;
+      box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+    }
+
+    ::ng-deep .role-btn mat-icon {
+      margin-right: 12px;
+      font-size: 26px;
+      height: 26px;
+      width: 26px;
+    }
+
+    .role-description {
+      margin-top: 24px;
+      padding: 16px 24px;
+      background: rgba(99,102,241,0.1);
+      border-radius: 16px;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #1e293b;
+    }
+
+    .login-page.dark .role-description {
+      background: rgba(99,102,241,0.2);
+      color: #e2e8f0;
+    }
+
+    /* Status Pill */
+    .status-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 20px auto 0;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      max-width: fit-content;
+    }
+
+    .status-pill[color="primary"] {
+      background: rgba(99,102,241,0.15);
+      color: #1e40af;
+    }
+
+    .status-pill.neutral {
+      background: rgba(100,116,139,0.15);
+      color: #475569;
+    }
+
+    .login-page.dark .status-pill.neutral {
+      background: rgba(100,116,139,0.25);
+      color: #cbd5e1;
+    }
+
+    /* Hint & Error */
+    .hint-box {
+      margin: 32px 0;
+      padding: 16px 24px;
+      background: rgba(99,102,241,0.1);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: #4f46e5;
+      font-weight: 500;
+    }
+
+    .login-page.dark .hint-box {
+      background: rgba(99,102,241,0.2);
+      color: #a5b4fc;
+    }
+
+    .error-message {
+      margin: 32px 0;
+      padding: 16px 24px;
+      background: rgba(239,68,68,0.15);
+      color: #c62828;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      font-weight: 500;
+    }
+
+    .login-page.dark .error-message {
+      background: rgba(239,68,68,0.22);
+      color: #fca5a5;
+    }
+
+    /* Footer */
+    .card-footer {
+      padding: 32px 40px;
+      text-align: center;
+      background: rgba(0,0,0,0.03);
+    }
+
+    .login-page.dark .card-footer {
+      background: rgba(255,255,255,0.04);
+    }
+
+    .session-note {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+
+    .login-page.dark .session-note {
+      color: #94a3b8;
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .card-content { padding: 32px 28px 64px; }
+      .action-btn { width: 100%; min-width: unset; }
+      .role-group { flex-direction: column; }
+      ::ng-deep .role-btn { margin: 8px 0; }
+    }
+
+    @media (max-width: 420px) {
+      .card-header { padding: 48px 24px 32px; }
+    }
+  `]
 })
 
 export class LoginComponent {

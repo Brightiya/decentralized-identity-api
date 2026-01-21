@@ -162,7 +162,7 @@ import { ThemeService } from '../services/theme.service';
               <ng-container matColumnDef="consent">
                 <th mat-header-cell *matHeaderCellDef>Consent</th>
                 <td mat-cell *matCellDef="let d">
-                  <mat-icon [color]="d.consent ? 'primary' : 'warn'">
+                  <mat-icon [color]="d.consent ? 'primary' : 'warn'" matTooltip="Consent given: {{ d.consent ? 'Yes' : 'No' }}">
                     {{ d.consent ? 'check_circle' : 'cancel' }}
                   </mat-icon>
                 </td>

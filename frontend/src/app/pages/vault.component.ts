@@ -17,6 +17,7 @@ import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ProfileStateService } from '../services/profile-state.service';
 import { StorageService } from '../services/storage.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-vault',
@@ -30,7 +31,8 @@ import { StorageService } from '../services/storage.service';
     MatProgressSpinnerModule,
     MatSnackBarModule,
     MatFormFieldModule,
-    MatInputModule
+    MatInputModule,
+    MatTooltipModule
   ],
   template: `
   <div class="vault-container" [class.dark]="darkMode()">
@@ -38,8 +40,16 @@ import { StorageService } from '../services/storage.service';
     <header class="vault-header">
       <div class="header-content">
         <div class="header-icon-wrapper">
-          <mat-icon class="vault-icon">shield</mat-icon>
-        </div>
+              <!-- Custom SVG Keyhole Shield -->
+              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  class="custom-shield">
+                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+              </svg>
+            </div>
         <h1>Identity Vault</h1>
         <p class="subtitle">
           Securely manage your sovereign digital identity. Connect your wallet to control your credentials, contexts, and consents.
@@ -336,21 +346,28 @@ import { StorageService } from '../services/storage.service';
     }
 
     .header-icon-wrapper {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 1.5rem;
-      background: linear-gradient(135deg, #6366f1, #a78bfa);
-      border-radius: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.35);
-    }
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.45);
+  overflow: hidden;                    /* keeps SVG clean */
+  transition: transform 0.3s ease;
+}
 
-    .vault-icon {
-      font-size: 44px;
-      color: white;
-    }
+  .header-icon-wrapper:hover {
+    transform: scale(1.08);
+  }
+
+  .custom-shield {
+    width: 56px;                         /* adjust size as needed */
+    height: 56px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+  }
 
     h1 {
       font-size: 3rem;

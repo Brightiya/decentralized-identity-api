@@ -29,6 +29,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { WalletService } from './services/wallet.service';
 import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-root',
@@ -45,7 +46,8 @@ import { ThemeService } from './services/theme.service';
     MatListModule,
     MatSlideToggleModule,
     MatMenuModule,
-    MatBadgeModule
+    MatBadgeModule,
+    MatTooltipModule
   ],
   template: `
     <mat-sidenav-container 
@@ -302,18 +304,6 @@ import { ThemeService } from './services/theme.service';
       margin-top: 2px;
     }
 
-    .header-icon-wrapper {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 20px;
-    background: linear-gradient(135deg, #6366f1, #a78bfa);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 24px rgba(99,102,241,0.4);
-  }
-
   .header-icon {
     font-size: 42px;
     color: white;
@@ -548,6 +538,27 @@ import { ThemeService } from './services/theme.service';
         justify-content: center;
       }
     }
+
+    @media (max-width: 360px) {
+  button,
+  .actions button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+  }
+
+  .consents-scroll-container {
+    max-height: 240px;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+  }
+}
   `]
 })
 

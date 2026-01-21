@@ -14,6 +14,7 @@ import { of } from 'rxjs';
 import { ThemeService } from '../../../services/theme.service';
 import { ApiService } from '../../../services/api.service';
 import { WalletService } from '../../../services/wallet.service';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 interface Consent {
   claimId: string;
@@ -35,7 +36,8 @@ interface Consent {
     MatSnackBarModule,
     MatListModule,
     MatDividerModule,
-    MatDialogModule
+    MatDialogModule,
+    MatTooltipModule
   ],
   template: `
     <div class="privacy-container" [class.dark]="darkMode()">

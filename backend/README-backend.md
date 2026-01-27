@@ -33,25 +33,37 @@ Example endpoints
 
   1. Connect as the default superuser (no password needed)
    Run this — it will connect without asking for a password:
-   brew services start postgresql
-   psql postgres
+
+      brew install postgresql (If you do not have it yet)
+      brew services start postgresql
+      psql postgres
 
   2. Create the pimv_user and pimv_db exactly as in your .env
    Inside the psql prompt, run these commands one by one:
-   CREATE USER pimv_user WITH PASSWORD 'strongpassword' CREATEDB;
+   CREATE USER pimv_user WITH PASSWORD 'strongpassword';
 
    CREATE DATABASE pimv_db OWNER pimv_user;
 
    -- Optional: Grant all privileges (good for dev)
    GRANT ALL PRIVILEGES ON DATABASE pimv_db TO pimv_user;
    Then quit: \q
- 3. Now run your schema file:
-    psql "$DATABASE_URL" -f backend/db/schema.sq(if this fails), run:
+
+ 1. Now run your schema file:
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
- 4. test with:
+ 2. test the DB:
     psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db
 // Generate a strong JWT_SECRET:
      openssl rand -base64 48
+
+//Clear Yarn cache & reinstall (most common fix):
+yarn cache clean --all
+yarn install
+
+// Reinstall Jest locally in backend workspace:
+yarn workspace decentralized-identity-backend add --dev jest ts-jest @jest/globals
+// To run test from root:
+yarn workspace decentralized-identity-backend run test or
+yarn test:backend
 
 did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  name

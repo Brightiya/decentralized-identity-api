@@ -707,24 +707,24 @@ export class VerifierComponent {
   const search = this.purposeValue?.toLowerCase().trim() || '';
   const currentContext = this.selectedContext()?.toLowerCase() || '';
 
-  let claims = [...this.suggestedClaims()]; // backend already sorted newest first
+  let claims = [...this.suggestedClaims()];
 
+  // FILTER out other contexts
   if (currentContext) {
-    const contextMatches = claims.filter(claim =>
-      (claim.context || '').toLowerCase() === currentContext
+    claims = claims.filter(
+      claim => (claim.context || '').toLowerCase() === currentContext
     );
-    const otherClaims = claims.filter(claim =>
-      (claim.context || '').toLowerCase() !== currentContext
-    );
-    claims = [...contextMatches, ...otherClaims];
   }
 
+  // If user hasn't typed anything just return context-filtered claims
   if (!search) return claims;
 
+  // Filter by search text
   return claims.filter(claim =>
-    claim.purpose.toLowerCase().includes(search)
+    (claim.purpose || '').toLowerCase().includes(search)
   );
 });
+
 
 getRelativeTime(dateStr: string | null): string {
   if (!dateStr) return 'recent';

@@ -10,30 +10,56 @@
   ],
   "scripts": {
     "lint": "yarn eslint .",
-    "postinstall": "yarn --cwd backend install --mode=skip-build && yarn --cwd frontend install --mode=skip-build"
-  },
-  "devDependencies": {
-    "env-paths": "^3.0.0",
-    "eslint": "^9.38.0"
-  },
-  "engines": {
-    "node": ">=22.10.0"
+    "postinstall": "yarn --cwd backend install --mode=skip-build && yarn --cwd frontend install --mode=skip-build",
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --forceExit",
+    "test:backend": "node --experimental-vm-modules ./node_modules/.bin/jest backend/test/**/*.test.js --forceExit",
+    "test:frontend": "yarn workspace frontend test",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --forceExit"
   },
   "dependencies": {
-    "@lmdb/lmdb-darwin-x64": "3.0.12",
-    "@pinata/sdk": "^2.1.0",
-    "ethers": "6",
-    "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1",
-    "node-fetch": "^3.3.2",
-    "siwe": "^3.0.0",
-    "typescript": "^5.4.5"
+    "typescript": "5.4.5"
   },
   "resolutions": {
-    "typescript": "5.4.5",
-    "esbuild": "0.23.0",
-    "lmdb": "3.0.12",
-    "@lmdb/lmdb-darwin-x64": "3.0.12",
-    "@angular-devkit/build-angular": "17.3.10"
+    "typescript": "5.4.5"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "env-paths": "^3.0.0",
+    "eslint": "^9.38.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "extensionsToTreatAsEsm": [],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testSequencer": "<rootDir>/backend/test/testSequencer.js",
+    "transform": {},
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(@pinata/sdk|ethers|siwe|jsonwebtoken|multiformats)/)"
+    ],
+    "setupFiles": [
+      "<rootDir>/backend/test/jest-dotenv-setup.js",
+      "<rootDir>/backend/test/setup-pinata-mock.js",
+      "<rootDir>/backend/test/setup-contract-mock.js"
+    ],
+    "globalSetup": "<rootDir>/backend/test/global-setup.js",
+    "setupFilesAfterEnv": [
+      "<rootDir>/backend/test/setup.js"
+    ],
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ],
+    "collectCoverage": true,
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov"
+    ],
+    "globals": {
+      "DOTENV_CONFIG_PATH": "./backend/.env.test"
+    }
   }
 }

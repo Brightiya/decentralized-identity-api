@@ -13,6 +13,11 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
+      mining: {
+        auto: false,               // ← DISABLE automining
+        interval: 5000             // optional: mine every 5s
+      },
+      
     },
     localhost: {
       url: "http://127.0.0.1:8545",

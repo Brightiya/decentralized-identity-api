@@ -378,12 +378,14 @@ export const verifyVC = async (req, res) => {
         WHERE subject_did = $1
           AND claim_id = $2
           AND purpose = $3
-          AND context = $4
+          AND (verifier_did IS NULL OR verifier_did = $4)
+          AND context = $5
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         LIMIT 1
         `,
-        [subjectAddress, claimId, purpose, vcContext, context]
+        [subjectAddress, claimId, purpose, verifierAddress, context]
+
       );
 
       if (consentRes.rowCount === 0) {
@@ -404,10 +406,10 @@ export const verifyVC = async (req, res) => {
       await pool.query(
         ` 
         INSERT INTO disclosures
-          (subject_did, verifier_did, claim_id, purpose, context, consent, disclosed_at)
+          (subject_did, verifier_did, claim_id, purpose, consent, context, disclosed_at)
         VALUES ($1, $2, $3, $4, $5, $6, NOW())
         `,
-        [subjectAddress, verifierAddress, claimId, purpose, vcContext, context, true]
+        [subjectAddress, verifierAddress, claimId, purpose, true, context]
       );
     }
 

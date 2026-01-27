@@ -28,7 +28,12 @@ const provider = new ethers.JsonRpcProvider(
 
 // Hybrid mode check
 export function isHybridMode() {
-  return process.env.HYBRID_SIGNING === "true";
+  const hybrid = process.env.HYBRID_MODE || process.env.HYBRID_SIGNING;
+  const isHybrid = hybrid === "true" || hybrid === "1";
+  
+  console.log('[isHybridMode] Checked → HYBRID_MODE:', process.env.HYBRID_MODE, 'HYBRID_SIGNING:', process.env.HYBRID_SIGNING || 'unset', '→ Result:', isHybrid);
+  
+  return isHybrid;
 }
 
 // Create contract instance synchronously

@@ -13,6 +13,22 @@ jobs:
       PROVIDER_URL: http://127.0.0.1:8545
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       PINATA_JWT: ${{ secrets.PINATA_JWT }}
+      DATABASE_URL: postgresql://pimv_user:strongpassword@localhost:5432/pimv_db_test  # Use a test DB
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pimv_user
+          POSTGRES_PASSWORD: strongpassword
+          POSTGRES_DB: pimv_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -22,7 +38,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.10.0'
-          
 
       # Enable and activate Yarn 4.5.1 via Corepack
       - name: Enable Corepack
@@ -31,39 +46,44 @@ jobs:
       - name: Activate Yarn 4.5.1
         run: corepack prepare yarn@4.5.1 --activate
 
-      # Verify Yarn version
       - name: Verify Yarn version
         run: corepack yarn --version
 
-      # Use `corepack yarn` for all commands
       - name: Clear Yarn cache
         run: corepack yarn cache clean --all
 
       - name: Install dependencies
         run: corepack yarn install --frozen-lockfile --mode=skip-build
 
-      - name: Verify Hardhat
-        run: corepack yarn --cwd backend hardhat --version
-
+      # Start Hardhat node in background
       - name: Start Hardhat node
         run: |
           corepack yarn --cwd backend start:node &
-          echo "Hardhat node started"
           sleep 10
+          echo "Hardhat node started"
 
-      - name: Run backend tests
-        run: corepack yarn --cwd backend test:contracts
-
-      - name: Build frontend
-        run: corepack yarn --cwd frontend ng build --configuration production
-
-      - name: Deploy contract locally
+      # Deploy contracts (if needed for tests)
+      - name: Deploy contracts locally
         run: corepack yarn --cwd backend deploy:localhost
         env:
           PROVIDER_URL: http://127.0.0.1:8545
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PINATA_JWT: ${{ secrets.PINATA_JWT }}
 
-      - name: Check for errors
-        if: failure()
-        run: echo "CI failed"
+      # Run all Jest backend tests
+      - name: Run backend Jest tests
+        run: corepack yarn --cwd backend test
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      # Optional: Generate and upload coverage report
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}  # Add this secret in GitHub repo settings
+          files: ./backend/coverage/lcov.info
+        if: always()
+
+      # Build frontend (keep this if you still need it)
+      - name: Build frontend
+        run: corepack yarn --cwd frontend ng build --configuration production

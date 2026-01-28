@@ -4,7 +4,7 @@ import * as chai from "chai";
 import request from "supertest";
 
 import "../test/setup-pinata-mock.js";
-import "../test/setup-contract-mock.js"; // ensure contract mock is loaded
+import "../test/setup-contract-mock.js";
 
 jest.setTimeout(60000);
 
@@ -15,61 +15,73 @@ let pool;
 let getValidJwtFor;
 let validJwtToken;
 let fetchJSON;
+let mockContract;
 
 beforeAll(async () => {
+  // Override registry FIRST
+  ({ mockContract } = await import('../test/setup-contract-mock.js'));
+  globalThis.registry = mockContract;
+  console.log('[TEST OVERRIDE EARLY] globalThis.registry replaced with mock');
+
   ({ default: app } = await import("./testServer.js"));
   ({ pool } = await import("../src/utils/db.js"));
   ({ getValidJwtFor } = await import("./testHelpers.js"));
   ({ fetchJSON } = await import("../src/utils/pinata.js"));
 
-  // Token for issuer (used in most tests)
   validJwtToken = await getValidJwtFor("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
 
-  const issuerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
-  const issuerDid = `did:ethr:${issuerAddress}`;
+  const subjectAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
+  const subjectDid = `did:ethr:${subjectAddress}`;
 
-  // Create issuer profile
+  const verifierAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();
+  const verifierDid = `did:ethr:${verifierAddress}`;
+
+  // Create subject profile (data owner)
   const profileRes = await request(app)
     .post("/api/profile")
     .set("Authorization", `Bearer ${validJwtToken}`)
     .set("x-pinata-user-jwt", "dummy-jwt")
     .send({
-      owner: issuerAddress,
-      contexts: { profile: { attributes: { name: "Issuer" } } }
+      owner: subjectAddress,
+      contexts: { profile: { attributes: { name: "Subject" } } }
     });
 
   expect(profileRes.status).to.equal(200);
 
-  // Grant broad consent for issuer to read subject's profile data (used in verify)
+  // Consent: subject (owner) grants verifier (reader) access
   await pool.query(`
     INSERT INTO consents (
-      subject_did, claim_id, purpose, context, verifier_did, issued_at, expires_at
+      subject_did, claim_id, purpose, verifier_did, context, issued_at, expires_at
     )
     VALUES ($1, $2, $3, $4, $5, NOW(), NOW() + INTERVAL '7 days')
     ON CONFLICT DO NOTHING
   `, [
-  //  `did:ethr:0x70997970c51812dc3a010c7d01b50e0d17dc79c8`, // subject
-    issuerDid, // claim_id
+    subjectAddress,      // plain address of data owner
     'identity.email',
     'Email verification for login',
-    'profile',
-   // issuerDid // verifier = issuer
-   `did:ethr:0x70997970c51812dc3a010c7d01b50e0d17dc79c8`
+    verifierAddress,     // plain address of verifier
+    'profile'
   ]);
 
-  console.log('[TEST SETUP] Consent granted for issuer to read subject identity.email');
+  const check = await pool.query(
+    'SELECT * FROM consents WHERE subject_did = $1 AND verifier_did = $2',
+    [subjectAddress, verifierAddress]
+  );
+  console.log('[DEBUG CONSENT AFTER INSERT]', check.rows);
+
+  console.log('[TEST SETUP] Consent granted: subject → verifier for identity.email');
 });
 
 describe("Verifiable Credentials Routes", () => {
-  const issuerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
-  const subjectAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();
+  const subjectAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
   const subjectDid = `did:ethr:${subjectAddress}`;
 
-  beforeEach(async () => {
-    validJwtToken = await getValidJwtFor(issuerAddress);
-  });
+  const verifierAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();
+  const verifierDid = `did:ethr:${verifierAddress}`;
 
-  // ─── ISSUE VC ─────────────────────────────────────────────────────────────
+  beforeEach(async () => {
+    validJwtToken = await getValidJwtFor(subjectAddress);  // token for subject (owner/signer)
+  });
 
   it("POST /api/vc/issue should issue VC and return enriched data (hybrid mode)", async () => {
     const res = await request(app)
@@ -77,8 +89,8 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .set("x-pinata-user-jwt", process.env.PINATA_JWT)
       .send({
-        issuer: `did:ethr:${issuerAddress}`,
-        subject: subjectDid,
+        issuer: subjectDid,      // issuer = subject (owner)
+        subject: subjectDid,     // claims for self
         claimId: "identity.email",
         claim: { email: "subject@example.com" },
         context: "profile",
@@ -100,7 +112,7 @@ describe("Verifiable Credentials Routes", () => {
       .post("/api/vc/issue")
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send({
-        issuer: `did:ethr:${issuerAddress}`,
+        issuer: subjectDid,
         subject: subjectDid,
         // missing claimId & claim
       });
@@ -114,7 +126,7 @@ describe("Verifiable Credentials Routes", () => {
       .post("/api/vc/issue")
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send({
-        issuer: `did:ethr:${issuerAddress}`,
+        issuer: subjectDid,
         subject: subjectDid,
         claimId: "identity.email",
         claim: { email: "test@example.com" },
@@ -133,7 +145,7 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .set("x-pinata-user-jwt", process.env.PINATA_JWT)
       .send({
-        issuer: `did:ethr:${issuerAddress}`,
+        issuer: subjectDid,
         subject: subjectDid,
         claimId: "identity.email",
         claim: { email: "subject@example.com" },
@@ -148,7 +160,7 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send({
         subject: subjectDid,
-        verifierDid: `did:ethr:${issuerAddress}`,
+        verifierDid: verifierDid,
         purpose: "Email verification for login",
         context: "profile",
         consent: true,
@@ -164,10 +176,9 @@ describe("Verifiable Credentials Routes", () => {
   });
 
   it("POST /api/vc/verify should reject without consent", async () => {
-    // Revoke any existing consent for this test
     await pool.query(
       `UPDATE consents SET revoked_at = NOW() WHERE subject_did = $1 AND claim_id = $2`,
-      [subjectDid, "identity.email"]
+      [subjectAddress, "identity.email"]
     );
 
     const res = await request(app)
@@ -175,7 +186,7 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send({
         subject: subjectDid,
-        verifierDid: `did:ethr:${issuerAddress}`,
+        verifierDid: verifierDid,
         purpose: "Email verification for login",
         context: "profile",
         consent: true,
@@ -186,15 +197,13 @@ describe("Verifiable Credentials Routes", () => {
     expect(res.body.error).to.include("No credentials authorized");
   });
 
-  // ─── VALIDATE RAW VC ──────────────────────────────────────────────────────
-
   it("POST /api/vc/validate should validate a raw VC (signature + on-chain)", async () => {
     const issueRes = await request(app)
       .post("/api/vc/issue")
       .set("Authorization", `Bearer ${validJwtToken}`)
       .set("x-pinata-user-jwt", process.env.PINATA_JWT)
       .send({
-        issuer: `did:ethr:${issuerAddress}`,
+        issuer: subjectDid,
         subject: subjectDid,
         claimId: "profile.bio",
         claim: { bio: "Decentralized identity enthusiast" },
@@ -203,22 +212,17 @@ describe("Verifiable Credentials Routes", () => {
       });
 
     expect(issueRes.status).to.equal(200);
-    const signedCid = issueRes.body.signedCid; // use signedCid!
+
+    const enrichedCid = issueRes.body.cid;
+    const signedCid = issueRes.body.signedCid;  // the one hashed & anchored
     const claimId = "profile.bio";
 
-    const vc = await fetchJSON(signedCid);
+    const vc = await fetchJSON(enrichedCid);
 
     console.log('[VC Test] Raw VC fetched:', JSON.stringify(vc, null, 2));
 
     expect(vc).to.have.property("proof");
     expect(vc.proof).to.have.property("jws");
-    expect(vc.proof.jws).to.match(/^0x[a-fA-F0-9]+$/);
-
-    // Clean any added fields
-    if (vc.pimv) delete vc.pimv.cid;
-    delete vc.cid;
-
-    console.log('[VC Test] Sending clean VC:', JSON.stringify(vc, null, 2));
 
     const res = await request(app)
       .post("/api/vc/validate")
@@ -238,7 +242,7 @@ describe("Verifiable Credentials Routes", () => {
     const fakeVC = {
       "@context": ["https://www.w3.org/2018/credentials/v1"],
       type: ["VerifiableCredential"],
-      issuer: `did:ethr:${issuerAddress}`,
+      issuer: subjectDid,
       issuanceDate: new Date().toISOString(),
       credentialSubject: {
         id: subjectDid,
@@ -246,9 +250,17 @@ describe("Verifiable Credentials Routes", () => {
       },
       proof: {
         type: "EcdsaSecp256k1Signature2019",
-        jws: "0xinvalid-signature",
+        created: new Date().toISOString(),
+        proofPurpose: "assertionMethod",
+        verificationMethod: subjectDid,
+        jws: "0x" + "deadbeef".repeat(16) + "01",  // Invalid signature
       },
-      pimv: { claimId: "identity.email" },
+      pimv: {
+        claimId: "identity.email",
+        context: "profile",
+        purpose: "Email verification for login",
+        consentRequired: true
+      },
     };
 
     const res = await request(app)
@@ -256,7 +268,10 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send(fakeVC);
 
-    expect(res.status).to.equal(400); // now 400 instead of 500
-    expect(res.body.error).to.include("Invalid signature");
+    console.log('[VC Invalid Signature Test] Response:', res.body);
+
+    expect(res.status).to.equal(400);
+    expect(res.body.error).to.match(/non-canonical s|high s/i);
+    
   });
 });

@@ -1,58 +1,57 @@
 // backend/test/setup-contract-mock.js
 import { jest } from '@jest/globals';
-import { ethers } from "ethers"; // needed for ethers.ZeroHash
+import { ethers } from "ethers";
 
-// Per-address state: address → last uploaded profile CID
-const profileCids = new Map(); // string (address) → string (CID)
+// State
+const profileCids = new Map();
+const claims = new Map();
 
+const normalizeAddress = (addr) => (addr || '').toLowerCase();
+
+const mockContract = {
+  target: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  getProfileCID: jest.fn(async (address) => profileCids.get(normalizeAddress(address)) || ethers.ZeroHash),
+  getClaim: jest.fn(async (address, claimIdBytes32) => {
+    const key = `${normalizeAddress(address)}:${claimIdBytes32}`;
+    return claims.get(key) || ethers.ZeroHash;
+  }),
+  // No write methods - hybrid mode doesn't call them
+};
+
+// Force hybrid mode globally for tests
 jest.unstable_mockModule('../src/utils/contract.js', () => {
-  const mockContractInstance = {
-    target: '0x5FbDB2315678afecb367f032d93F642f64180aa3', // fake contract address
-
-    getProfileCID: jest.fn(async (address) => {
-      const addr = address.toLowerCase();
-      console.log('[MOCK contract] getProfileCID called for:', addr);
-      return profileCids.get(addr) || ethers.ZeroHash;
-    }),
-
-    setProfileCID: jest.fn(async (address, cid) => {
-      const addr = address.toLowerCase();
-      console.log('[MOCK contract] setProfileCID mocked call:', { address: addr, cid });
-      profileCids.set(addr, cid);
-      console.log('[MOCK contract] Stored profile CID for', addr, ':', cid);
-      return { hash: '0xmocktxhash_setProfileCID' };
-    }),
-
-    setClaim: jest.fn(async (...args) => {
-      console.log('[MOCK contract] setClaim mocked call:', args);
-      return { hash: '0xmocktxhash_setClaim' };
-    }),
-
-    // Add any other contract methods your code calls
-  };
-
   return {
-    isHybridMode: jest.fn(() => true),
+    isHybridMode: jest.fn(() => true), // FORCE HYBRID - no backend signing
 
     prepareUnsignedTx: jest.fn(async (methodName, ...args) => {
-      console.log('[MOCK contract] prepareUnsignedTx called:', methodName, args);
+      console.log('[MOCK] prepareUnsignedTx:', methodName, args);
+      // Simulate state update (as if tx was mined later)
       if (methodName === 'setProfileCID') {
-        const addr = args[0].toLowerCase(); // first arg = subjectAddress
-        const cid = args[1];
-        profileCids.set(addr, cid);
-        console.log('[MOCK contract] Stored new profile CID for', addr, ':', cid);
+        const [addr, cid] = args;
+        profileCids.set(normalizeAddress(addr), cid);
+      } else if (methodName === 'setClaim') {
+        const [addr, id, hash] = args;
+        claims.set(`${normalizeAddress(addr)}:${id}`, hash);
       }
       return {
-        to: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-        nonce: '(let frontend resolve)',
-        gasLimit: '400000'
+        to: mockContract.target,
+        data: '0xmockdata',
+        gasLimit: '450000'
       };
     }),
 
-    // Critical: provide both default and named export
-    default: mockContractInstance,
-    contract: mockContractInstance,
+    default: mockContract,
+    contract: mockContract,
   };
 });
 
-console.log('[TEST SETUP] Contract mocked with per-address stateful profile CID');
+// Also mock ethers.Contract (for safety)
+jest.mock('ethers', () => {
+  const original = jest.requireActual('ethers');
+  return {
+    ...original,
+    Contract: jest.fn(() => mockContract),
+  };
+});
+
+console.log('[TEST SETUP] Forced HYBRID MODE + mocked contract');

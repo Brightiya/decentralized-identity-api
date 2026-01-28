@@ -11,10 +11,10 @@
   "scripts": {
     "lint": "yarn eslint .",
     "postinstall": "yarn --cwd backend install --mode=skip-build && yarn --cwd frontend install --mode=skip-build",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --forceExit",
-    "test:backend": "node --experimental-vm-modules ./node_modules/.bin/jest backend/test/**/*.test.js --forceExit",
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest --detectOpenHandles --forceExit",
+    "test:backend": "node --experimental-vm-modules ./node_modules/.bin/jest backend/test/**/*.test.js --detectOpenHandles --forceExit",
     "test:frontend": "yarn workspace frontend test",
-    "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --forceExit"
+    "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --detectOpenHandles --forceExit"
   },
   "dependencies": {
     "typescript": "5.4.5"

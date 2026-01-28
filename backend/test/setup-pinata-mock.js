@@ -1,47 +1,89 @@
 // backend/test/setup-pinata-mock.js
 import { jest } from '@jest/globals';
 
-// In-memory storage for uploaded content
-const pinataStorage = new Map(); // cid → content
+// In-memory storage: cid → content
+const pinataStorage = new Map(); // string → any (usually object)
 
-// Mock @pinata/sdk (optional, if you still use it directly)
+/**
+ * Generate a deterministic-looking mock CID for tests
+ * Uses timestamp + random suffix to avoid collisions in the same test run
+ */
+function generateMockCid(prefix = 'QmMockTestCid_') {
+  const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `${prefix}${timestamp}${random}`;
+}
+
+// ────────────────────────────────────────────────
+// Mock the original @pinata/sdk (if any code still imports it directly)
 jest.unstable_mockModule('@pinata/sdk', () => ({
   default: jest.fn().mockImplementation(() => ({
-    pinJSONToIPFS: jest.fn(async (json) => {
-      const cid = `QmMockTestCid_${Date.now()}`;
+    pinJSONToIPFS: jest.fn(async (json, options) => {
+      const cid = generateMockCid();
       pinataStorage.set(cid, json);
-      console.log('[MOCK SDK] Pinned JSON with CID:', cid);
+      console.log('[MOCK SDK pinJSONToIPFS] Pinned JSON → CID:', cid);
       return { IpfsHash: cid };
     }),
-    unpin: jest.fn(async () => true),
-    pinFileToIPFS: jest.fn(async () => ({ IpfsHash: `QmMockFile_${Date.now()}` })),
+    pinFileToIPFS: jest.fn(async (file, options) => {
+      const cid = generateMockCid('QmMockFile_');
+      console.log('[MOCK SDK pinFileToIPFS] Pinned file → CID:', cid);
+      return { IpfsHash: cid };
+    }),
+    unpin: jest.fn(async (cid) => {
+      pinataStorage.delete(cid);
+      console.log('[MOCK SDK] Unpinned CID:', cid);
+      return true;
+    }),
   })),
 }));
 
-
-
-// Mock your own pinata wrapper (the one actually used in controllers)
+// ────────────────────────────────────────────────
+// Mock the project's own Pinata wrapper (used by controllers)
 jest.unstable_mockModule('../src/utils/pinata.js', () => {
   return {
+    /**
+     * @param {any} json - The content to "upload"
+     * @param {string} [jwt] - Ignored in mock
+     * @param {string|null} [nftKey] - Ignored in mock
+     * @returns {Promise<string>} ipfs://CID
+     */
     uploadJSON: jest.fn(async (json, jwt, nftKey) => {
       console.log('[MOCK wrapper] uploadJSON called with data:', JSON.stringify(json, null, 2));
-      const cid = `QmMockTestCid_${Date.now()}`;
-      pinataStorage.set(cid, json); // Remember what was uploaded
+
+      const cid = generateMockCid();
+      pinataStorage.set(cid, json);
+
+      console.log(`[MOCK wrapper] Stored content under CID: ${cid}`);
+
+      // Optional: simulate network delay (uncomment for more realistic testing)
+      // await new Promise(r => setTimeout(r, 80 + Math.random() * 120));
+
       return `ipfs://${cid}`;
     }),
 
+    /**
+     * @param {string} cidOrUrl - ipfs://CID, /ipfs/CID, or bare CID
+     * @returns {Promise<any>} The stored content or fallback DID doc
+     */
     fetchJSON: jest.fn(async (cidOrUrl) => {
-      const cid = cidOrUrl.replace('ipfs://', '').split('/')[0]; // clean up
+      // Normalize different possible CID formats
+      let cid = cidOrUrl
+        .replace(/^ipfs:\/\//i, '')
+        .replace(/^\/ipfs\//i, '')
+        .split('/')[0]          // take first segment after /ipfs/
+        .split('?')[0];         // remove query params if any
+
       console.log('[MOCK wrapper] fetchJSON called for CID:', cid);
 
       const content = pinataStorage.get(cid);
+
       if (content) {
         console.log('[MOCK wrapper] Returning stored content for CID:', cid);
         return content;
       }
 
-      // Fallback for unknown CID (e.g. test fake CIDs)
-      console.log('[MOCK wrapper] No stored content → returning fallback DID doc');
+      console.log('[MOCK wrapper] No stored content → returning fallback DID document');
+
       return {
         "@context": ["https://www.w3.org/ns/did/v1"],
         id: "did:ethr:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
@@ -56,12 +98,16 @@ jest.unstable_mockModule('../src/utils/pinata.js', () => {
       };
     }),
 
+    /**
+     * @param {string} cid
+     * @returns {Promise<boolean>}
+     */
     unpinCID: jest.fn(async (cid) => {
       console.log('[MOCK wrapper] unpinCID called for:', cid);
-      pinataStorage.delete(cid);
-      return true;
+      const existed = pinataStorage.delete(cid);
+      return existed; // return true if something was actually removed
     })
   };
 });
 
-console.log('[TEST SETUP] Pinata SDK + wrapper FULLY MOCKED with stateful storage (ESM mode)');
+console.log('[TEST SETUP] Pinata SDK + custom wrapper FULLY MOCKED (stateful in-memory storage)');

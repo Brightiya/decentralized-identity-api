@@ -2,6 +2,7 @@
 import express from "express";
 import {
   getDisclosuresBySubject,
+  getDisclosuresByVerifier,
   exportDisclosuresForSubject
 } from "../controllers/disclosureController.js";
 
@@ -9,6 +10,9 @@ const router = express.Router();
 
 // GDPR Art. 15 — subject access
 router.get("/subject/:subjectDid", getDisclosuresBySubject);
+
+// GDPR accountability — verifier audit trail
+router.get("/verifier/:verifierDid", getDisclosuresByVerifier);
 
 // ✅ GDPR Art. 15 export
 // Administrative / API-only GDPR export (not used by UI)

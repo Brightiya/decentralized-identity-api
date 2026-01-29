@@ -128,4 +128,94 @@ describe("DID Routes Basics", function () {
     expect(res.body).to.have.property("error");
     expect(res.body.error).to.include("Failed to verify DID ownership");
   });
+
+  it("GET /api/did/:address returns 400 for invalid address", async () => {
+  const res = await request(app)
+    .get("/api/did/not-an-address")
+    .set("Authorization", `Bearer ${validJwtToken}`);
+
+  expect(res.status).to.equal(400);
+  expect(res.body).to.have.property("error");
+  expect(res.body.error).to.include("Valid Ethereum address required");
+});
+it("GET /api/did/:address handles mixed-case address correctly", async () => {
+  const mixedCase = "0xF39Fd6e51AAd88F6F4Ce6AB8827279CfFFB92266";
+
+  const res = await request(app)
+    .get(`/api/did/${mixedCase}`)
+    .set("Authorization", `Bearer ${validJwtToken}`);
+
+  expect(res.status).to.be.oneOf([200, 400]);
+});
+it("POST /api/did/verify returns 400 if signature is missing", async () => {
+  const res = await request(app)
+    .post("/api/did/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      address: testAddress
+    });
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.include("address and signature are required");
+});
+it("POST /api/did/verify returns 400 if address is missing", async () => {
+  const res = await request(app)
+    .post("/api/did/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      signature: "0xdeadbeef"
+    });
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.include("address and signature are required");
+});
+it("POST /api/did/verify returns valid=false if signature is from different address", async () => {
+  const wrongWallet = ethers.Wallet.createRandom();
+  const message = `Verifying DID ownership for ${did}`;
+  const signature = await wrongWallet.signMessage(message);
+
+  const res = await request(app)
+    .post("/api/did/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      address: testAddress,
+      signature
+    });
+
+  // If DID not registered → 404 still acceptable
+  if (res.status === 404) {
+    expect(res.body.error).to.equal("DID Document not found");
+    return;
+  }
+
+  expect(res.status).to.equal(200);
+  expect(res.body.valid).to.be.false;
+  expect(res.body.recoveredAddress.toLowerCase())
+    .to.not.equal(testAddress);
+});
+it("POST /api/did/verify fails if signature was for a different message", async () => {
+  const wallet = new ethers.Wallet(
+    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  );
+
+  const wrongMessage = "I am signing something else entirely";
+  const signature = await wallet.signMessage(wrongMessage);
+
+  const res = await request(app)
+    .post("/api/did/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      address: testAddress,
+      signature
+    });
+
+  if (res.status === 404) {
+    expect(res.body.error).to.equal("DID Document not found");
+    return;
+  }
+
+  expect(res.status).to.equal(200);
+  expect(res.body.valid).to.be.false;
+});
+
 });

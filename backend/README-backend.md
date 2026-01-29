@@ -65,6 +65,17 @@ yarn workspace decentralized-identity-backend add --dev jest ts-jest @jest/globa
 yarn workspace decentralized-identity-backend run test or
 yarn test:backend
 
+Option C: Document intent (very senior move)
+
+Add a short note in your test README:
+
+“Some tests intentionally trigger cryptographic validation failures.
+Logged errors during test execution are expected and do not indicate failures.”
+
+At the unsafe context test:
+// Unsafe context values are silently ignored by design
+// to avoid leaking sanitization details or failing valid requests
+
 did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8
  name
  QmZpGkFJyxyF5SKu9PXPyN8y5EMb1PPEtHMm7ESeYFCewL

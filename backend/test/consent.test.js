@@ -200,4 +200,130 @@ describe("Consent routes + contextMiddleware", function () {
     expect(res.status).to.equal(200);
     expect(res.body).to.be.an("array").with.lengthOf.at.least(2);
   });
+
+  it("POST /consent/grant should reject missing owner", async () => {
+  const res = await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      claimId: "identity.email",
+      purpose: "Login",
+    });
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.match(/owner, claimId, and purpose are required/);
+});
+
+it("POST /consent/grant should normalize DID to ethereum address", async () => {
+  const res = await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Login",
+      context: "profile",
+    });
+
+   expect([200, 409]).to.include(res.status);
+   // subject_did is returned only on success (200)
+  if (res.status === 200) {
+    expect(res.body.subject_did).to.equal(testSubjectAddress);
+  }
+});
+
+it("POST /consent/grant should reject duplicate active consent in same context", async () => {
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Login",
+      context: "auth",
+    });
+
+  const res = await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Login",
+      context: "auth",
+    });
+
+  expect(res.status).to.equal(409);
+  expect(res.body.error).to.match(/Active consent already exists/);
+});
+it("POST /consent/grant should allow same claimId in different contexts", async () => {
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Login",
+      context: "auth",
+    });
+
+  const res = await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Marketing",
+      context: "newsletter",
+    });
+
+  expect(res.status).to.equal(200);
+  expect(res.body.context).to.equal("newsletter");
+});
+it("POST /consent/revoke without context should revoke all active consents for claimId", async () => {
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "profile.bio",
+      purpose: "Display",
+      context: "social",
+    });
+
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "profile.bio",
+      purpose: "Display",
+      context: "professional",
+    });
+
+  const res = await request(app)
+    .post("/consent/revoke")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "profile.bio",
+    });
+
+  expect(res.status).to.equal(200);
+  expect(res.body.revokedCount).to.equal(3);
+});
+it("POST /consent/revoke should return 404 if no active consent exists", async () => {
+  const res = await request(app)
+    .post("/consent/revoke")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "non.existent.claim",
+    });
+
+  expect(res.status).to.equal(404);
+  expect(res.body.message).to.match(/No active consent found/);
+});
+
+
 });

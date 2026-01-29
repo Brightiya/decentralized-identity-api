@@ -64,5 +64,39 @@ describe("Disclosure routes (GDPR Art. 15 & accountability)", function () {
     expect(res.body.disclosures[0]).to.have.property("purpose");
   });
 
-  // Removed the verifier test because the route does not exist in the app
+  it("GET /disclosures/subject should fail without subjectDid", async () => {
+  const res = await request(app).get("/disclosures/subject/");
+
+  expect(res.status).to.equal(404); // or 400 depending on router
+});
+it("should ignore unsafe context filter instead of failing", async () => {
+  const res = await request(app).get(
+    `/disclosures/subject/${subjectDid}?context=';DROP TABLE disclosures;--`
+  );
+
+  expect(res.status).to.equal(200);
+  expect(res.body.disclosures).to.have.lengthOf.at.least(3);
+});
+it("should support pagination with limit and offset", async () => {
+  const res = await request(app).get(
+    `/disclosures/subject/${subjectDid}?limit=1&offset=1`
+  );
+
+  expect(res.status).to.equal(200);
+  expect(res.body.disclosures).to.have.lengthOf(1);
+  expect(res.body.totalDisclosures).to.equal(3);
+});
+it("GET /disclosures/verifier/:verifierDid should return audit trail", async () => {
+  const verifierDid = `did:ethr:${testVerifierAddress}`;
+
+  const res = await request(app).get(
+    `/disclosures/verifier/${verifierDid}`
+  );
+
+  expect(res.status).to.equal(200);
+  expect(res.body.disclosures).to.be.an("array").that.has.lengthOf.at.least(3);
+  expect(res.body.disclosures[0]).to.have.property("subject_did");
+});
+
+  
 });

@@ -45,13 +45,6 @@ jest.unstable_mockModule('../src/utils/contract.js', () => {
   };
 });
 
-// Also mock ethers.Contract (for safety)
-jest.mock('ethers', () => {
-  const original = jest.requireActual('ethers');
-  return {
-    ...original,
-    Contract: jest.fn(() => mockContract),
-  };
-});
+
 
 console.log('[TEST SETUP] Forced HYBRID MODE + mocked contract');

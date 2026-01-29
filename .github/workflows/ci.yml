@@ -1,19 +1,27 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+
     env:
+      NODE_ENV: test
+
+      # App env
+      DATABASE_URL: postgresql://pimv_user:strongpassword@localhost:5432/pimv_db_test
+      PINATA_JWT: test-pinata-jwt-placeholder
+      PRIVATE_KEY: 0x59c6995e998f97a5a0044976f8d1c1d2b5e7c6fbeae2c0e8bcbf5f3e6b8c9d12
+
+      # Defensive: ensure no accidental chain access
       PROVIDER_URL: http://127.0.0.1:8545
-      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-      PINATA_JWT: ${{ secrets.PINATA_JWT }}
-      DATABASE_URL: postgresql://pimv_user:strongpassword@localhost:5432/pimv_db_test  # Use a test DB
+      HYBRID_MODE: "true"
 
     services:
       postgres:
@@ -25,65 +33,69 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U pimv_user"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
+      # ───────────────────────────────
+      # Checkout
+      # ───────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ───────────────────────────────
+      # Node + Yarn
+      # ───────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.10.0'
+          node-version: 20
+          cache: yarn
 
-      # Enable and activate Yarn 4.5.1 via Corepack
       - name: Enable Corepack
         run: corepack enable
 
       - name: Activate Yarn 4.5.1
         run: corepack prepare yarn@4.5.1 --activate
 
-      - name: Verify Yarn version
-        run: corepack yarn --version
+      - name: Verify Yarn
+        run: yarn --version
 
-      - name: Clear Yarn cache
-        run: corepack yarn cache clean --all
-
+      # ───────────────────────────────
+      # Install deps
+      # ───────────────────────────────
       - name: Install dependencies
-        run: corepack yarn install --frozen-lockfile --mode=skip-build
+        run: yarn install --immutable
 
-      # Start Hardhat node in background
-      - name: Start Hardhat node
-        run: |
-          corepack yarn --cwd backend start:node &
-          sleep 10
-          echo "Hardhat node started"
-
-      # Deploy contracts (if needed for tests)
-      - name: Deploy contracts locally
-        run: corepack yarn --cwd backend deploy:localhost
-        env:
-          PROVIDER_URL: http://127.0.0.1:8545
-          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
-
-      # Run all Jest backend tests
+      # ───────────────────────────────
+      # Backend tests (NO Hardhat)
+      # ───────────────────────────────
       - name: Run backend Jest tests
-        run: corepack yarn --cwd backend test
+        working-directory: backend
+        run: |
+          yarn test \
+            --runInBand \
+            --detectOpenHandles \
+            --forceExit
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
-      # Optional: Generate and upload coverage report
+      # ───────────────────────────────
+      # Coverage upload
+      # ───────────────────────────────
       - name: Upload coverage report
+        if: always()
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}  # Add this secret in GitHub repo settings
-          files: ./backend/coverage/lcov.info
-        if: always()
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage/lcov.info
+          fail_ci_if_error: false
 
-      # Build frontend (keep this if you still need it)
+      # ───────────────────────────────
+      # Frontend build (optional)
+      # ───────────────────────────────
       - name: Build frontend
-        run: corepack yarn --cwd frontend ng build --configuration production
+        working-directory: frontend
+        run: yarn ng build --configuration production

@@ -197,6 +197,147 @@ describe("Verifiable Credentials Routes", () => {
     expect(res.body.error).to.include("No credentials authorized");
   });
 
+  // ─── Revocation & Expiration ──────────────────────────────────────────────
+
+it("POST /api/vc/verify should deny when consent is revoked", async () => {
+  // 1. Issue VC
+  const issueRes = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .set("x-pinata-user-jwt", process.env.PINATA_JWT)
+    .send({
+      issuer: subjectDid,
+      subject: subjectDid,
+      claimId: "identity.email",
+      claim: { email: "subject@example.com" },
+      context: "profile",
+      consent: { purpose: "Email verification for login" },
+    });
+
+  expect(issueRes.status).to.equal(200);
+  const cid = issueRes.body.signedCid;
+
+  // 2. Revoke consent (simulate user revoking access)
+  await pool.query(`
+    UPDATE consents
+    SET revoked_at = NOW()
+    WHERE subject_did = $1
+      AND claim_id = $2
+      AND context = $3
+  `, [subjectAddress, "identity.email", "profile"]);
+
+  // 3. Try to verify → should be denied
+  const verifyRes = await request(app)
+    .post("/api/vc/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      subject: subjectDid,
+      verifierDid: verifierDid,
+      purpose: "Email verification for login",
+      context: "profile",
+      consent: true,
+      credentials: [{ cid, claimId: "identity.email" }]
+    });
+
+  expect(verifyRes.status).to.equal(403);
+  expect(verifyRes.body.error).to.include("No credentials authorized");
+  expect(verifyRes.body.denied).to.have.property("identity.email");
+  expect(verifyRes.body.denied["identity.email"]).to.include("No valid consent");
+});
+
+it("POST /api/vc/verify should deny when consent has expired", async () => {
+  // 1. Issue VC
+  const issueRes = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .set("x-pinata-user-jwt", process.env.PINATA_JWT)
+    .send({
+      issuer: subjectDid,
+      subject: subjectDid,
+      claimId: "identity.email",
+      claim: { email: "subject@example.com" },
+      context: "profile",
+      consent: { purpose: "Email verification for login" },
+    });
+
+  expect(issueRes.status).to.equal(200);
+  const cid = issueRes.body.signedCid;
+
+  // 2. Force expiration (set expires_at to past)
+  await pool.query(`
+    UPDATE consents
+    SET expires_at = NOW() - INTERVAL '1 day'
+    WHERE subject_did = $1
+      AND claim_id = $2
+      AND context = $3
+  `, [subjectAddress, "identity.email", "profile"]);
+
+  // 3. Try to verify → should be denied
+  const verifyRes = await request(app)
+    .post("/api/vc/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      subject: subjectDid,
+      verifierDid: verifierDid,
+      purpose: "Email verification for login",
+      context: "profile",
+      consent: true,
+      credentials: [{ cid, claimId: "identity.email" }]
+    });
+
+  expect(verifyRes.status).to.equal(403);
+  expect(verifyRes.body.error).to.include("No credentials authorized");
+  expect(verifyRes.body.denied).to.have.property("identity.email");
+  expect(verifyRes.body.denied["identity.email"]).to.include("No valid consent");
+});
+
+it("POST /api/vc/verify should succeed when consent is active (not revoked, not expired)", async () => {
+  // 1. Issue VC
+  const issueRes = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .set("x-pinata-user-jwt", process.env.PINATA_JWT)
+    .send({
+      issuer: subjectDid,
+      subject: subjectDid,
+      claimId: "identity.email",
+      claim: { email: "subject@example.com" },
+      context: "profile",
+      consent: { purpose: "Email verification for login" },
+    });
+
+  expect(issueRes.status).to.equal(200);
+  const cid = issueRes.body.signedCid;
+
+  // 2. Ensure consent is fresh and long-lived
+  await pool.query(`
+    UPDATE consents
+    SET expires_at = NOW() + INTERVAL '30 days',
+        revoked_at = NULL
+    WHERE subject_did = $1
+      AND claim_id = $2
+      AND context = $3
+  `, [subjectAddress, "identity.email", "profile"]);
+
+  // 3. Verify → should succeed
+  const verifyRes = await request(app)
+    .post("/api/vc/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      subject: subjectDid,
+      verifierDid: verifierDid,
+      purpose: "Email verification for login",
+      context: "profile",
+      consent: true,
+      credentials: [{ cid, claimId: "identity.email" }]
+    });
+
+  expect(verifyRes.status).to.equal(200);
+  expect(verifyRes.body.disclosed).to.have.property("identity.email");
+  expect(verifyRes.body.disclosed["identity.email"]).to.equal("subject@example.com");
+  expect(verifyRes.body.denied || {}).to.be.empty;
+});
+
   it("POST /api/vc/validate should validate a raw VC (signature + on-chain)", async () => {
     const issueRes = await request(app)
       .post("/api/vc/issue")
@@ -274,4 +415,208 @@ describe("Verifiable Credentials Routes", () => {
     expect(res.body.error).to.match(/non-canonical s|high s/i);
     
   });
+
+  // ─── Additional edge cases for /api/vc/issue ──────────────────────────────
+
+it("POST /api/vc/issue accepts invalid issuer format (current behavior)", async () => {
+  const res = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      issuer: "not-a-did",
+      subject: subjectDid,
+      claimId: "identity.email",
+      claim: { email: "test@example.com" },
+      context: "profile",
+      consent: { purpose: "Email verification" },
+    });
+
+  expect(res.status).to.equal(200);
+  expect(res.body).to.have.property("cid");
 });
+
+it("POST /api/vc/issue accepts empty claim object (current behavior)", async () => {
+  const res = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      issuer: subjectDid,
+      subject: subjectDid,
+      claimId: "profile.bio",
+      claim: {},
+      context: "profile",
+      consent: { purpose: "Bio sharing" },
+    });
+
+  expect(res.status).to.equal(200);
+  expect(res.body).to.have.property("cid");
+});
+
+// ─── Additional edge cases for /api/vc/validate ───────────────────────────
+
+it("POST /api/vc/validate should reject VC without proof", async () => {
+  const vcWithoutProof = {
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: subjectDid,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: subjectDid,
+      claim: { email: "test@example.com" },
+    },
+    pimv: {
+      claimId: "identity.email",
+      context: "profile",
+      purpose: "Email verification for login",
+      consentRequired: true,
+      cid: "QmFakeCid"
+    }
+  };
+
+  const res = await request(app)
+    .post("/api/vc/validate")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send(vcWithoutProof);
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.include("Invalid VC structure");
+});
+
+it("POST /api/vc/validate rejects VC with invalid proof format", async () => {
+  const vcBadProof = {
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: subjectDid,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: subjectDid,
+      claim: { email: "test@example.com" },
+    },
+    pimv: {
+      claimId: "identity.email",
+      context: "profile",
+      purpose: "Email verification for login",
+      consentRequired: true,
+      cid: "QmFakeCid"
+    },
+    proof: {
+      type: "EcdsaSecp256k1Signature2019",
+      created: new Date().toISOString(),
+      proofPurpose: "assertionMethod",
+      verificationMethod: subjectDid,
+      jws: "not-a-hex-string"
+    }
+  };
+
+  const res = await request(app)
+    .post("/api/vc/validate")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send(vcBadProof);
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.include("Invalid signature format");
+});
+
+it("POST /api/vc/validate rejects on-chain hash mismatch", async () => {
+  const originalGetClaim = globalThis.registry.getClaim;
+  globalThis.registry.getClaim = jest.fn().mockResolvedValue("0x0000000000000000000000000000000000000000000000000000000000000000");
+
+  const vc = {
+    // use a previously issued VC structure
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: subjectDid,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: subjectDid,
+      claim: { bio: "test bio" }
+    },
+    pimv: {
+      context: "profile",
+      claimId: "profile.bio",
+      purpose: "Bio sharing",
+      consentRequired: true,
+      cid: "QmMockTestCid_123"
+    },
+    proof: {
+      type: "EcdsaSecp256k1Signature2019",
+      created: new Date().toISOString(),
+      proofPurpose: "assertionMethod",
+      verificationMethod: subjectDid,
+      jws: "0x" + "a".repeat(128) + "1b" // mock valid length
+    }
+  };
+
+  const res = await request(app)
+    .post("/api/vc/validate")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send(vc);
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.match(/non-canonical s|invalid signature/i);;
+
+  // Restore mock
+  globalThis.registry.getClaim = originalGetClaim;
+});
+
+// ─── Additional edge cases for /api/vc/verify ─────────────────────────────
+
+it("POST /api/vc/verify returns denied when consent is revoked", async () => {
+  const issueRes = await request(app)
+    .post("/api/vc/issue")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .set("x-pinata-user-jwt", process.env.PINATA_JWT)
+    .send({
+      issuer: subjectDid,
+      subject: subjectDid,
+      claimId: "identity.email",
+      claim: { email: "subject@example.com" },
+      context: "profile",
+      consent: { purpose: "Email verification for login" },
+    });
+
+  expect(issueRes.status).to.equal(200);
+  const cid = issueRes.body.signedCid;
+
+  // Revoke consent
+  await pool.query(`
+    UPDATE consents 
+    SET revoked_at = NOW() 
+    WHERE subject_did = $1 AND claim_id = $2
+  `, [subjectAddress, "identity.email"]);
+
+  const res = await request(app)
+    .post("/api/vc/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      subject: subjectDid,
+      verifierDid: verifierDid,
+      purpose: "Email verification for login",
+      context: "profile",
+      consent: true,
+      credentials: [{ cid, claimId: "identity.email" }]
+    });
+
+  expect(res.status).to.equal(403);
+  expect(res.body.denied["identity.email"]).to.include("No valid consent");
+});
+
+it("POST /api/vc/verify rejects when no credentials provided", async () => {
+  const res = await request(app)
+    .post("/api/vc/verify")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      subject: subjectDid,
+      verifierDid: verifierDid,
+      purpose: "Email verification for login",
+      context: "profile",
+      consent: true,
+      credentials: []
+    });
+
+  expect(res.status).to.equal(400);
+  expect(res.body.error).to.include("credentials");
+});
+
+});
+

@@ -1,12 +1,9 @@
 // backend/src/controllers/profileController.js
-import { ethers } from "ethers";
 import { uploadJSON, fetchJSON, unpinCID } from "../utils/pinata.js";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
 import contract from "../utils/contract.js";
+import { didToAddress } from "../utils/did.js";
 
 dotenv.config();
 

@@ -1,24 +1,38 @@
+// backend/src/utils/did.js
+import { isAddress } from "ethers";
+
+/**
+ * Normalize DID or Ethereum address to lowercase 0x-address.
+ * Returns null if invalid.
+ */
 export const didToAddress = (didOrAddress) => {
-  if (!didOrAddress) return didOrAddress;
-  
+  if (!didOrAddress) return null;
+
   let addr = didOrAddress;
-  
-  // Strip any did: prefix
-  if (addr.startsWith('did:')) {
-    addr = addr.split(':').pop();
+
+  // Extract last DID segment if present
+  if (addr.startsWith("did:")) {
+    const parts = addr.split(":");
+    addr = parts[parts.length - 1];
   }
-  
-  // Force lowercase + ensure 0x prefix
-  if (addr.startsWith('0x')) {
-    addr = addr.slice(2);
+
+  // Enforce Ethereum address validity
+  if (!isAddress(addr)) {
+    return null;
   }
-  
-  addr = addr.toLowerCase();
-  
-  // Basic validation (optional but good)
-  if (!/^[0-9a-f]{40}$/.test(addr)) {
-    console.warn('Invalid address format:', didOrAddress);
+
+  return addr.toLowerCase();
+};
+
+/**
+ * Strict variant: throws 400 error if invalid
+ */
+export const requireDidAddress = (value, label = "DID") => {
+  const addr = didToAddress(value);
+  if (!addr) {
+    const err = new Error(`Invalid ${label}`);
+    err.status = 400;
+    throw err;
   }
-  
-  return '0x' + addr;
+  return addr;
 };

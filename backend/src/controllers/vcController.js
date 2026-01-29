@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { pool } from "../utils/db.js";
+import { requireDidAddress } from "../utils/did.js";
 import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
 import contract from "../utils/contract.js";
 
@@ -39,31 +40,6 @@ const signer = new ethers.Wallet(privateKey, provider);
   const { address, abi } = await contractData;
   globalThis.registry = new ethers.Contract(address, abi, signer);
 })();
-
-const didToAddress = (didOrAddress) => {
-  if (!didOrAddress) return didOrAddress;
-  
-  let addr = didOrAddress;
-  
-  // Strip any did: prefix
-  if (addr.startsWith('did:')) {
-    addr = addr.split(':').pop();
-  }
-  
-  // Force lowercase + ensure 0x prefix
-  if (addr.startsWith('0x')) {
-    addr = addr.slice(2);
-  }
-  
-  addr = addr.toLowerCase();
-  
-  // Basic validation (optional but good)
-  if (!/^[0-9a-f]{40}$/.test(addr)) {
-    console.warn('Invalid address format:', didOrAddress);
-  }
-  
-  return '0x' + addr;
-};
 
 /* ------------------------------------------------------------------
    Helper: Get Pinata JWT for this request (user > shared)
@@ -166,7 +142,7 @@ export const issueVC = async (req, res) => {
     // Prepare on-chain anchoring
     const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
     const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
-    const subjectAddress = didToAddress(subject);
+    const subjectAddress = requireDidAddress(subject);
 
     let responseData = {
       message: "✅ VC issued and anchored on IPFS",
@@ -324,8 +300,8 @@ export const verifyVC = async (req, res) => {
 
     const disclosed = {};
     const denied = {};
-    const subjectAddress = didToAddress(subject);
-    const verifierAddress = didToAddress(verifierDid);
+    const subjectAddress = requireDidAddress(subject);
+    const verifierAddress = requireDidAddress(verifierDid);
 
     for (const entry of credentials) {
       const { cid, claimId } = entry;
@@ -352,7 +328,7 @@ export const verifyVC = async (req, res) => {
 
       const vcString = JSON.stringify(signedVC);
       const recovered = ethers.verifyMessage(vcString, proof.jws);
-      const issuerAddress = didToAddress(vc.issuer);
+      const issuerAddress = requireDidAddress(vc.issuer);
 
       if (recovered.toLowerCase() !== issuerAddress.toLowerCase()) {
         denied[claimId] = "Invalid VC signature";
@@ -477,7 +453,7 @@ export const validateRawVC = async (req, res) => {
       proof.jws
     );
 
-    const issuerAddress = didToAddress(vc.issuer);
+    const issuerAddress = requireDidAddress(vc.issuer);
     if (recovered.toLowerCase() !== issuerAddress.toLowerCase()) {
       return res.status(400).json({
         error: "Invalid signature",
@@ -500,7 +476,7 @@ export const validateRawVC = async (req, res) => {
       });
     }
 
-    const subjectAddress = didToAddress(vc.credentialSubject.id);
+    const subjectAddress = requireDidAddress(vc.credentialSubject.id);
 
     const claimHash = ethers.keccak256(
       ethers.toUtf8Bytes(cidForValidation)

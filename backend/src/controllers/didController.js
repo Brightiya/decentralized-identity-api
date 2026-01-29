@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { requireDidAddress as normalizeAddress } from "../utils/did.js";
 
 dotenv.config();
 
@@ -31,14 +32,6 @@ const signer = new ethers.Wallet(privateKey, provider);
   const { address, abi } = await contractData;
   globalThis.registry = new ethers.Contract(address, abi, signer);
 })();
-
-/**
- * Normalize address (consistent with other controllers)
- */
-const normalizeAddress = (addr) => {
-  if (!addr) return addr;
-  return addr.toLowerCase();
-};
 
 /**
  * Register a DID (W3C DID Core + EIP-155 compliant)
@@ -196,7 +189,8 @@ export const verifyDID = async (req, res) => {
       didDocument,
     });
   } catch (err) {
-    console.error("❌ verifyDID error:", err);
-    return res.status(500).json({ error: "Failed to verify DID ownership" });
+    if (err.code === "INVALID_ARGUMENT") {
+      return res.status(400).json({ error: "Invalid signature format" });
+}
   }
 };

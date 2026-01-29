@@ -2,18 +2,7 @@
 import { ethers } from "ethers";
 import { fetchJSON, uploadJSON, unpinCID } from "../utils/pinata.js";
 import { pool } from "../utils/db.js";
-
-/**
- * Normalize DID → address (consistent with other controllers)
- */
-const didToAddress = (didOrAddress) => {
-  if (!didOrAddress) return didOrAddress;
-  if (didOrAddress.startsWith("did:")) {
-    return didOrAddress.split(":").pop().toLowerCase();
-  }
-  return didOrAddress.toLowerCase();
-};
-
+import { didToAddress } from "../utils/did.js";
 /**
  * GDPR Art.17 – Right to Erasure (Logical + Best-effort Physical)
  */

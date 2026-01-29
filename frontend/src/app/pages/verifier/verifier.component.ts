@@ -88,8 +88,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Subject DID</mat-label>
               <input matInput formControlName="subject" placeholder="did:ethr:0x..." />
-              <mat-error *ngIf="form.get('subject')?.hasError('required')">
-                Subject DID is required
+              <mat-error *ngIf="form.get('subject')?.hasError('pattern')">
+                Invalid DID format. Expected:
+                <code>did:ethr:0x&lt;40 hex chars&gt;</code>
               </mat-error>
             </mat-form-field>
 
@@ -97,8 +98,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Verifier DID (your DID)</mat-label>
               <input matInput formControlName="verifierDid" placeholder="did:ethr:0x..." />
-              <mat-error *ngIf="form.get('verifierDid')?.hasError('required')">
-                Your DID is required
+              <mat-error *ngIf="form.get('verifierDid')?.hasError('pattern')">
+                Invalid DID format. Expected:
+                <code>did:ethr:0x&lt;40 hex chars&gt;</code>
               </mat-error>
             </mat-form-field>
 
@@ -237,6 +239,75 @@ import { MatTooltipModule } from '@angular/material/tooltip';
           </div>
         </mat-card-content>
       </mat-card>
+
+      <!-- Verifier Audit Trail -->
+      
+      <mat-card class="card elevated mt-6" *ngIf="form.get('verifierDid')?.valid">
+        <mat-card-header>
+          <mat-icon mat-card-avatar>policy</mat-icon>
+          <mat-card-title>Verifier Disclosure Audit Trail</mat-card-title>
+          <mat-card-subtitle>
+            GDPR accountability — disclosures you have received as a verifier
+          </mat-card-subtitle>
+        </mat-card-header>
+
+        <mat-card-content>
+
+          <!-- Loading -->
+          <div *ngIf="auditLoading" class="muted">
+            <mat-spinner diameter="24"></mat-spinner>
+            Loading audit trail…
+          </div>
+
+          <!-- Error -->
+          <div *ngIf="auditError" class="result error">
+            {{ auditError }}
+          </div>
+
+          <!-- Empty -->
+          <div *ngIf="!auditLoading && verifierAudit.length === 0" class="muted">
+            No disclosures recorded yet for this verifier DID.
+          </div>
+
+          <!-- Table -->
+          <div *ngIf="verifierAudit.length > 0">
+            <mat-divider class="my-3"></mat-divider>
+
+            <div *ngFor="let d of verifierAudit" class="credential-row">
+              <div class="cred-field">
+                <strong>Subject:</strong><br />
+                <code>{{ d.subject_did }}</code>
+              </div>
+
+              <div class="cred-field">
+                <strong>Claim:</strong><br />
+                {{ d.claim_id }}
+              </div>
+
+              <div class="cred-field">
+                <strong>Purpose:</strong><br />
+                {{ d.purpose }}
+              </div>
+
+              <div class="cred-field">
+                <strong>Context:</strong><br />
+                {{ d.context }}
+              </div>
+
+              <div class="cred-field">
+                <strong>Disclosed:</strong><br />
+                {{ getRelativeTime(d.disclosed_at) }}
+              </div>
+
+              <mat-icon color="primary" matTooltip="Consent recorded">
+                verified
+              </mat-icon>
+            </div>
+          </div>
+
+        </mat-card-content>
+      </mat-card>
+
     </ng-template>
   </div>
 
@@ -689,6 +760,12 @@ export class VerifierComponent {
   connecting = false;
   purposeValue = '';
 
+  verifierAudit: any[] = [];
+  auditLoading = false;
+  auditError: string | null = null;
+
+  
+
   // Signals
   suggestedClaims = signal<any[]>([]);
   contexts = signal<string[]>([]);
@@ -777,8 +854,14 @@ isLatest(claim: any): boolean {
 
   constructor() {
     this.form = this.fb.group({
-      subject: ['', Validators.required],
-      verifierDid: ['', Validators.required],
+      subject: ['', 
+        [Validators.required, Validators.pattern(ETHR_DID_REGEX)]
+
+      ],
+      verifierDid: ['', 
+        [Validators.required, Validators.pattern(ETHR_DID_REGEX)]
+
+      ],
       context: ['', Validators.required],
       purpose: ['', Validators.required],
       consent: [false, Validators.requiredTrue],
@@ -816,6 +899,16 @@ isLatest(claim: any): boolean {
     this.form.get('purpose')?.valueChanges.subscribe(() => {
       this.cdr.detectChanges();
     });
+
+    this.form.get('verifierDid')?.valueChanges.subscribe(did => {
+    if (did?.startsWith('did:')) {
+      this.loadVerifierAuditTrail();
+    } else {
+      this.verifierAudit = [];
+    }
+    this.cdr.detectChanges();
+  });
+
   }
 
   async connectWallet() {
@@ -884,4 +977,28 @@ isLatest(claim: any): boolean {
       this.isSubmitting = false;
     }
   }
+  // Load verifier audit trail
+
+  loadVerifierAuditTrail() {
+  const verifierDid = this.form.get('verifierDid')?.value;
+  if (!verifierDid) return;
+
+  this.auditLoading = true;
+  this.auditError = null;
+
+  this.api.getDisclosuresByVerifier(verifierDid).subscribe({
+    next: (res: any) => {
+      this.verifierAudit = res.disclosures || [];
+      this.auditLoading = false;
+      this.cdr.detectChanges();
+    },
+    error: err => {
+      console.error('Verifier audit error:', err);
+      this.auditError = 'Failed to load verifier audit trail';
+      this.auditLoading = false;
+    }
+  });
 }
+}
+export const ETHR_DID_REGEX =
+  /^did:ethr:0x[a-fA-F0-9]{40}$/;

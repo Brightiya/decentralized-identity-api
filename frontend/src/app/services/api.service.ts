@@ -165,6 +165,16 @@ export class ApiService {
     );
   }
 
+  /* -------------------------------------------------
+   Verifier audit trail (GDPR accountability)
+-------------------------------------------------- */
+getDisclosuresByVerifier(verifierDid: string): Observable<any> {
+  return this.http.get(
+    `${this.base}/api/disclosures/verifier/${encodeURIComponent(verifierDid)}`
+  );
+}
+
+
   exportDisclosures(subjectDid: string): Observable<any> {
     return this.http.get(`${this.base}/api/disclosures/${encodeURIComponent(subjectDid)}/export`);
   }

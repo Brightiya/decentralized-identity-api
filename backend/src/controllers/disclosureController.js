@@ -1,14 +1,6 @@
 // backend/src/controllers/disclosureController.js
 import { pool } from "../utils/db.js";
-
-// Reuse helper (consistent across controllers)
-const didToAddress = (didOrAddress) => {
-  if (!didOrAddress) return didOrAddress;
-  if (didOrAddress.startsWith("did:")) {
-    return didOrAddress.split(":").pop().toLowerCase();
-  }
-  return didOrAddress.toLowerCase();
-};
+import { didToAddress } from "../utils/did.js";
 
 // Minimal sanitization for context filters (no remapping, no enums)
 const sanitizeContext = (ctx) => {

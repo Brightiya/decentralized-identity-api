@@ -3,16 +3,7 @@ import { pool } from "../utils/db.js";
 import { ethers } from "ethers";
 import { fetchJSON } from "../utils/pinata.js";
 
-/**
- * Normalize DID → Ethereum address
- */
-const didToAddress = (didOrAddress) => {
-  if (!didOrAddress) return didOrAddress;
-  if (didOrAddress.startsWith("did:")) {
-    return didOrAddress.split(":").pop();
-  }
-  return didOrAddress;
-};
+import { didToAddress } from "../utils/did.js";
 
 /**
  * Minimal sanitization for contexts not coming through middleware

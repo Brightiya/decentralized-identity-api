@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --runInBand --detectOpenHandles",
-    "test:ci": "jest --runInBand --verbose",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --verbose",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
     "compile": "hardhat compile --config ../hardhat.config.cjs",

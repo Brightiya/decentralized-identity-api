@@ -79,11 +79,15 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 
       # ───────────────────────────────
-      # Backend Jest tests (CI mode)
+      # Backend tests (NO Hardhat)
       # ───────────────────────────────
       - name: Run backend Jest tests
         working-directory: backend
-        run: yarn test:ci
+        run: |
+          yarn test \
+            --runInBand \
+            --detectOpenHandles \
+            --forceExit
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
 

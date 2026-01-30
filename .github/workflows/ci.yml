@@ -46,7 +46,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ───────────────────────────────
-      # Node + Yarn (Corepack)
+      # Node + Yarn
       # ───────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,16 +64,19 @@ jobs:
         run: yarn --version
 
       # ───────────────────────────────
-      # Install deps (monorepo-safe)
+      # Install deps
       # ───────────────────────────────
       - name: Install dependencies
         run: yarn install --immutable
-
+      
       # ───────────────────────────────
       # Initialize database schema
       # ───────────────────────────────
       - name: Initialize database schema
-        run: psql "$DATABASE_URL" -f backend/db/schema.sql
+        run: |
+          psql "$DATABASE_URL" -f backend/db/schema.sql
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       # ───────────────────────────────
       # Backend Jest tests (CI mode)
@@ -96,7 +99,7 @@ jobs:
           fail_ci_if_error: false
 
       # ───────────────────────────────
-      # Frontend build (optional, non-blocking)
+      # Frontend build (optional)
       # ───────────────────────────────
       - name: Build frontend
         working-directory: frontend

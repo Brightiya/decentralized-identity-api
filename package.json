@@ -12,6 +12,7 @@
     "lint": "yarn eslint .",
     "postinstall": "yarn --cwd backend install --mode=skip-build && yarn --cwd frontend install --mode=skip-build",
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest --detectOpenHandles --forceExit",
+    "test:ci": "jest --runInBand --verbose",
     "test:backend": "node --experimental-vm-modules ./node_modules/.bin/jest backend/test/**/*.test.js --detectOpenHandles --forceExit",
     "test:frontend": "yarn workspace frontend test",
     "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --detectOpenHandles --forceExit"

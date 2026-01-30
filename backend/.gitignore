@@ -1,2 +1,5 @@
 .DS_Store
+# Environment variables
 .env
+.env.test
+README-secrets.md

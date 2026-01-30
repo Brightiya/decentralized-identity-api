@@ -3,7 +3,6 @@ import "dotenv/config"; // fallback
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import bodyParser from "body-parser"; // not needed if using express.json()
 
 import { getChallenge, verifySignature } from "../src/controllers/authController.js";
 

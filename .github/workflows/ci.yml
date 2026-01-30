@@ -68,6 +68,15 @@ jobs:
       # ───────────────────────────────
       - name: Install dependencies
         run: yarn install --immutable
+      
+      # ───────────────────────────────
+      # Initialize database schema
+      # ───────────────────────────────
+      - name: Initialize database schema
+        run: |
+          psql "$DATABASE_URL" -f backend/schema.sql
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       # ───────────────────────────────
       # Backend tests (NO Hardhat)

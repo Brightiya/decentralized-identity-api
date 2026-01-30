@@ -188,20 +188,7 @@ ALTER TABLE consents
 COMMENT ON COLUMN consents.context IS
 'Flexible context label (may include custom contexts). Enforcement handled at application layer.';
 
--- ============================================
--- Disclosure Contexts (ALREADY FLEXIBLE, KEEP AS-IS)
--- ============================================
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'disclosures'::regclass
-      AND conname = 'check_disclosure_context'
-  ) THEN
-    ALTER TABLE disclosures DROP CONSTRAINT check_disclosure_context;
-  END IF;
-END $$;
 
 COMMENT ON COLUMN disclosures.context IS
 'Raw disclosed context (may include custom contexts). Stored unbounded for auditability.';
@@ -225,6 +212,21 @@ CREATE TABLE IF NOT EXISTS disclosures (
   context TEXT NOT NULL
 );
 
+-- ============================================
+-- Disclosure Contexts (ALREADY FLEXIBLE, KEEP AS-IS)
+-- ============================================
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'disclosures'::regclass
+      AND conname = 'check_disclosure_context'
+  ) THEN
+    ALTER TABLE disclosures DROP CONSTRAINT check_disclosure_context;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_disclosures_subject
   ON disclosures(subject_did);
 
@@ -240,8 +242,6 @@ CREATE INDEX IF NOT EXISTS idx_disclosures_compliance
 
 CREATE INDEX IF NOT EXISTS idx_disclosures_context_ci
   ON disclosures (LOWER(context));
-
-
 
 COMMENT ON TABLE disclosures IS
 'GDPR-compliant audit log of selective disclosures';

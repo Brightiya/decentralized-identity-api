@@ -1,5 +1,10 @@
 node_modules
-.env
+npm-debug.log
+yarn-error.log
 directory.txt
 testCode.txt
 backend/.DS_Store
+# Environment variables
+.env
+.env.test
+.DS_Store

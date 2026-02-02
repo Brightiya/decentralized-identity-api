@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
 import { SiweMessage, SiweError } from 'siwe';
 import { pool } from '../utils/db.js';
-import {requireDidAddress as  didToAddress} from "../utils/did.js";
+import {didToAddress} from "../utils/did.js";
 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
@@ -99,7 +99,14 @@ export const verifySignature = async (req, res) => {
       return res.status(401).json({ error: 'Invalid SIWE domain or URI' });
     }
 
+    // Safe normalization (returns null if invalid)
     const normalizedAddress = didToAddress(fields.address);
+
+    if (!normalizedAddress) {
+      return res.status(400).json({ 
+        error: "Invalid Ethereum address format in SIWE message" 
+      });
+    }
 
     // Nonce validation
     const nonceRes = await pool.query(
@@ -116,9 +123,9 @@ export const verifySignature = async (req, res) => {
 
     await pool.query('DELETE FROM nonces WHERE nonce = $1', [fields.nonce]);
 
-    // =====================================
-    // RBAC — Session role follows user selection
-    // =====================================
+    // ────────────────────────────────────────────────
+    // RBAC + user creation/update
+    // ────────────────────────────────────────────────
     const userRes = await pool.query(
       'SELECT id, eth_address, role, created_at FROM users WHERE eth_address = $1',
       [normalizedAddress]
@@ -128,7 +135,6 @@ export const verifySignature = async (req, res) => {
     let effectiveRole = normalizeRole(requestedRole);
 
     if (userRes.rowCount === 0) {
-      // First login → create with selected role
       const insertRes = await pool.query(
         `INSERT INTO users (eth_address, role, created_at, last_login)
          VALUES ($1, $2, NOW(), NOW())
@@ -138,7 +144,6 @@ export const verifySignature = async (req, res) => {
 
       user = insertRes.rows[0];
 
-      // Optional: Log first login
       await pool.query(
         `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
          VALUES ($1, $2, NOW())`,
@@ -147,8 +152,6 @@ export const verifySignature = async (req, res) => {
     } else {
       user = userRes.rows[0];
 
-      // For existing users: use requested role as session role
-      // and update persistent role in DB
       await pool.query(
         `UPDATE users 
          SET role = $1, last_login = NOW() 
@@ -156,7 +159,6 @@ export const verifySignature = async (req, res) => {
         [effectiveRole, normalizedAddress]
       );
 
-      // Log every login
       await pool.query(
         `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
          VALUES ($1, $2, NOW())`,
@@ -164,9 +166,6 @@ export const verifySignature = async (req, res) => {
       );
     }
 
-    // =====================================
-    // Issue JWT
-    // =====================================
     const token = jwt.sign(
       {
         sub: normalizedAddress,
@@ -174,7 +173,7 @@ export const verifySignature = async (req, res) => {
         role: effectiveRole,
         userId: user.id,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 // 24h in prod
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24
       },
       JWT_SECRET
     );
@@ -195,6 +194,11 @@ export const verifySignature = async (req, res) => {
       return res.status(401).json({
         error: err.reason || 'SIWE verification failed'
       });
+    }
+
+    // Debug in tests
+    if (process.env.NODE_ENV === 'test') {
+      console.error('[TEST] Auth verify error stack:', err.stack);
     }
 
     res.status(500).json({ error: 'Authentication failed' });

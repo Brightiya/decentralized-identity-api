@@ -20,7 +20,7 @@ import "../test/setup-contract-mock.js";
 jest.setTimeout(60000);
 
 const { expect } = chai;
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-dev-key-change-in-prod-please";
+const JWT_SECRET =  "super-secret-dev-key-for-tests-only";
 
 let app;
 let pool;

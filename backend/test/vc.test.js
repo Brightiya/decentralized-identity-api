@@ -518,8 +518,8 @@ it("POST /api/vc/validate rejects VC with invalid proof format", async () => {
 });
 
 it("POST /api/vc/validate rejects on-chain hash mismatch", async () => {
-  const originalGetClaim = globalThis.registry.getClaim;
-  globalThis.registry.getClaim = jest.fn().mockResolvedValue("0x0000000000000000000000000000000000000000000000000000000000000000");
+  const originalGetClaim = globalThis.mockContract.getClaim;
+  globalThis.mockContract.getClaim = jest.fn().mockResolvedValue("0x0000000000000000000000000000000000000000000000000000000000000000");
 
   const vc = {
     // use a previously issued VC structure
@@ -556,7 +556,7 @@ it("POST /api/vc/validate rejects on-chain hash mismatch", async () => {
   expect(res.body.error).to.match(/non-canonical s|invalid signature/i);;
 
   // Restore mock
-  globalThis.registry.getClaim = originalGetClaim;
+  globalThis.mockContract.getClaim = originalGetClaim;
 });
 
 // ─── Additional edge cases for /api/vc/verify ─────────────────────────────

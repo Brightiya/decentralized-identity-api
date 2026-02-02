@@ -25,10 +25,24 @@ const mockContract = {
     return claims.get(key) || ethers.ZeroHash;
   }),
 
+  // ← Add these write methods so registerDID can "succeed" in tests
+  setProfileCID: jest.fn(async (address, cid) => {
+    profileCids.set(normalizeAddress(address), cid);
+    return { hash: `0xmocktx_${Date.now()}` }; // fake tx hash
+  }),
+
+  setClaim: jest.fn(async (address, id, hash) => {
+    claims.set(`${normalizeAddress(address)}:${id}`, hash);
+    return { hash: `0xmocktx_${Date.now()}` };
+  }),
   // IMPORTANT:
   // No write methods here — hybrid mode never calls them directly
 };
 
+// ────────────────────────────────
+// CRITICAL: Set global for didController.js to find it
+// ────────────────────────────────
+globalThis.mockContract = mockContract;
 // ────────────────────────────────────────────────
 // Mock utils/contract.js completely
 // ────────────────────────────────────────────────

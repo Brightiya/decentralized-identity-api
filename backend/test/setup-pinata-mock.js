@@ -56,7 +56,7 @@ jest.unstable_mockModule('../src/utils/pinata.js', () => {
       console.log(`[MOCK wrapper] Stored content under CID: ${cid}`);
 
       // Optional: simulate network delay (uncomment for more realistic testing)
-       await new Promise(r => setTimeout(r, 80 + Math.random() * 120));
+      // await new Promise(r => setTimeout(r, 80 + Math.random() * 120));
 
       return `ipfs://${cid}`;
     }),

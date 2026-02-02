@@ -58,9 +58,6 @@
     "coverageReporters": [
       "text",
       "lcov"
-    ],
-    "globals": {
-      "DOTENV_CONFIG_PATH": "./backend/.env.test"
-    }
+    ]
   }
 }

@@ -38,7 +38,7 @@ describe("Authentication & Authorization", function () {
   // SIWE AUTH FLOW TESTS (/api/auth/challenge & /api/auth/verify)
   // ──────────────────────────────────────────────────────────────
   describe("SIWE Authentication Flow", function () {
-    const testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+    const testAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
     const testDid = `did:ethr:${testAddress}`;
 
     let challengeNonce;
@@ -229,7 +229,7 @@ describe("Authentication & Authorization", function () {
   // AUTHENTICATION & AUTHORIZATION MIDDLEWARE TESTS
   // ──────────────────────────────────────────────────────────────
   describe("Authentication & Authorization Middlewares", function () {
-    const testUserAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+    const testUserAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
     const testUserDid = `did:ethr:${testUserAddress}`;
 
     let validJwtToken;
@@ -299,7 +299,7 @@ describe("Authentication & Authorization", function () {
 
     it("should accept valid legacy x-did + x-signature headers", async () => {
       const message = `Authorize GDPR action for ${testUserDid}`;
-      const wallet = new ethers.Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+      const wallet = new ethers.Wallet("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
       const signature = await wallet.signMessage(message);
 
       const res = await request(app)
@@ -382,7 +382,7 @@ describe("Authentication & Authorization", function () {
   // ──────────────────────────────────────────────────────────────
   describe("gdprConsentMiddleware enforcement", function () {
     jest.setTimeout(60000);
-    const testUserAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+    const testUserAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
     const testUserDid = `did:ethr:${testUserAddress}`;
     const otherUserAddress = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8".toLowerCase();
 

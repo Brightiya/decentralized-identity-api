@@ -2,8 +2,8 @@
 import { pool } from "../utils/db.js";
 import { ethers } from "ethers";
 import { fetchJSON } from "../utils/pinata.js";
-
-import { didToAddress } from "../utils/did.js";
+import contract from "../utils/contract.js";
+import {requireDidAddress as didToAddress } from "../utils/did.js";
 
 /**
  * Minimal sanitization for contexts not coming through middleware
@@ -213,10 +213,10 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
     }
 
     const subjectAddress = didToAddress(subjectDid);
-    const suggestions = new Map(); // key: claimId, value: {purpose, context} — avoids duplicates
+    const suggestions = new Map(); // key: claimId, value: full suggestion object — avoids duplicates
 
     // 1. Fetch from profile credentials (best source — links to issued VCs)
-    const profileCid = await registry.getProfileCID(subjectAddress);
+    const profileCid = await contract.getProfileCID(subjectAddress);
 
     if (profileCid && profileCid.length > 0) {
       try {
@@ -230,12 +230,55 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
               const purpose = vc?.pimv?.purpose || "General verification";
               const context = vc?.pimv?.context || cred.context;
 
+              // ────────────────────────────────────────────────
+              // Extract attributes based on actual VC structure
+              // ────────────────────────────────────────────────
+              let attributes = [];
+
+              // Primary location: credentialSubject.claim (most common in your system)
+              if (
+                vc?.credentialSubject?.claim &&
+                typeof vc.credentialSubject.claim === 'object' &&
+                !Array.isArray(vc.credentialSubject.claim)
+              ) {
+                attributes = Object.keys(vc.credentialSubject.claim)
+                  .filter(key => key && typeof key === 'string' && key.trim())
+                  .map(key => key.trim());
+              }
+
+              // Fallback: flat credentialSubject structure (for future-proofing)
+              if (attributes.length === 0) {
+                if (
+                  vc?.credentialSubject &&
+                  typeof vc.credentialSubject === 'object' &&
+                  !Array.isArray(vc.credentialSubject)
+                ) {
+                  attributes = Object.keys(vc.credentialSubject)
+                    .filter(key => !['id', 'type'].includes(key))
+                    .map(key => key.trim());
+                }
+              }
+
+              // Optional: support custom pimv.attributes if it ever gets added
+              if (vc?.pimv?.attributes && Array.isArray(vc.pimv.attributes)) {
+                const extraAttrs = vc.pimv.attributes
+                  .filter(a => a && typeof a === 'string' && a.trim())
+                  .map(a => a.trim());
+
+                attributes = [...new Set([...attributes, ...extraAttrs])];
+              }
+
+              // Ultimate fallback: always include at least the claimId
+              if (attributes.length === 0 && cred.claimId) {
+                attributes = [cred.claimId.trim()];
+              }
+
               suggestions.set(cred.claimId, {
                 claim_id: cred.claimId,
                 purpose,
                 context,
-                issued_at: cred.issuedAt || vc?.issuanceDate || new Date(0).toISOString()
-
+                issued_at: cred.issuedAt || vc?.issuanceDate || new Date(0).toISOString(),
+                attributes, // ← newly added
               });
             } catch (e) {
               console.warn(`Failed to fetch VC ${cred.cid} for suggestion:`, e.message);
@@ -247,25 +290,27 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
       }
     }
 
-    // 2. Fallback: Scan common claimIds directly from registry (if profile has no credentials)
+    // 2. Fallback: Scan common claimIds directly from registry
     const commonClaimIds = [
-      'Address', 'Name', 'Email', 'Age', 'Number', 
+      'Address', 'Name', 'Email', 'Age', 'Number',
       'identity.name', 'identity.email', 'profile.email', 'legal.email', 'professional.Name'
     ];
 
     for (const claimId of commonClaimIds) {
       try {
         const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
-        const claimHash = await registry.getClaim(subjectAddress, claimIdBytes32);
+        const claimHash = await contract.getClaim(subjectAddress, claimIdBytes32);
 
         if (claimHash !== ethers.ZeroHash) { // claim is anchored
-          // Try to fetch VC from profile or skip to default suggestion
-          suggestions.set(claimId, {
-            claim_id: claimId,
-            purpose: `Verification of ${claimId}`,
-            context: 'identity', // default fallback
-            issued_at: new Date(0).toISOString()
-          });
+          if (!suggestions.has(claimId)) {
+            suggestions.set(claimId, {
+              claim_id: claimId,
+              purpose: `Verification of ${claimId}`,
+              context: 'identity', // default fallback
+              issued_at: new Date(0).toISOString(),
+              attributes: [claimId], // ← added
+            });
+          }
         }
       } catch (e) {
         console.warn(`Failed to check on-chain claim ${claimId}:`, e.message);
@@ -286,21 +331,19 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
           claim_id: row.claim_id,
           purpose: row.purpose,
           context: row.context || 'unknown',
-          issued_at: row.issued_at ? row.issued_at.toISOString() : new Date(0).toISOString()
-
-          
+          issued_at: row.issued_at ? row.issued_at.toISOString() : new Date(0).toISOString(),
+          attributes: [row.claim_id], // ← added
         });
       }
     });
 
     // Convert to array + sort by issued_at DESC (newest first)
-const uniqueSuggestions = Array.from(suggestions.values())
-  .sort((a, b) => {
-    // Use issued_at if available, otherwise fall back to claim_id
-    const dateA = a.issued_at ? new Date(a.issued_at).getTime() : 0;
-    const dateB = b.issued_at ? new Date(b.issued_at).getTime() : 0;
-    return dateB - dateA; // newest first
-  });
+    const uniqueSuggestions = Array.from(suggestions.values())
+      .sort((a, b) => {
+        const dateA = a.issued_at ? new Date(a.issued_at).getTime() : 0;
+        const dateB = b.issued_at ? new Date(b.issued_at).getTime() : 0;
+        return dateB - dateA; // newest first
+      });
 
     return res.json({
       subjectDid,

@@ -1,32 +1,41 @@
-import { jest } from '@jest/globals';
-import { config } from 'dotenv';
-import { resolve } from 'path';
+// backend/test/setup.js
+
+import { jest } from "@jest/globals";
+
+// 🚨 MUST be first
+process.env.NODE_ENV = "test";
+
+// Load envs from the single source of truth
+//await import("../src/config/env.js");
+
+// Now it is SAFE to import DB
 import { pool } from "../src/utils/db.js";
 
-// Load .env BEFORE anything else
-config({ path: resolve(process.cwd(), '.env'), override: true });
-
-console.log('[TEST SETUP] JWT_SECRET loaded:', !!process.env.JWT_SECRET);
-console.log('[TEST SETUP] JWT_SECRET value (first 10 chars):', process.env.JWT_SECRET?.substring(0, 10) || 'MISSING');
-
+console.log(
+  "[TEST SETUP] NODE_ENV:",
+  process.env.NODE_ENV
+);
+console.log(
+  "[TEST SETUP] JWT_SECRET loaded:",
+  !!process.env.JWT_SECRET
+);
 
 // =========================
 // 🧪 MOCK SIWE VERIFY HERE
 // =========================
-jest.mock('siwe', () => {
-  const originalModule = jest.requireActual('siwe');
+jest.mock("siwe", () => {
+  const originalModule = jest.requireActual("siwe");
   return {
     ...originalModule,
     SiweMessage: class extends originalModule.SiweMessage {
       async verify() {
-        console.log('[TEST MOCK] SIWE verify() bypassed');
-        return { data: this }; // mimic successful verification
+        console.log("[TEST MOCK] SIWE verify() bypassed");
+        return { data: this };
       }
     }
   };
 });
 // =========================
-
 
 afterAll(async () => {
   console.log("Cleaning up test database...");

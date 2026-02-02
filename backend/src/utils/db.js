@@ -1,13 +1,22 @@
 // backend/src/utils/db.js
 import pg from "pg";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 // Use a separate test DB if NODE_ENV=test (recommended for safety)
-const connectionString = process.env.NODE_ENV === "test"
-  ? process.env.DATABASE_URL_TEST || process.env.DATABASE_URL
-  : process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
+const url = process.env.DATABASE_URL ?? "";
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set");
+}
+
+if (process.env.NODE_ENV === "test" && !url.includes("_test")) {
+  throw new Error("🚨 Tests refusing to run on non-test database");
+}
+
+if (process.env.NODE_ENV !== "test" && url.includes("_test")) {
+  throw new Error("🚨 Backend refusing to run on test database");
+}
+
 
 export const pool = new pg.Pool({
   connectionString,
@@ -19,6 +28,10 @@ export const pool = new pg.Pool({
 pool.on("connect", () => {
   console.log("🟢 PostgreSQL connected");
 });
+
+const result = await pool.query("SELECT current_database()");
+console.log("🧪 Connected to database:", result.rows[0].current_database);
+
 
 pool.on("error", (err, client) => {
   console.error("❌ PostgreSQL pool error:", err.stack);

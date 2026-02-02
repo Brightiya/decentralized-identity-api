@@ -1,11 +1,8 @@
 // backend/src/middleware/auth.js
 import jwt from 'jsonwebtoken';
 import { ethers } from 'ethers';
-import dotenv from 'dotenv';
 import {pool} from '../../backend/src/utils/db.js'
 
-
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
 

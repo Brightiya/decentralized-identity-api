@@ -174,32 +174,57 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
           <!-- Auto-complete panel -->
           <mat-autocomplete #purposeAuto="matAutocomplete">
-            <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
-              <div class="purpose-option">
-                <span class="purpose-text">{{ claim.purpose }}
-                <span class="recency-badge" *ngIf="isLatest(claim)">
-                   Latest
-                </span></span>
-                <small class="muted">
-                  Claim ID: {{ claim.claim_id }} <br> Context: {{ claim.context }}
-                  <span *ngIf="claim.issued_at" class="recency">
-                    • {{ getRelativeTime(claim.issued_at) }}
-                  </span>
-                </small>
+          <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
+            <div class="purpose-option">
+              <div class="purpose-header">
+                <span class="purpose-text">
+                  {{ claim.purpose }}
+                  <span class="recency-badge" *ngIf="isLatest(claim)">Latest</span>
+                </span>
+
+                <!-- Show match quality when attributes are selected -->
+                <span class="match-badge"
+                      *ngIf="selectedAttributes().length > 0"
+                      [class.good]="getMatchPercentage(claim) === 100"
+                      [class.partial]="getMatchPercentage(claim) > 0 && getMatchPercentage(claim) < 100"
+                      [class.none]="getMatchPercentage(claim) === 0">
+                  {{ getMatchPercentage(claim) }}% match
+                </span>
               </div>
-            </mat-option>
-          </mat-autocomplete>
+
+              <small class="muted">
+                Claim ID: {{ claim.claim_id }} •
+                Context: {{ claim.context }}
+                <span *ngIf="claim.issued_at" class="recency">
+                  • {{ getRelativeTime(claim.issued_at) }}
+                </span>
+              </small>
+
+              <!-- Show which attributes are covered -->
+              <div class="matched-attributes" *ngIf="selectedAttributes().length > 0 && getMatchingAttributes(claim).length > 0">
+                Covers:
+                <span class="attr-tag" *ngFor="let attr of getMatchingAttributes(claim)">
+                  {{ attr }}
+                </span>
+              </div>
+            </div>
+          </mat-option>
+
+          <!-- Optional: message when no good matches -->
+          <mat-option *ngIf="filteredSuggestedPurposes().length === 0 && selectedAttributes().length > 0" disabled>
+            <div class="no-match-message">
+              No previous claims match your selected attributes in this context.<br>
+              You can still enter a custom purpose.
+            </div>
+          </mat-option>
+        </mat-autocomplete>
 
           <!-- Hint when suggestions exist -->
           <mat-hint *ngIf="suggestedClaims.length > 0">
             Type to filter suggestions from your issued claims (newest first)
           </mat-hint>
 
-          <!-- Hint when no suggestions for current context -->
-          <mat-hint class="subtle-context-hint" *ngIf="selectedContext() && filteredSuggestedPurposes().length === 0">
-            No purposes available for <strong>{{ selectedContext() | titlecase }}</strong> context yet.<br>
-            Issue a VC in this context first.
-          </mat-hint>
+      
         </mat-form-field>
 
             <!-- Add this right after the mat-autocomplete block -->
@@ -465,6 +490,55 @@ styles: [`
     margin-top: 28px;
     text-align: right;
   }
+
+  .purpose-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.match-badge {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.match-badge.good {
+  background: #e6fffa;
+  color: #0c8599;
+}
+
+.match-badge.partial {
+  background: #fff4e6;
+  color: #e8590c;
+}
+
+.match-badge.none {
+  background: #f8f9fa;
+  color: #868e96;
+}
+
+.matched-attributes {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: #6c757d;
+}
+
+.attr-tag {
+  background: rgba(108, 117, 125, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 6px;
+  font-size: 0.8rem;
+}
+
+.no-match-message {
+  color: #6c757d;
+  font-style: italic;
+  padding: 8px 0;
+}
 
   /* Active Consents – Scrollable Section */
   .consents-scroll-container {
@@ -792,24 +866,72 @@ export class ConsentComponent implements OnInit {
   filteredSuggestedPurposes = computed(() => {
   const search = this.purposeValue?.toLowerCase().trim() || '';
   const currentContext = this.selectedContext()?.toLowerCase() || '';
+  const selectedAttrs = this.selectedAttributes().map(a => a.toLowerCase());
 
   let claims = [...this.suggestedClaims()];
 
-  // FILTER out other contexts
+  // 1. Must match selected context (if any)
   if (currentContext) {
     claims = claims.filter(
       claim => (claim.context || '').toLowerCase() === currentContext
     );
   }
 
-  // If user hasn't typed anything just return context-filtered claims
-  if (!search) return claims;
+  // 2. If user has selected attributes → only show claims that cover at least one of them
+  if (selectedAttrs.length > 0) {
+    claims = claims.filter(claim => {
+      const claimAttrs = (claim.attributes || []).map((a: string) => a.toLowerCase());
+      return selectedAttrs.some(sel => claimAttrs.includes(sel));
+    });
+  }
 
-  // Filter by search text
-  return claims.filter(claim =>
-    (claim.purpose || '').toLowerCase().includes(search)
-  );
+  // 3. If user typed something → filter by purpose text
+  if (search) {
+    claims = claims.filter(claim =>
+      (claim.purpose || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Optional: sort by how many selected attributes are covered (best match first)
+  if (selectedAttrs.length > 0) {
+    claims.sort((a, b) => {
+      const aAttrs = new Set((a.attributes || []).map((x: string) => x.toLowerCase()));
+      const bAttrs = new Set((b.attributes || []).map((x: string) => x.toLowerCase()));
+
+      const aMatchCount = selectedAttrs.filter(sel => aAttrs.has(sel)).length;
+      const bMatchCount = selectedAttrs.filter(sel => bAttrs.has(sel)).length;
+
+      return bMatchCount - aMatchCount; // descending = better matches first
+    });
+  }
+
+  return claims;
 });
+
+// Helper to calculate how many selected attributes this claim covers
+getMatchPercentage(claim: any): number {
+  if (!this.selectedAttributes().length) return 100;
+
+  const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
+  const claimAttrs = new Set((claim.attributes || []).map((a: string) => a.toLowerCase()));
+
+  let matches = 0;
+  for (const attr of selected) {
+    if (claimAttrs.has(attr)) matches++;
+  }
+
+  return Math.round((matches / selected.size) * 100);
+}
+
+// Helper to get list of matching attribute names (for display)
+getMatchingAttributes(claim: any): string[] {
+  if (!this.selectedAttributes().length) return claim.attributes || [];
+
+  const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
+  return (claim.attributes || [])
+    .filter((a: string) => selected.has(a.toLowerCase()))
+    .map((a: string) => a); // keep original casing
+}
 
 
 getRelativeTime(dateStr: string | null): string {

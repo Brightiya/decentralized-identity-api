@@ -1,10 +1,7 @@
 // backend/src/utils/pinata.js
 import PinataSDK from "@pinata/sdk";
-import dotenv from "dotenv";
 import axios from "axios";
 import FormData from 'form-data';
-
-dotenv.config();
 
 const PINATA_JWT = process.env.PINATA_JWT;
 

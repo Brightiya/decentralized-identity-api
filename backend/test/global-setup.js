@@ -1,20 +1,13 @@
 // backend/test/global-setup.js
-import dotenv from "dotenv";
+
+//await import("../src/config/env.js");
 import { JsonRpcProvider } from "ethers";
 
 export default async function globalSetup() {
-  // ─────────────────────────────────────────────
-  // Load test environment variables
-  // ─────────────────────────────────────────────
-  dotenv.config({
-    path: "./backend/.env.test",
-    override: true,
-  });
-
+ 
   // Force HYBRID MODE in tests
-  process.env.NODE_ENV = "test";
   process.env.HYBRID_MODE = "true";
-
+  process.env.NODE_ENV = "test";
   console.log(
     "[GLOBAL SETUP] Loaded .env.test → HYBRID_MODE:",
     process.env.HYBRID_MODE

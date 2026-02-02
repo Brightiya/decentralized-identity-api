@@ -3,9 +3,7 @@ import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
 import { SiweMessage, SiweError } from 'siwe';
 import { pool } from '../utils/db.js';
-import dotenv from 'dotenv';
 
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
 

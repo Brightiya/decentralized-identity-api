@@ -3,9 +3,8 @@ import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import dotenv from "dotenv";
+import { getProvider } from "../eth/provider.js";
 
-dotenv.config();
 
 // Allow __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -21,38 +20,62 @@ try {
   process.exit(1);
 }
 
-// Provider from env (default local Hardhat)
-const provider = new ethers.JsonRpcProvider(
-  process.env.PROVIDER_URL || "http://127.0.0.1:8545"
-);
+let _provider;
+let _contract;
 
-// Hybrid mode check
+/**
+ * Lazy provider getter
+ */
+function getLazyProvider() {
+  if (!_provider) {
+    _provider = getProvider();
+  }
+  return _provider;
+}
+
+/**
+ * Hybrid mode check
+ */
 export function isHybridMode() {
   const hybrid = process.env.HYBRID_MODE || process.env.HYBRID_SIGNING;
-  const isHybrid = hybrid === "true" || hybrid === "1";
-  
-  console.log('[isHybridMode] Checked → HYBRID_MODE:', process.env.HYBRID_MODE, 'HYBRID_SIGNING:', process.env.HYBRID_SIGNING || 'unset', '→ Result:', isHybrid);
-  
-  return isHybrid;
+  return hybrid === "true" || hybrid === "1";
 }
 
-// Create contract instance synchronously
-let contract;
-if (isHybridMode()) {
-  contract = new ethers.Contract(contractData.address, contractData.abi, provider);
-  console.log("Hybrid mode enabled: Contract is read-only (frontend signs txs)");
-} else {
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error("❌ Missing PRIVATE_KEY in .env for dev mode");
+/**
+ * Lazy contract getter
+ */
+export function getContract() {
+  if (_contract) return _contract;
+
+  const provider = getLazyProvider();
+
+  if (isHybridMode()) {
+    _contract = new ethers.Contract(
+      contractData.address,
+      contractData.abi,
+      provider
+    );
+  } else {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error("❌ Missing PRIVATE_KEY in dev mode");
+    }
+
+    const signer = new ethers.Wallet(privateKey, provider);
+    _contract = new ethers.Contract(
+      contractData.address,
+      contractData.abi,
+      signer
+    );
   }
-  const signer = new ethers.Wallet(privateKey, provider);
-  contract = new ethers.Contract(contractData.address, contractData.abi, signer);
-  console.log("Dev mode enabled: Backend signing with PRIVATE_KEY");
-}
 
-// Export contract for controllers
-export default contract;
+  return _contract;
+}
+/**
+ * Default export for backward compatibility
+ * (tests & older imports rely on this)
+ */
+export default getContract();
 
 /**
  * Prepare unsigned transaction for any contract method
@@ -61,6 +84,8 @@ export default contract;
  * @returns {Promise<object>} Unsigned tx data for frontend to sign/send
  */
 export async function prepareUnsignedTx(methodName, ...args) {
+    const contract = getContract();
+    const provider = getLazyProvider();
   if (!contract) {
     throw new Error("Contract not initialized - check server startup logs");
   }
@@ -121,3 +146,4 @@ export async function prepareUnsignedSetClaim(subjectAddress, claimIdBytes32, cl
 export async function prepareUnsignedSetProfileCID(subjectAddress, cid) {
   return prepareUnsignedTx("setProfileCID", subjectAddress, cid);
 }
+

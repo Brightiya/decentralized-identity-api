@@ -2,28 +2,33 @@
 import { jest } from '@jest/globals';
 import * as chai from "chai";
 import request from "supertest";
-import app from "./testServer.js";
+//import app from "./testServer.js";
 import { ethers } from "ethers";
-import { getValidJwtFor } from "./testHelpers.js";
-import { pool } from "../src/utils/db.js";
+//import { getValidJwtFor } from "./testHelpers.js";
+//import { pool } from "../src/utils/db.js";
 import { didToAddress, requireDidAddress } from "../src/utils/did.js";
 
-
+import "../test/setup-pinata-mock.js";
+import "../test/setup-contract-mock.js";
 jest.setTimeout(60000);
-
-
 
 const { expect } = chai;
 
+let app;
+let pool;
+let getValidJwtFor;
 describe("DID Routes Basics", function () {
   jest.setTimeout(60000);
-  const testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+  const testAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
   const did = `did:ethr:${testAddress}`;
 
   let validJwtToken;
 
   beforeAll(async () => {
-   // jest.setTimeout(60000);
+      ({ default: app } = await import("./testServer.js"));
+      ({ pool } = await import("../src/utils/db.js"));
+      ({ getValidJwtFor } = await import("./testHelpers.js"));
+  
     validJwtToken = await getValidJwtFor(testAddress);
 
     // Clean any existing profile/CID
@@ -122,7 +127,7 @@ describe("DID Routes Basics", function () {
   it("POST /api/did/verify should verify DID ownership with valid signature", async () => {
     const message = `Verifying DID ownership for ${did}`;
 
-    const wallet = new ethers.Wallet("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+    const wallet = new ethers.Wallet("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
     const signature = await wallet.signMessage(message);
 
     const res = await request(app)

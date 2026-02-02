@@ -1,7 +1,7 @@
 // backend/src/index.js
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
+import "./config/env.js";
 import morgan from "morgan"; // optional: nice request logging
 
 // Controllers
@@ -18,10 +18,10 @@ import consentRoutes from "./routes/consentRoutes.js";
 // Middleware
 import { authMiddleware } from "../middleware/auth.js";
 
-// Contract utils (hybrid mode)
-import contract, { isHybridMode } from "./utils/contract.js";
+// Only import lightweight helpers — NOT the contract instance
+import { isHybridMode } from "./utils/contract.js";
 
-dotenv.config();
+
 
 const app = express();
 

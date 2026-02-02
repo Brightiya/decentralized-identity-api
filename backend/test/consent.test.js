@@ -1,20 +1,31 @@
 // backend/test/consent.test.js
 import * as chai from "chai";
 import request from "supertest";
-import app from "./testServer.js";
-import { pool } from "../src/utils/db.js";
-import { getValidJwtFor } from "./testHelpers.js";
+//import app from "./testServer.js";
+//import { pool } from "../src/utils/db.js";
+//import { getValidJwtFor } from "./testHelpers.js";
+
+import "../test/setup-pinata-mock.js";
+import "../test/setup-contract-mock.js";
 
 const { expect } = chai;
-
+let app;
+let pool;
+let getValidJwtFor;
 describe("Consent routes + contextMiddleware", function () {
-  const testSubjectAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+  const testSubjectAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
   const testSubjectDid = `did:ethr:${testSubjectAddress}`;
 
   let validJwtToken;
+  
 
   // ─── Setup: Get JWT + Clean consents before each test ──────────────────────
   beforeEach(async function () {
+
+    ({ default: app } = await import("./testServer.js"));
+  ({ pool } = await import("../src/utils/db.js"));
+  ({ getValidJwtFor } = await import("./testHelpers.js"));
+
     validJwtToken = await getValidJwtFor(testSubjectAddress);
 
     // Clean all consents for this subject before each test

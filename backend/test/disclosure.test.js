@@ -1,10 +1,16 @@
 // backend/test/disclosure.test.js
 import * as chai from "chai";
 import request from "supertest";
-import app from "./testServer.js";
-import { pool } from "../src/utils/db.js";
+//import app from "./testServer.js";
+//import { pool } from "../src/utils/db.js";
+
+import "../test/setup-pinata-mock.js";
+import "../test/setup-contract-mock.js";
 
 const { expect } = chai;
+let app;
+let pool;
+
 
 describe("Disclosure routes (GDPR Art. 15 & accountability)", function () {
   const testSubjectAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
@@ -13,6 +19,8 @@ describe("Disclosure routes (GDPR Art. 15 & accountability)", function () {
   const subjectDid = `did:ethr:${testSubjectAddress}`;
 
   beforeEach(async () => {
+      ({ default: app } = await import("./testServer.js"));
+      ({ pool } = await import("../src/utils/db.js"));
     // Clean previous data
     await pool.query("DELETE FROM disclosures WHERE subject_did = $1", [testSubjectAddress]);
 

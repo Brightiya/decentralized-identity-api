@@ -2,20 +2,27 @@
 import { jest } from '@jest/globals';
 import * as chai from "chai";
 import request from "supertest";
-import app from "./testServer.js";
-import { pool } from "../src/utils/db.js";
-import { getValidJwtFor } from "./testHelpers.js";
+//import app from "./testServer.js";
+//import { pool } from "../src/utils/db.js";
+//import { getValidJwtFor } from "./testHelpers.js";
 
-
+import "../test/setup-pinata-mock.js";
+import "../test/setup-contract-mock.js";
 jest.setTimeout(60000);
 
 const { expect } = chai;
 
 let validJwtToken;
-const testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+const testAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
 const testDid = `did:ethr:${testAddress}`;
+let app;
+let pool;
+let getValidJwtFor;
 
 beforeAll(async () => {
+   ({ default: app } = await import("./testServer.js"));
+  ({ pool } = await import("../src/utils/db.js"));
+  ({ getValidJwtFor } = await import("./testHelpers.js"));
   validJwtToken = await getValidJwtFor(testAddress);
 
   await pool.query(`
@@ -43,7 +50,7 @@ beforeAll(async () => {
 
 describe("Backend API Basic Smoke Tests", function () {
   let validJwtToken;
-  const testAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266".toLowerCase();
+  const testAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
   const testDid = `did:ethr:${testAddress}`;
 
   beforeAll(async () => {

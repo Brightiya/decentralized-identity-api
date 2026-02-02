@@ -1,11 +1,14 @@
 // backend/src/controllers/profileController.js
 import { uploadJSON, fetchJSON, unpinCID } from "../utils/pinata.js";
-import dotenv from "dotenv";
-import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
-import contract from "../utils/contract.js";
-import { didToAddress } from "../utils/did.js";
 
-dotenv.config();
+import {
+  isHybridMode,
+  prepareUnsignedTx,
+  getContract
+} from "../utils/contract.js";
+
+import { requireDidAddress as didToAddress } from "../utils/did.js";
+
 
 /* ------------------------------------------------------------------
    English labels for translatable fields
@@ -49,6 +52,7 @@ export const createOrUpdateProfile = async (req, res) => {
     }
 
     const subjectAddress = owner.toLowerCase();
+     const contract = getContract(); // 🔑 lazy, mock-safe
 
     let existingProfile = {};
 
@@ -143,6 +147,8 @@ export const getProfile = async (req, res) => {
       return res.status(400).json({ error: "address required" });
     }
 
+    const contract = getContract(); // 🔑 lazy
+
     const cid = await contract.getProfileCID(address.toLowerCase());
     if (!cid || cid.length === 0) {
       return res.status(404).json({ error: "Profile not found" });
@@ -230,6 +236,7 @@ export const eraseProfile = async (req, res) => {
     }
 
     const subjectAddress = didToAddress(did);
+    const contract = getContract(); // 🔑 lazy, mock-safe
 
     const oldCid = await contract.getProfileCID(subjectAddress); // read-only OK
     if (oldCid && oldCid.length > 0) {

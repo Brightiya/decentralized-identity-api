@@ -15,7 +15,7 @@ let pool;
 let getValidJwtFor;
 let validJwtToken;
 
-const testAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
+const testAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
 const testDid = `did:ethr:${testAddress}`;
 
 const otherAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();

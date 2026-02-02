@@ -4,10 +4,8 @@ import { uploadJSON, fetchJSON } from "../utils/pinata.js";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import dotenv from "dotenv";
 import { requireDidAddress as normalizeAddress } from "../utils/did.js";
 
-dotenv.config();
 
 // Dynamically import contractData.json
 const contractData = (async () => {

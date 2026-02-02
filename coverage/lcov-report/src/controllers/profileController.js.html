@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.42% </span>
+                <span class="strong">57.28% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>58/101</span>
+                <span class='fraction'>59/103</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.42% </span>
+                <span class="strong">57.28% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>58/101</span>
+                <span class='fraction'>59/103</span>
             </div>
         
             
@@ -346,14 +346,24 @@
 <a name='L281'></a><a href='#L281'>281</a>
 <a name='L282'></a><a href='#L282'>282</a>
 <a name='L283'></a><a href='#L283'>283</a>
-<a name='L284'></a><a href='#L284'>284</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -397,6 +407,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -490,6 +501,8 @@
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
@@ -578,6 +591,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -631,12 +645,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// backend/src/controllers/profileController.js
 import { uploadJSON, fetchJSON, unpinCID } from "../utils/pinata.js";
-import dotenv from "dotenv";
-import { isHybridMode, prepareUnsignedTx } from "../utils/contract.js";
-import contract from "../utils/contract.js";
-import { didToAddress } from "../utils/did.js";
 &nbsp;
-dotenv.config();
+import {
+  isHybridMode,
+  prepareUnsignedTx,
+  getContract
+} from "../utils/contract.js";
+&nbsp;
+import { requireDidAddress as didToAddress } from "../utils/did.js";
+&nbsp;
 &nbsp;
 /* ------------------------------------------------------------------
    English labels for translatable fields
@@ -680,6 +697,7 @@ export const createOrUpdateProfile = async (req, res) =&gt; {
     }
 &nbsp;
     const subjectAddress = owner.toLowerCase();
+     const contract = getContract(); // 🔑 lazy, mock-safe
 &nbsp;
     let existingProfile = {};
 &nbsp;
@@ -774,6 +792,8 @@ export const getProfile = async (req, res) =&gt; {
 <span class="cstat-no" title="statement not covered" >      return res.status(400).json({ error: "address required" });</span>
     }
 &nbsp;
+    const contract = getContract(); // 🔑 lazy
+&nbsp;
     const cid = await contract.getProfileCID(address.toLowerCase());
     <span class="missing-if-branch" title="if path not taken" >I</span>if (!cid || cid.length === 0) {
 <span class="cstat-no" title="statement not covered" >      return res.status(404).json({ error: "Profile not found" });</span>
@@ -861,6 +881,7 @@ export const eraseProfile = <span class="fstat-no" title="function not covered" 
     }
 &nbsp;
     const subjectAddress = <span class="cstat-no" title="statement not covered" >didToAddress(did);</span>
+    const contract = <span class="cstat-no" title="statement not covered" >getContract();</span> // 🔑 lazy, mock-safe
 &nbsp;
     const oldCid = <span class="cstat-no" title="statement not covered" >await contract.getProfileCID(subjectAddress);</span> // read-only OK
 <span class="cstat-no" title="statement not covered" >    if (oldCid &amp;&amp; oldCid.length &gt; 0) {</span>
@@ -919,7 +940,7 @@ export const eraseProfile = <span class="fstat-no" title="function not covered" 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-31T02:53:04.969Z
+                at 2026-02-02T14:04:11.287Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

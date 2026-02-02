@@ -86,12 +86,12 @@ jest.unstable_mockModule('../src/utils/pinata.js', () => {
 
       return {
         "@context": ["https://www.w3.org/ns/did/v1"],
-        id: "did:ethr:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        id: "did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase(),
         verificationMethod: [{
           id: "#controller",
           type: "EcdsaSecp256k1RecoveryMethod2020",
-          controller: "did:ethr:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-          blockchainAccountId: "eip155:1:0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+          controller: "did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase(),
+          blockchainAccountId: "eip155:1:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase()
         }],
         authentication: ["#controller"],
         service: []

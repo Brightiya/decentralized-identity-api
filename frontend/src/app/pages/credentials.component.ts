@@ -104,7 +104,7 @@ import { firstValueFrom, take } from 'rxjs';
                 <!-- Context Selection + Add Custom -->
                 <div class="context-section">
                   <mat-form-field appearance="outline" class="full-width">
-                    <mat-label>Context</mat-label>
+                    <mat-label>Context *</mat-label>
                     <mat-select [(ngModel)]="context" [disabled]="issuing()">
                       <mat-option value="">-- Select context --</mat-option>
                       <mat-option *ngFor="let c of contexts" [value]="c">
@@ -137,32 +137,45 @@ import { firstValueFrom, take } from 'rxjs';
                   </div>
                 </div>
 
-                <!-- Purpose (GDPR-required) -->
+                <!-- Purpose (mandatory) -->
                 <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Purpose</mat-label>
+                  <mat-label>Purpose *</mat-label>
                   <input
                     matInput
                     [(ngModel)]="purpose"
                     placeholder="e.g. account verification, onboarding"
+                    required
                   />
                   <mat-hint>Required for consent-based disclosure</mat-hint>
                 </mat-form-field>
 
-                <!-- Claim Details -->
+                <!-- Claim ID (now mandatory) -->
                 <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Claim ID</mat-label>
-                  <input matInput [(ngModel)]="claimId" placeholder="e.g. identity.email" />
+                  <mat-label>Claim ID *</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="claimId"
+                    placeholder="e.g. identity.email, profile.name, health.bloodtype"
+                    required
+                  />
+                  <mat-hint>Unique identifier for this claim (dot notation recommended)</mat-hint>
                 </mat-form-field>
 
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Claim JSON</mat-label>
+                <!-- Claim JSON (now mandatory + validated) -->
+                <mat-form-field appearance="outline" class="full-width"
+                                [class.mat-form-field-invalid]="claim && !isValidJson()">
+                  <mat-label>Claim Data (JSON) *</mat-label>
                   <textarea
                     matInput
                     rows="6"
                     [(ngModel)]="claim"
-                    placeholder='{"email":"alice@example.com"}'
+                    placeholder='{"name": "Alice Smith", "email": "alice@example.com"}'
+                    required
                   ></textarea>
                   <mat-hint>Valid JSON object containing the claim data</mat-hint>
+                  <mat-error *ngIf="claim && !isValidJson()">
+                    Invalid JSON format — must be a valid object "{{ '{' }}")
+                  </mat-error>
                 </mat-form-field>
 
                 <!-- Issue Button -->
@@ -179,9 +192,9 @@ import { firstValueFrom, take } from 'rxjs';
                   </button>
                 </div>
 
-                <div class="validation-hint" *ngIf="!isIssueValid() && context">
+                <div class="validation-hint" *ngIf="!isIssueValid() && (context || purpose || claimId || claim)">
                   <mat-icon inline color="warn">warning</mat-icon>
-                  Please fill in Claim ID and valid JSON
+                  Please fill in all required fields with valid values
                 </div>
               </mat-card-content>
             </mat-card>
@@ -375,6 +388,16 @@ import { firstValueFrom, take } from 'rxjs';
     .full-width {
       width: 100%;
       margin-bottom: 24px;
+    }
+
+    /* Add slight visual feedback for invalid JSON field */
+    .mat-form-field-invalid .mat-mdc-text-field-wrapper {
+      border-color: #f44336 !important;
+    }
+
+    mat-error {
+      font-size: 0.9rem;
+      margin-top: 4px;
     }
 
     /* Issue Button */
@@ -651,11 +674,9 @@ export class CredentialsComponent implements OnInit {
   newContext = '';
   expiresAt?: string;
 
-  // Claim issuance
-  claimId = 'identity.email';
-  claim = '{\n  "email": "alice@example.com"\n}';
-
-  // Mandatory for backend
+ // Claim issuance – all mandatory, no defaults
+  claimId = '';
+  claim = '';
   purpose = '';
 
   // UI state
@@ -713,33 +734,88 @@ export class CredentialsComponent implements OnInit {
   }
 
   // --------------------
-  // Validation
+  // Validation Helpers
   // --------------------
-  isIssueValid(): boolean {
-    if (!this.context || this.context.trim().length === 0) return false;
-    if (!this.claimId || this.claimId.trim().length === 0) return false;
-    if (!this.purpose || this.purpose.trim().length === 0) return false;
+  isValidJson(): boolean {
+  if (!this.claim?.trim()) {
+    return false;
+  }
 
-    try {
-      const parsed = JSON.parse(this.claim);
-      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
-    } catch {
+  try {
+    const parsed = JSON.parse(this.claim);
+
+    // 1. Must be a non-null object
+    if (typeof parsed !== 'object' || parsed === null) {
       return false;
     }
+
+    // 2. Must not be an array
+    if (Array.isArray(parsed)) {
+      return false;
+    }
+
+    const keys = Object.keys(parsed);
+
+    // 3. Must have at least one key
+    if (keys.length === 0) {
+      return false;
+    }
+
+    // 4. Reject if all keys are empty strings (or only whitespace)
+    const hasMeaningfulKey = keys.some(key => key.trim() !== '');
+    if (!hasMeaningfulKey) {
+      return false;
+    }
+
+    // 5. Optional but recommended: reject if all values are empty/meaningless
+    //    (you can adjust or remove this rule depending on your needs)
+    const hasMeaningfulValue = keys.some(key => {
+      const value = parsed[key];
+      if (value === null || value === undefined) return false;
+      if (typeof value === 'string' && value.trim() === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      if (typeof value === 'object' && value !== null && Object.keys(value).length === 0) return false;
+      return true;
+    });
+
+    if (!hasMeaningfulValue) {
+      return false;
+    }
+
+    // If we reach here → looks like a reasonable claim
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+  isIssueValid(): boolean {
+    if (!this.context?.trim()) return false;
+    if (!this.purpose?.trim()) return false;
+    if (!this.claimId?.trim()) return false;
+    return this.isValidJson();
   }
 
   // --------------------------
 // Issue VC - with full hybrid signing support
 // --------------------------
 async issueVC() {
-  if (!this.isIssueValid()) {
-    this.snackBar.open(
-      'Please complete all required fields (context, purpose, claim ID, valid JSON)',
-      'Close',
-      { duration: 6000 }
-    );
-    return;
-  }
+    if (!this.isIssueValid()) {
+      if (this.claim?.trim() && !this.isValidJson()) {
+        this.snackBar.open(
+          'Claim JSON must contain at least one meaningful key-value pair (empty keys/values not allowed)',
+          'Close',
+          { duration: 7000 }
+        );
+      } else {
+        this.snackBar.open(
+          'Please fill in Context, Purpose, Claim ID, and valid non-empty JSON claim data',
+          'Close',
+          { duration: 6000 }
+        );
+      }
+      return;
+    }
 
   const addr = this.wallet.address;
   if (!addr) {
@@ -868,12 +944,12 @@ async issueVC() {
     }
 
     // ── Final success ───────────────────────────────────────────────
-    this.snackBar.open(
-      `Credential successfully issued & anchored! Tx: ${mainTxHash.slice(0, 10)}...`,
-      'Close',
-      { duration: 9000, panelClass: ['success-snackbar'] }
-    );
+    this.snackBar.open(`Credential successfully issued & anchored! Tx: ${mainTxHash.slice(0, 10)}...`, 'Close', {
+        duration: 7000,
+        panelClass: ['success-snackbar'],
+      });
 
+      this.resetFormAfterSuccess();
     // Auto-add the context to the dropdown if it's new
     if (this.context && !this.contextService.contexts.includes(this.context)) {
       this.contextService.addContext(this.context);
@@ -914,6 +990,14 @@ async issueVC() {
     this.issuing.set(false);
   }
 }
+
+private resetFormAfterSuccess() {
+    this.claimId = '';
+    this.claim = '';
+    this.purpose = '';
+    // Optionally keep context selected or reset it too
+    this.context = '';
+  }
 
   // --------------------
   // Helpers

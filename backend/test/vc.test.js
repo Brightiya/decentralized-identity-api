@@ -28,9 +28,9 @@ beforeAll(async () => {
   ({ getValidJwtFor } = await import("./testHelpers.js"));
   ({ fetchJSON } = await import("../src/utils/pinata.js"));
 
-  validJwtToken = await getValidJwtFor("0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
+  validJwtToken = await getValidJwtFor("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase());
 
-  const subjectAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
+  const subjectAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
   const subjectDid = `did:ethr:${subjectAddress}`;
 
   const verifierAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();
@@ -73,7 +73,7 @@ beforeAll(async () => {
 });
 
 describe("Verifiable Credentials Routes", () => {
-  const subjectAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".toLowerCase();
+  const subjectAddress = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase();
   const subjectDid = `did:ethr:${subjectAddress}`;
 
   const verifierAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".toLowerCase();

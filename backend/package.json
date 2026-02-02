@@ -15,6 +15,9 @@
     "start:node": "hardhat node --config ../hardhat.config.cjs",
     "deploy:localhost": "hardhat run --network localhost ../scripts/deploy.mjs --config ../hardhat.config.cjs"
   },
+  "engines": {
+  "node": "20.x"
+},
   "dependencies": {
     "@pinata/sdk": "^2.1.0",
     "axios": "^1.7.7",

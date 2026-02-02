@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
 import { SiweMessage, SiweError } from 'siwe';
 import { pool } from '../utils/db.js';
+import {requireDidAddress as  didToAddress} from "../utils/did.js";
 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please';
@@ -26,10 +27,6 @@ function normalizeRole(role) {
   return ALLOWED_ROLES.includes(upper) ? upper : 'USER';
 }
 
-function normalizeAddress(addr) {
-  if (!addr) return addr;
-  return ethers.getAddress(addr).toLowerCase();
-}
 
 // =====================================
 // GET /api/auth/challenge
@@ -43,7 +40,7 @@ export const getChallenge = async (req, res) => {
     }
 
     const checksumAddress = ethers.getAddress(address);
-    const normalizedAddress = normalizeAddress(address);
+    const normalizedAddress = didToAddress(address);
 
     const nonce = generateNonce();
     const issuedAt = new Date().toISOString();
@@ -102,7 +99,7 @@ export const verifySignature = async (req, res) => {
       return res.status(401).json({ error: 'Invalid SIWE domain or URI' });
     }
 
-    const normalizedAddress = normalizeAddress(fields.address);
+    const normalizedAddress = didToAddress(fields.address);
 
     // Nonce validation
     const nonceRes = await pool.query(

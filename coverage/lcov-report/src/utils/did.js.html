@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">58.82% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>10/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.55% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/9</span>
+                <span class='fraction'>9/9</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">62.5% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>10/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -108,36 +108,36 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">55x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">255x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">55x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">55x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">252x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">55x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">55x</span>
+<span class="cline-any cline-yes">252x</span>
+<span class="cline-any cline-yes">68x</span>
+<span class="cline-any cline-yes">68x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">252x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">55x</span>
-<span class="cline-any cline-yes">55x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">248x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">55x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">238x</span>
+<span class="cline-any cline-yes">238x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">236x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// backend/src/utils/did.js
 import { isAddress } from "ethers";
@@ -147,19 +147,19 @@ import { isAddress } from "ethers";
  * Returns null if invalid.
  */
 export const didToAddress = (didOrAddress) =&gt; {
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!didOrAddress) <span class="cstat-no" title="statement not covered" >return null;</span>
+  if (!didOrAddress) return null;
 &nbsp;
   let addr = didOrAddress;
 &nbsp;
   // Extract last DID segment if present
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (addr.startsWith("did:")) {
-    const parts = <span class="cstat-no" title="statement not covered" >addr.split(":");</span>
-<span class="cstat-no" title="statement not covered" >    addr = parts[parts.length - 1];</span>
+  if (addr.startsWith("did:")) {
+    const parts = addr.split(":");
+    addr = parts[parts.length - 1];
   }
 &nbsp;
   // Enforce Ethereum address validity
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!isAddress(addr)) {
-<span class="cstat-no" title="statement not covered" >    return null;</span>
+  if (!isAddress(addr)) {
+    return null;
   }
 &nbsp;
   return addr.toLowerCase();
@@ -170,10 +170,10 @@ export const didToAddress = (didOrAddress) =&gt; {
  */
 export const requireDidAddress = (value, label = "DID") =&gt; {
   const addr = didToAddress(value);
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!addr) {
-    const err = <span class="cstat-no" title="statement not covered" >new Error(`Invalid ${label}`);</span>
-<span class="cstat-no" title="statement not covered" >    err.status = 400;</span>
-<span class="cstat-no" title="statement not covered" >    throw err;</span>
+  if (!addr) {
+    const err = new Error(`Invalid ${label}`);
+    err.status = 400;
+    throw err;
   }
   return addr;
 };
@@ -184,7 +184,7 @@ export const requireDidAddress = (value, label = "DID") =&gt; {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T16:10:43.611Z
+                at 2026-02-02T16:27:59.369Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

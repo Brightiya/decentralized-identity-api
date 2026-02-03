@@ -95,29 +95,45 @@ export function getContract() {
 export default getContract;
 
 /**
- * Prepare unsigned transaction for any contract method
+ * Prepare unsigned transaction — provider-free in hybrid mode
  */
 export async function prepareUnsignedTx(methodName, ...args) {
-  const contract = getContract();
+  // Load contract data (ABI + address) — no provider needed here
+  const contractData = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, "../contractData.json"), "utf8")
+  );
 
-  // In test mode → mocks already handle population
-  if (process.env.NODE_ENV === "test") {
+  const iface = new ethers.Interface(contractData.abi);
+  const data = iface.encodeFunctionData(methodName, args);
+
+  if (isHybridMode()) {
+    // Hybrid mode: return minimal unsigned tx object — frontend will sign/send
     return {
-      to: contract.target,
-      data: "0xmockdata",
-      gasLimit: "450000",
-      chainId: 31337,
+      to: contractData.address,
+      data,
+      chainId: Number(process.env.CHAIN_ID || 31337),
+      gasLimit: "0x" + (500000).toString(16), // safe upper bound — frontend can estimate
+      value: "0x0",
+      type: 2,
+      // Optional: add nonce, maxFeePerGas etc. if you want to pre-fill
     };
   }
 
+  // Non-hybrid mode: full provider + signer
   const provider = getLazyProvider();
-  if (!contract || !provider) {
-    throw new Error("Contract or provider not initialized");
+  if (!provider) {
+    throw new Error("Provider required in non-hybrid mode");
   }
+
+  const contract = new ethers.Contract(
+    contractData.address,
+    contractData.abi,
+    provider
+  );
 
   const fn = contract.getFunction(methodName);
   if (!fn) {
-    throw new Error(`Method '${methodName}' does not exist in contract ABI`);
+    throw new Error(`Method '${methodName}' not found in ABI`);
   }
 
   const tx = await fn.populateTransaction(...args);
@@ -125,23 +141,16 @@ export async function prepareUnsignedTx(methodName, ...args) {
   const feeData = await provider.getFeeData();
   const chain = await provider.getNetwork();
 
-  const unsignedTx = {
+  return {
     to: contract.target,
     data: tx.data,
     chainId: Number(chain.chainId),
-    gasLimit: (tx.gasLimit || 400000n).toString(),
+    gasLimit: (tx.gasLimit || 500000n).toString(),
     maxFeePerGas: (feeData.maxFeePerGas || 0n).toString(),
     maxPriorityFeePerGas: (feeData.maxPriorityFeePerGas || 0n).toString(),
     value: "0",
     type: 2,
   };
-
-  console.log(`[prepareUnsignedTx] Prepared tx for ${methodName}:`, {
-    to: unsignedTx.to,
-    gasLimit: unsignedTx.gasLimit,
-  });
-
-  return unsignedTx;
 }
 
 // Convenience wrappers (unchanged)

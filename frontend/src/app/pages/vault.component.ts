@@ -951,7 +951,8 @@ export class VaultComponent implements OnInit, OnDestroy {
         // Hybrid mode: User signs & sends
         this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
 
-        const { hash: txHash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        const txHash = txResponse.hash;
 
         this.snackBar.open(`Profile created on-chain! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
       } else if (response.txHash) {

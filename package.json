@@ -1,5 +1,5 @@
 {
-  "name": "decentralized-identity-api-monorepo",
+  "name": "decentralized-identity-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",

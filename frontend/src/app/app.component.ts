@@ -25,6 +25,8 @@ import { MatListModule } from '@angular/material/list';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
+import { ViewChild } from '@angular/core';
+import { MatSidenav } from '@angular/material/sidenav';
 
 import { WalletService } from './services/wallet.service';
 import { AuthService } from './services/auth.service';
@@ -51,182 +53,194 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   ],
   template: `
     <mat-sidenav-container 
-      class="sidenav-container"
-      [class.dark]="darkMode()"
-      [class.mini]="miniSidebar()">
+  class="sidenav-container"
+  [class.dark]="darkMode()"
+  [class.mini]="miniSidebar()">
 
-      <!-- ── Modern Sidebar ── -->
-      <mat-sidenav
-        *ngIf="auth.isAuthenticated()"
-        mode="side"
-        opened
-        fixedInViewport
-        class="sidenav glass-sidebar">
+  <!-- ── Responsive Sidebar ── -->
+  <mat-sidenav
+    *ngIf="auth.isAuthenticated()"
+    #sidenav
+    [mode]="isMobile() ? 'over' : 'side'"
+    [opened]="!isMobile() || sidenavOpened()"
+    (openedChange)="sidenavOpened.set($event)"
+    fixedInViewport
+    class="sidenav glass-sidebar">
 
-        <!-- Logo / Brand -->
-        <div class="brand-header" 
-             (click)="toggleMini()"
-             matTooltip="Privacy Identity Management Vault"
-             matTooltipPosition="right">
-          <div class="header-icon-wrapper">
-              <!-- Custom SVG Keyhole Shield -->
-              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-                  class="custom-shield">
-                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
-                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
-                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
-                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
-                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
-              </svg>
-            </div>
-          <div class="brand-text" [class.collapsed]="miniSidebar()">
-            <div class="brand-name">PIMV</div>
-            <div class="brand-subtitle">Identity Vault</div>
-          </div>
+    <!-- Logo / Brand -->
+    <div class="brand-header" 
+         (click)="toggleMini()"
+         matTooltip="Privacy Identity Management Vault"
+         matTooltipPosition="right">
+      <div class="header-icon-wrapper">
+        <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+             class="custom-shield">
+          <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+          <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+          <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+        </svg>
+      </div>
+      <div class="brand-text" [class.collapsed]="miniSidebar()">
+        <div class="brand-name">PIMV</div>
+        <div class="brand-subtitle">Identity Vault</div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <mat-nav-list class="nav-list">
+      <!-- USER -->
+      <ng-container *ngIf="auth.role() === 'USER'">
+        <a mat-list-item routerLink="/vault" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>lock_outline</mat-icon>
+          <span matListItemTitle>Vault</span>
+        </a>
+        <a mat-list-item routerLink="/credentials" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>badge</mat-icon>
+          <span matListItemTitle>Credentials</span>
+        </a>
+        <a mat-list-item routerLink="/contexts" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>layers</mat-icon>
+          <span matListItemTitle>Contexts</span>
+        </a>
+        <a mat-list-item routerLink="/consent" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>task_alt</mat-icon>
+          <span matListItemTitle>Consent</span>
+        </a>
+        <a mat-list-item routerLink="/disclosures" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>share</mat-icon>
+          <span matListItemTitle>Disclosures</span>
+        </a>
+        <a mat-list-item routerLink="/gdpr" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>policy</mat-icon>
+          <span matListItemTitle>GDPR</span>
+        </a>
+      </ng-container>
+
+      <!-- ADMIN -->
+      <ng-container *ngIf="auth.role() === 'ADMIN'">
+        <a mat-list-item routerLink="/advanced" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>settings_suggest</mat-icon>
+          <span matListItemTitle>Advanced</span>
+        </a>
+      </ng-container>
+
+      <!-- VERIFIER -->
+      <ng-container *ngIf="auth.role() === 'VERIFIER'">
+        <a mat-list-item routerLink="/verifier" routerLinkActive="active" class="nav-item">
+          <mat-icon matListItemIcon>verified_user</mat-icon>
+          <span matListItemTitle>Verifier</span>
+        </a>
+      </ng-container>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <!-- ── Main Area ── -->
+  <mat-sidenav-content class="main-content">
+
+    <!-- Modern Toolbar -->
+    <mat-toolbar color="primary" class="main-toolbar">
+      <!-- Menu button (mobile only) -->
+      <button mat-icon-button class="menu-btn" 
+              (click)="sidenav.toggle()" 
+              *ngIf="isMobile() && auth.isAuthenticated()">
+        <mat-icon>menu</mat-icon>
+      </button>
+
+      <!-- Mini toggle (desktop only) -->
+      <button mat-icon-button class="menu-btn mini-toggle" 
+              (click)="toggleMini()" 
+              *ngIf="!isMobile() && auth.isAuthenticated()"
+              matTooltip="Toggle sidebar">
+        <mat-icon>menu_open</mat-icon>
+      </button>
+
+      <div class="breadcrumb">{{ breadcrumb() }}</div>
+
+      <span class="toolbar-spacer"></span>
+
+      <!-- Role Indicator -->
+      <div class="role-pill"
+           *ngIf="auth.isAuthenticated() && wallet.address"
+           [ngClass]="{
+             'role-user': auth.role() === 'USER',
+             'role-admin': auth.role() === 'ADMIN',
+             'role-verifier': auth.role() === 'VERIFIER'
+           }">
+        {{ displayRole() }}
+      </div>
+
+      <!-- Wallet Connection -->
+      <div class="wallet-section" *ngIf="wallet.address; else connectWalletBtn">
+        <div class="address-pill">
+          <code>{{ wallet.address | slice:0:6 }}…{{ wallet.address | slice:-4 }}</code>
+          <button mat-icon-button class="copy-btn" (click)="copyAddress()" matTooltip="Copy address">
+            <mat-icon>{{ copied ? 'check_circle' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <ng-template #connectWalletBtn>
+        <button mat-stroked-button class="connect-btn" (click)="connectWallet()">
+          <mat-icon>wallet</mat-icon>
+          Connect Wallet
+        </button>
+      </ng-template>
+
+      <!-- Dark Mode Toggle -->
+      <mat-slide-toggle
+        class="theme-toggle"
+        [checked]="darkMode()"
+        (change)="toggleDarkMode()"
+        aria-label="Toggle theme">
+      </mat-slide-toggle>
+
+      <!-- User Menu -->
+      <ng-container *ngIf="wallet.address">
+        <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+          <mat-icon>account_circle</mat-icon>
+        </button>
+
+        <mat-menu #userMenu="matMenu" xPosition="before">
+          <button mat-menu-item routerLink="/profile">
+            <mat-icon>person</mat-icon>
+            <span>Profile</span>
+          </button>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
+      </ng-container>
+    </mat-toolbar>
+
+    <!-- Page Content -->
+    <main class="page-content">
+      <router-outlet></router-outlet>
+    </main>
+
+    <!-- Modern Footer -->
+    <footer class="main-footer">
+      <div class="footer-container">
+        <div class="footer-brand">
+          <span class="footer-logo">PIMV</span>
+          <span class="footer-title">Privacy Identity Management Vault</span>
         </div>
 
-        <!-- Navigation -->
-        <mat-nav-list class="nav-list">
-          <!-- USER -->
-          <ng-container *ngIf="auth.role() === 'USER'">
-            <a mat-list-item routerLink="/vault" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>lock_outline</mat-icon>
-              <span matListItemTitle>Vault</span>
-            </a>
-            <a mat-list-item routerLink="/credentials" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>badge</mat-icon>
-              <span matListItemTitle>Credentials</span>
-            </a>
-            <a mat-list-item routerLink="/contexts" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>layers</mat-icon>
-              <span matListItemTitle>Contexts</span>
-            </a>
-            <a mat-list-item routerLink="/consent" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>task_alt</mat-icon>
-              <span matListItemTitle>Consent</span>
-            </a>
-            <a mat-list-item routerLink="/disclosures" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>share</mat-icon>
-              <span matListItemTitle>Disclosures</span>
-            </a>
-            <a mat-list-item routerLink="/gdpr" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>policy</mat-icon>
-              <span matListItemTitle>GDPR</span>
-            </a>
-          </ng-container>
+        <div class="footer-copyright">
+          © {{ currentYear }} • All rights reserved
+        </div>
 
-          <!-- ADMIN -->
-          <ng-container *ngIf="auth.role() === 'ADMIN'">
-            <a mat-list-item routerLink="/advanced" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>settings_suggest</mat-icon>
-              <span matListItemTitle>Advanced</span>
-            </a>
-          </ng-container>
-
-          <!-- VERIFIER -->
-          <ng-container *ngIf="auth.role() === 'VERIFIER'">
-            <a mat-list-item routerLink="/verifier" routerLinkActive="active" class="nav-item">
-              <mat-icon matListItemIcon>verified_user</mat-icon>
-              <span matListItemTitle>Verifier</span>
-            </a>
-          </ng-container>
-        </mat-nav-list>
-      </mat-sidenav>
-
-      <!-- ── Main Area ── -->
-      <mat-sidenav-content class="main-content">
-
-        <!-- Modern Toolbar -->
-        <mat-toolbar color="primary" class="main-toolbar">
-          <button mat-icon-button class="menu-btn" (click)="toggleMini()" aria-label="Toggle menu">
-            <mat-icon>menu</mat-icon>
-          </button>
-
-          <div class="breadcrumb">{{ breadcrumb() }}</div>
-
-          <span class="toolbar-spacer"></span>
-
-          <!-- Role Indicator -->
-          <div class="role-pill"
-               *ngIf="auth.isAuthenticated() && wallet.address"
-               [ngClass]="{
-                 'role-user': auth.role() === 'USER',
-                 'role-admin': auth.role() === 'ADMIN',
-                 'role-verifier': auth.role() === 'VERIFIER'
-               }">
-            {{ displayRole() }}
-          </div>
-
-          <!-- Wallet Connection -->
-          <div class="wallet-section" *ngIf="wallet.address; else connectWalletBtn">
-            <div class="address-pill">
-              <code>{{ wallet.address | slice:0:6 }}…{{ wallet.address | slice:-4 }}</code>
-              <button mat-icon-button class="copy-btn" (click)="copyAddress()" matTooltip="Copy address">
-                <mat-icon>{{ copied ? 'check_circle' : 'content_copy' }}</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <ng-template #connectWalletBtn>
-            <button mat-stroked-button class="connect-btn" (click)="connectWallet()">
-              <mat-icon>wallet</mat-icon>
-              Connect Wallet
-            </button>
-          </ng-template>
-
-          <!-- Dark Mode Toggle -->
-          <mat-slide-toggle
-            class="theme-toggle"
-            [checked]="darkMode()"
-            (change)="toggleDarkMode()"
-            aria-label="Toggle theme">
-          </mat-slide-toggle>
-
-          <!-- User Menu -->
-          <ng-container *ngIf="wallet.address">
-            <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
-              <mat-icon>account_circle</mat-icon>
-            </button>
-
-            <mat-menu #userMenu="matMenu" xPosition="before">
-              <button mat-menu-item routerLink="/profile">
-                <mat-icon>person</mat-icon>
-                <span>Profile</span>
-              </button>
-              <button mat-menu-item (click)="logout()">
-                <mat-icon>logout</mat-icon>
-                <span>Logout</span>
-              </button>
-            </mat-menu>
-          </ng-container>
-        </mat-toolbar>
-
-        <!-- Page Content -->
-        <main class="page-content">
-          <router-outlet></router-outlet>
-        </main>
-
-        <!-- Modern Footer -->
-        <footer class="main-footer">
-          <div class="footer-container">
-            <div class="footer-brand">
-              <span class="footer-logo">PIMV</span>
-              <span class="footer-title">Privacy Identity Management Vault</span>
-            </div>
-
-            <div class="footer-copyright">
-              © {{ currentYear }} • All rights reserved
-            </div>
-
-            <div class="footer-links">
-              <a href="#" class="footer-link">Privacy Policy</a>
-              <a href="#" class="footer-link">Terms of Use</a>
-              <a href="#" class="footer-link">Contact</a>
-            </div>
-          </div>
-        </footer>
-      </mat-sidenav-content>
-    </mat-sidenav-container>
+        <div class="footer-links">
+          <a href="#" class="footer-link">Privacy Policy</a>
+          <a href="#" class="footer-link">Terms of Use</a>
+          <a href="#" class="footer-link">Contact</a>
+        </div>
+      </div>
+    </footer>
+  </mat-sidenav-content>
+</mat-sidenav-container>
   `,
 
   styles: [`
@@ -523,6 +537,73 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       }
     }
 
+    /* ── Mobile & Tablet responsiveness ── */
+    @media (max-width: 960px) {
+      .sidenav-container {
+        overflow: hidden;
+      }
+
+      .glass-sidebar {
+        width: 280px !important;          /* drawer width */
+        box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+        z-index: 1000;
+      }
+
+      /* Disable mini mode on mobile */
+      .sidenav-container.mini .glass-sidebar {
+        width: 280px !important;
+      }
+
+      .main-content {
+        transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* When drawer is open, shift content slightly (optional) */
+      .sidenav-container:has(mat-sidenav.opened) .main-content {
+        margin-left: 0 !important;
+      }
+
+      .main-toolbar {
+        padding: 0 16px;
+        min-height: 64px;
+      }
+
+      .page-content {
+        padding: 16px;
+      }
+
+      .footer-container {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+        padding: 24px 16px;
+      }
+
+      .footer-links {
+        gap: 24px;
+        justify-content: center;
+      }
+    }
+
+    /* Drawer backdrop (dim background when open on mobile) */
+    .mat-drawer-backdrop {
+      background-color: rgba(0,0,0,0.5) !important;
+    }
+
+    /* Menu button visibility */
+    .menu-btn {
+      display: none;
+    }
+
+    @media (max-width: 960px) {
+      .menu-btn {
+        display: inline-flex;
+      }
+      .mini-toggle {
+        display: none !important;
+      }
+    }
+
     @media (max-width: 600px) {
       .main-toolbar {
         padding: 0 16px;
@@ -580,6 +661,11 @@ export class AppComponent implements OnInit {
   darkMode = this.themeService.darkMode;
   copied = false;
 
+  // NEW: controls drawer open/close on mobile
+  sidenavOpened = signal(false);
+  // NEW: reference to the sidenav component
+  @ViewChild('sidenav') sidenav!: MatSidenav;
+
   constructor() {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
@@ -590,6 +676,7 @@ export class AppComponent implements OnInit {
 
   ngOnInit() {
     this.themeService.initialize();  // ensure <html> class is set on load
+
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
@@ -615,6 +702,17 @@ export class AppComponent implements OnInit {
 
       this.titleService.setTitle(title);
     });
+
+    // Optional: close drawer on navigation on mobile
+    if (this.isBrowser) {
+      this.router.events.pipe(
+        filter(event => event instanceof NavigationEnd)
+      ).subscribe(() => {
+        if (this.isMobile()) {
+          this.sidenavOpened.set(false);
+        }
+      });
+    }
   }
 
   private capitalize(str: string): string {
@@ -669,5 +767,11 @@ export class AppComponent implements OnInit {
       this.copied = false;
       this.cdr.detectChanges();
     }, 2000);
+  }
+
+  // NEW: detect mobile/tablet screens
+  isMobile() {
+    if (!this.isBrowser) return false;
+    return window.innerWidth <= 960; // breakpoint for mobile/tablet
   }
 }

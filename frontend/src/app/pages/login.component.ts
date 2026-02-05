@@ -37,153 +37,176 @@ import { firstValueFrom } from 'rxjs';
     MatInputModule
   ],
   template: `
-    <div class="login-page" [class.dark]="darkMode()">
-      <div class="bg-overlay"></div>
+  <div class="login-page" [class.dark]="darkMode()">
+    <div class="bg-overlay"></div>
 
-      <div class="login-wrapper">
-        <mat-card class="login-card glass-card" appearance="outlined">
-          <!-- Header -->
-          <mat-card-header class="card-header">
-            <div class="header-icon-wrapper">
-              <svg width="72" height="72" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-                   class="custom-shield">
-                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
-                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
-                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
-                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
-                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
-              </svg>
-            </div>
-            <mat-card-title>PIMV Identity Vault</mat-card-title>
-            <mat-card-subtitle>Secure • Decentralized • Self-Sovereign</mat-card-subtitle>
-          </mat-card-header>
+    <div class="login-wrapper">
+      <mat-card class="login-card glass-card" appearance="outlined">
+        <!-- Header -->
+        <mat-card-header class="card-header">
+          <div class="header-icon-wrapper">
+            <svg width="72" height="72" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                 class="custom-shield">
+              <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                    fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+              <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+              <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+              <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+            </svg>
+          </div>
+          <mat-card-title>PIMV Identity Vault</mat-card-title>
+          <mat-card-subtitle>Secure • Decentralized • Self-Sovereign</mat-card-subtitle>
+        </mat-card-header>
 
-          <mat-card-content class="card-content">
-            <!-- Step 0: Custom RPC (Optional) -->
-            <div class="step-section rpc-section">
-              <h3>Optional: Local Development RPC</h3>
-              <p class="step-desc">
-                For local testing with Hardhat — enter your node URL (default: <code>http://127.0.0.1:8545</code>)
-              </p>
-
-              <mat-form-field appearance="outline" class="full-width rpc-input">
-                <mat-label>Hardhat RPC URL</mat-label>
-                <input matInput
-                       [(ngModel)]="customRpcUrl"
-                       placeholder="http://127.0.0.1:8545"
-                       (blur)="saveCustomRpc()" />
-                <mat-hint>Leave blank to use default local node</mat-hint>
-              </mat-form-field>
-
-              <div class="status-pill" *ngIf="customRpcUrl()">
-                <mat-icon color="primary">check_circle</mat-icon>
-                Using custom RPC: <code>{{ customRpcUrl() }}</code>
-              </div>
-              <div class="status-pill neutral" *ngIf="!customRpcUrl()">
-                <mat-icon>info</mat-icon>
-                Using default: <code>http://127.0.0.1:8545</code>
-              </div>
+        <mat-card-content class="card-content">
+          <!-- QR Code + Mobile Hint (new section – appears at the top of content) -->
+          <div class="qr-mobile-section">
+            <!-- Desktop: show QR code -->
+            <div class="qr-desktop" *ngIf="!isMobile()">
+              <p class="qr-title">Scan to open on mobile</p>
+              <img [src]="qrCodeUrl()" alt="QR code to open in MetaMask mobile" class="qr-image" />
+              <p class="qr-desc">Open this page in the MetaMask app browser on your phone</p>
             </div>
 
-            <!-- Step 1: Connect Wallet -->
-            <div class="step-section" *ngIf="!(wallet.address$ | async)">
-              <h3>1. Connect Your Wallet</h3>
-              <p class="step-desc">
-                Link your Ethereum wallet to access your decentralized identity vault.
+            <!-- Mobile: show hint -->
+            <div class="mobile-hint" *ngIf="isMobile()">
+              <mat-icon>smartphone</mat-icon>
+              <p>
+                <strong>Mobile device detected</strong><br>
+                For wallet connection to work, please open this site inside the
+                <strong>MetaMask app browser</strong> or <strong>Trust Wallet browser</strong>.
               </p>
+              <p class="small">
+                Desktop users: Use MetaMask browser extension.
+              </p>
+            </div>
+          </div>
+
+          <!-- Step 0: Custom RPC (Optional) -->
+          <div class="step-section rpc-section">
+            <h3>Optional: Local Development RPC</h3>
+            <p class="step-desc">
+              For local testing with Hardhat — enter your node URL (default: <code>http://127.0.0.1:8545</code>)
+            </p>
+
+            <mat-form-field appearance="outline" class="full-width rpc-input">
+              <mat-label>Hardhat RPC URL</mat-label>
+              <input matInput
+                     [(ngModel)]="customRpcUrl"
+                     placeholder="http://127.0.0.1:8545"
+                     (blur)="saveCustomRpc()" />
+              <mat-hint>Leave blank to use default local node</mat-hint>
+            </mat-form-field>
+
+            <div class="status-pill" *ngIf="customRpcUrl()">
+              <mat-icon color="primary">check_circle</mat-icon>
+              Using custom RPC: <code>{{ customRpcUrl() }}</code>
+            </div>
+            <div class="status-pill neutral" *ngIf="!customRpcUrl()">
+              <mat-icon>info</mat-icon>
+              Using default: <code>http://127.0.0.1:8545</code>
+            </div>
+          </div>
+
+          <!-- Step 1: Connect Wallet -->
+          <div class="step-section" *ngIf="!(wallet.address$ | async)">
+            <h3>1. Connect Your Wallet</h3>
+            <p class="step-desc">
+              Link your Ethereum wallet to access your decentralized identity vault.
+            </p>
+
+            <button mat-flat-button color="primary"
+                    class="action-btn connect-btn"
+                    (click)="connectWallet()"
+                    [disabled]="connecting()">
+              <mat-icon *ngIf="!connecting()">wallet</mat-icon>
+              <mat-spinner diameter="24" *ngIf="connecting()"></mat-spinner>
+              {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
+            </button>
+          </div>
+
+          <!-- Wallet Connected → Steps 2 & 3 -->
+          <ng-container *ngIf="wallet.address$ | async as addr">
+            <!-- Step 2: Choose Role -->
+            <div class="step-section role-section" *ngIf="!auth.isAuthenticated()">
+              <h3>2. Select Access Mode</h3>
+              <p class="step-desc">Choose your role for this session</p>
+
+              <mat-button-toggle-group class="role-group" 
+                                      [value]="selectedRole()"
+                                      (change)="selectRole($event.value)"
+                                      exclusive>
+                <mat-button-toggle value="USER" class="role-btn">
+                  <mat-icon>person</mat-icon>
+                  <span>User</span>
+                </mat-button-toggle>
+
+                <mat-button-toggle value="ADMIN" class="role-btn">
+                  <mat-icon>admin_panel_settings</mat-icon>
+                  <span>Admin</span>
+                </mat-button-toggle>
+
+                <mat-button-toggle value="VERIFIER" class="role-btn">
+                  <mat-icon>verified</mat-icon>
+                  <span>Verifier</span>
+                </mat-button-toggle>
+              </mat-button-toggle-group>
+
+              <div class="role-description" *ngIf="selectedRole()">
+                {{ roleDescription[selectedRole()!] }}
+              </div>
+            </div>
+
+            <!-- Step 3: Sign & Login -->
+            <div class="step-section sign-section" *ngIf="selectedRole() && !auth.isAuthenticated()">
+              <h3>3. Authenticate</h3>
+
+              <div class="wallet-info-card">
+                <div class="wallet-label">Connected Wallet</div>
+                <div class="wallet-address">
+                  {{ addr | slice:0:8 }}…{{ addr | slice:-6 }}
+                </div>
+                <div class="full-address">{{ addr }}</div>
+              </div>
 
               <button mat-flat-button color="primary"
-                      class="action-btn connect-btn"
-                      (click)="connectWallet()"
-                      [disabled]="connecting()">
-                <mat-icon *ngIf="!connecting()">wallet</mat-icon>
-                <mat-spinner diameter="24" *ngIf="connecting()"></mat-spinner>
-                {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
+                      class="action-btn sign-btn"
+                      (click)="signIn()"
+                      [disabled]="signing()">
+                <mat-icon *ngIf="!signing()">draw</mat-icon>
+                <mat-spinner diameter="24" *ngIf="signing()"></mat-spinner>
+                {{ signing() ? 'Signing...' : 'Sign & Login' }}
+              </button>
+
+              <button mat-stroked-button class="switch-wallet-btn"
+                      (click)="wallet.disconnect()">
+                <mat-icon>swap_horiz</mat-icon> Switch Wallet
               </button>
             </div>
 
-            <!-- Wallet Connected → Steps 2 & 3 -->
-            <ng-container *ngIf="wallet.address$ | async as addr">
-              <!-- Step 2: Choose Role -->
-              <div class="step-section role-section" *ngIf="!auth.isAuthenticated()">
-                <h3>2. Select Access Mode</h3>
-                <p class="step-desc">Choose your role for this session</p>
-
-                <mat-button-toggle-group class="role-group" 
-                                        [value]="selectedRole()"
-                                        (change)="selectRole($event.value)"
-                                        exclusive>
-                  <mat-button-toggle value="USER" class="role-btn">
-                    <mat-icon>person</mat-icon>
-                    <span>User</span>
-                  </mat-button-toggle>
-
-                  <mat-button-toggle value="ADMIN" class="role-btn">
-                    <mat-icon>admin_panel_settings</mat-icon>
-                    <span>Admin</span>
-                  </mat-button-toggle>
-
-                  <mat-button-toggle value="VERIFIER" class="role-btn">
-                    <mat-icon>verified</mat-icon>
-                    <span>Verifier</span>
-                  </mat-button-toggle>
-                </mat-button-toggle-group>
-
-                <div class="role-description" *ngIf="selectedRole()">
-                  {{ roleDescription[selectedRole()!] }}
-                </div>
-              </div>
-
-              <!-- Step 3: Sign & Login -->
-              <div class="step-section sign-section" *ngIf="selectedRole() && !auth.isAuthenticated()">
-                <h3>3. Authenticate</h3>
-
-                <div class="wallet-info-card">
-                  <div class="wallet-label">Connected Wallet</div>
-                  <div class="wallet-address">
-                    {{ addr | slice:0:8 }}…{{ addr | slice:-6 }}
-                  </div>
-                  <div class="full-address">{{ addr }}</div>
-                </div>
-
-                <button mat-flat-button color="primary"
-                        class="action-btn sign-btn"
-                        (click)="signIn()"
-                        [disabled]="signing()">
-                  <mat-icon *ngIf="!signing()">draw</mat-icon>
-                  <mat-spinner diameter="24" *ngIf="signing()"></mat-spinner>
-                  {{ signing() ? 'Signing...' : 'Sign & Login' }}
-                </button>
-
-                <button mat-stroked-button class="switch-wallet-btn"
-                        (click)="wallet.disconnect()">
-                  <mat-icon>swap_horiz</mat-icon> Switch Wallet
-                </button>
-              </div>
-
-              <!-- Hint when role not selected -->
-              <div class="hint-box" *ngIf="!selectedRole() && !auth.isAuthenticated()">
-                <mat-icon>info</mat-icon>
-                Please select an access mode to continue
-              </div>
-            </ng-container>
-
-            <!-- Error Message -->
-            <div class="error-message" *ngIf="error()">
-              <mat-icon>error_outline</mat-icon>
-              {{ error() }}
+            <!-- Hint when role not selected -->
+            <div class="hint-box" *ngIf="!selectedRole() && !auth.isAuthenticated()">
+              <mat-icon>info</mat-icon>
+              Please select an access mode to continue
             </div>
-          </mat-card-content>
+          </ng-container>
 
-          <mat-card-actions class="card-footer">
-            <p class="session-note">
-              Role selection is stored only for this browser session
-            </p>
-          </mat-card-actions>
-        </mat-card>
-      </div>
+          <!-- Error Message -->
+          <div class="error-message" *ngIf="error()">
+            <mat-icon>error_outline</mat-icon>
+            {{ error() }}
+          </div>
+        </mat-card-content>
+
+        <mat-card-actions class="card-footer">
+          <p class="session-note">
+            Role selection is stored only for this browser session
+          </p>
+        </mat-card-actions>
+      </mat-card>
     </div>
-  `,
+  </div>
+`,
 
   styles: [`
     :host {
@@ -292,6 +315,80 @@ import { firstValueFrom } from 'rxjs';
 
     .login-page.dark mat-card-subtitle {
       color: #94a3b8;
+    }
+
+    .qr-mobile-section {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .qr-desktop {
+      background: rgba(99, 102, 241, 0.06);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+
+    .qr-title {
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #1e293b;
+    }
+
+    .qr-image {
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      margin: 0 auto;
+      display: block;
+    }
+
+    .qr-desc {
+      margin-top: 16px;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+
+    .mobile-hint {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 16px;
+      margin-bottom: 32px;
+      color: #1e40af;
+    }
+
+    .mobile-hint mat-icon {
+      font-size: 36px;
+      width: 36px;
+      height: 36px;
+      color: #6366f1;
+    }
+
+    .mobile-hint p {
+      margin: 0;
+    }
+
+    .login-page.dark .qr-desktop {
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .login-page.dark .qr-title {
+      color: #e2e8f0;
+    }
+
+    .login-page.dark .qr-desc {
+      color: #94a3b8;
+    }
+
+    .login-page.dark .mobile-hint {
+      background: rgba(99, 102, 241, 0.2);
+      color: #c7d2fe;
+    }
+
+    .login-page.dark .mobile-hint mat-icon {
+      color: #a5b4fc;
     }
 
     /* Content */
@@ -594,6 +691,8 @@ export class LoginComponent {
   selectedRole = signal<AppRole | null>(null);
   customRpcUrl = signal<string>('');
 
+  qrCodeUrl = signal<string>('');
+
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
 
@@ -622,7 +721,31 @@ export class LoginComponent {
         console.warn('Failed to load custom RPC (browser-only):', err);
       }
     }
+
+    // Generate QR code only on browser (desktop)
+  if (isPlatformBrowser(this.platformId) && !this.isMobile()) {
+    try {
+      const QRCode = await import('qrcode');
+      const url = await QRCode.toDataURL(window.location.href, {
+        width: 180,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      });
+      this.qrCodeUrl.set(url);
+    } catch (err) {
+      console.warn('Failed to generate QR code:', err);
+    }
   }
+  }
+
+  isMobile() {
+  if (!isPlatformBrowser(this.platformId)) return false;
+  return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         window.innerWidth <= 768;
+}
 
   // Save custom Hardhat RPC (browser-only)
   async saveCustomRpc() {

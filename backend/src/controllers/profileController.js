@@ -52,12 +52,19 @@ export const createOrUpdateProfile = async (req, res) => {
     }
 
     const subjectAddress = owner.toLowerCase();
-    const contract = getContract(); // 🔑 lazy, mock-safe
 
     let existingProfile = {};
+    let existingCid = null;
 
-    // GDPR HARD STOP — erased profiles cannot be recreated
-    const existingCid = await contract.getProfileCID(subjectAddress); // read-only OK
+    // In hybrid mode: frontend must pass current CID if it exists (via query or body)
+    if (isHybridMode()) {
+      existingCid = req.body.currentCid || req.query.currentCid || null;
+    } else {
+      // Non-hybrid: backend can read from chain
+      const contract = getContract();
+      existingCid = await contract.getProfileCID(subjectAddress);
+    }
+
     if (existingCid && existingCid.length > 0) {
       try {
         const preferred = req.headers['x-preferred-gateway'] || null;
@@ -69,7 +76,7 @@ export const createOrUpdateProfile = async (req, res) => {
         }
         existingProfile = existing;
       } catch {
-        // silent ignore - proceed with creation
+        // silent ignore - proceed
       }
     }
 
@@ -105,7 +112,7 @@ export const createOrUpdateProfile = async (req, res) => {
     };
 
     // ────────────────────────────────
-    // HYBRID MODE: Prepare unsigned tx
+    // HYBRID MODE: Prepare unsigned tx only
     // ────────────────────────────────
     if (isHybridMode()) {
       const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, cid);
@@ -117,9 +124,10 @@ export const createOrUpdateProfile = async (req, res) => {
       console.log('[Hybrid] Prepared unsigned setProfileCID tx');
     } 
     // ────────────────────────────────
-    // DEV MODE: Backend signs
+    // NON-HYBRID MODE: Backend signs & sends
     // ────────────────────────────────
     else {
+      const contract = getContract();
       const tx = await contract.setProfileCID(subjectAddress, cid);
       await tx.wait();
       responseData.txHash = tx.hash;
@@ -130,7 +138,7 @@ export const createOrUpdateProfile = async (req, res) => {
     return res.json(responseData);
   } catch (err) {
     console.error("❌ createOrUpdateProfile error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || "Failed to create/update profile" });
   }
 };
 

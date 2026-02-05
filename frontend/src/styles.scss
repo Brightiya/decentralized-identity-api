@@ -164,3 +164,40 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   background-color: #0288d1 !important;
   color: white !important;
 }
+
+/* Ensure user icon has enough space on the right – especially in portrait */
+@media (max-width: 960px) and (orientation: portrait) {
+  .main-toolbar {
+    padding-right: 32px !important;     /* more right padding */
+  }
+
+  .user-menu-btn {
+    margin-right: 0 !important;
+    padding: 8px !important;
+  }
+
+  .user-menu-btn mat-icon {
+    margin: 0 !important;
+  }
+}
+
+/* When in landscape – less aggressive padding */
+@media (max-width: 960px) and (orientation: landscape) {
+  .main-toolbar {
+    padding-right: 20px !important;
+  }
+}
+
+/* Eliminate drawer flicker by removing transitions on open/close */
+.mat-sidenav {
+  transition: transform 0ms !important;    /* no slide animation */
+}
+
+.mat-sidenav-content {
+  transition: margin-left 0ms !important;  /* no content shift animation */
+}
+
+/* Only allow very fast backdrop fade (optional) */
+.mat-drawer-backdrop {
+  transition: opacity 150ms ease !important;
+}

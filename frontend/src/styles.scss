@@ -20,10 +20,24 @@ $light-theme: mat.define-light-theme((
   density: 0
 ));
 
-// Include all component themes
-@include mat.all-component-colors($light-theme);
+// Include **ALL** component themes (this fixes scrambled text)
+@include mat.all-component-themes($light-theme);
 
+// Dark theme support
+$dark-theme: mat.define-dark-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0
+));
 
+// Apply dark theme when .dark is present
+.dark {
+  @include mat.all-component-themes($dark-theme);
+}
 
 // ────────────────────────────────────────────────
 // Global Reset & Mobile-First Improvements
@@ -58,7 +72,7 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
 /* Full-width toolbar – no white gaps, no centering issues */
 .main-toolbar {
   background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-  -webkit-backdrop-filter: blur(12px);   /* Safari & iOS support */
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,0.15);
   padding: 0 16px;
@@ -168,7 +182,7 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
 /* Ensure user icon has enough space on the right – especially in portrait */
 @media (max-width: 960px) and (orientation: portrait) {
   .main-toolbar {
-    padding-right: 32px !important;     /* more right padding */
+    padding-right: 40px !important;
   }
 
   .user-menu-btn {
@@ -181,23 +195,18 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   }
 }
 
-/* When in landscape – less aggressive padding */
+/* Landscape – less padding */
 @media (max-width: 960px) and (orientation: landscape) {
   .main-toolbar {
-    padding-right: 20px !important;
+    padding-right: 24px !important;
   }
 }
 
-/* Eliminate drawer flicker by removing transitions on open/close */
+/* Drawer flicker elimination (stronger version) */
 .mat-sidenav {
-  transition: transform 0ms !important;    /* no slide animation */
+  transition: transform 0ms !important;
 }
 
 .mat-sidenav-content {
-  transition: margin-left 0ms !important;  /* no content shift animation */
-}
-
-/* Only allow very fast backdrop fade (optional) */
-.mat-drawer-backdrop {
-  transition: opacity 150ms ease !important;
+  transition: margin-left 0ms !important;
 }

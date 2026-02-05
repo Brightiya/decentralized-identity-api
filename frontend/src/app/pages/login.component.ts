@@ -115,6 +115,14 @@ import { firstValueFrom } from 'rxjs';
             <p class="step-desc">
               Link your Ethereum wallet to access your decentralized identity vault.
             </p>
+            <!-- Friendly delay notice – always visible -->
+          <div class="delay-notice" *ngIf="!connecting()">
+            <mat-icon>cloud_upload</mat-icon>
+            <p>
+              <strong>First connection may take 10–30 seconds</strong><br>
+              This is because the backend is waking up on Render (free tier). After that it's instant!
+            </p>
+          </div>
 
             <button mat-flat-button color="primary"
                     class="action-btn connect-btn"
@@ -124,6 +132,12 @@ import { firstValueFrom } from 'rxjs';
               <mat-spinner diameter="24" *ngIf="connecting()"></mat-spinner>
               {{ connecting() ? 'Connecting...' : 'Connect Wallet' }}
             </button>
+
+            <!-- Enhanced loading message during connect -->
+          <div class="loading-message" *ngIf="connecting()">
+            <p>Waking up the backend... just a moment ☕</p>
+            <p class="small">This happens only on the first request after inactivity.</p>
+          </div>
           </div>
 
           <!-- Wallet Connected → Steps 2 & 3 -->
@@ -183,6 +197,10 @@ import { firstValueFrom } from 'rxjs';
                       (click)="wallet.disconnect()">
                 <mat-icon>swap_horiz</mat-icon> Switch Wallet
               </button>
+              <!-- Optional: message during signing -->
+              <div class="loading-message" *ngIf="signing()">
+                <p>Verifying signature... almost there!</p>
+              </div>
             </div>
 
             <!-- Hint when role not selected -->
@@ -519,6 +537,55 @@ import { firstValueFrom } from 'rxjs';
     }
 
     .login-page.dark .full-address {
+      color: #94a3b8;
+    }
+
+    .delay-notice {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin: 16px 0 24px;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 12px;
+      color: #1e40af;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .delay-notice mat-icon {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+      color: #6366f1;
+    }
+
+    .delay-notice p {
+      margin: 0;
+    }
+
+    .login-page.dark .delay-notice {
+      background: rgba(99, 102, 241, 0.15);
+      color: #c7d2fe;
+    }
+
+    .login-page.dark .delay-notice mat-icon {
+      color: #a5b4fc;
+    }
+
+    .loading-message {
+      text-align: center;
+      margin-top: 16px;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+
+    .loading-message .small {
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .login-page.dark .loading-message {
       color: #94a3b8;
     }
 

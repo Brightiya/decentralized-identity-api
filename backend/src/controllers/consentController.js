@@ -2,7 +2,7 @@
 import { pool } from "../utils/db.js";
 import { ethers } from "ethers";
 import { fetchJSON } from "../utils/pinata.js";
-import contract from "../utils/contract.js";
+import {getContract} from "../utils/contract.js";
 import {requireDidAddress as didToAddress } from "../utils/did.js";
 
 /**
@@ -214,7 +214,7 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
 
     const subjectAddress = didToAddress(subjectDid);
     const suggestions = new Map(); // key: claimId, value: full suggestion object — avoids duplicates
-
+    const contract = getContract();
     // 1. Fetch from profile credentials (best source — links to issued VCs)
     const profileCid = await contract.getProfileCID(subjectAddress);
 

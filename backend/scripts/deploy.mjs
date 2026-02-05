@@ -28,7 +28,7 @@ async function main() {
   };
 
   // Use absolute path: root/backend/src/contractData.json
-  const outputPath = path.join(__dirname, "..", "backend", "src", "contractData.json");
+  const outputPath = path.join(__dirname, "..",  "src", "contractData.json");
   fs.writeFileSync(outputPath, JSON.stringify(contractData, null, 2));
   console.log("Contract data written to:", outputPath);
 }

@@ -1,3 +1,22 @@
+console.log("Signers:", await ethers.getSigners());
+const [signer] = await ethers.getSigners();
+const [signer] = await ethers.getSigners()
+const {thers} = await import("ethers")
+const {ethers} = await import("ethers")
+import {thers} from "ethers";
+const [signer] = await ethers.getSigners();
+console.log("Balance:", ethers.formatEther(await signer.getBalance()));
+console.log("Account:", await signer.getAddress());
+const [signer] = await ethers.getSigners();
+console.log("Balance:", ethers.formatEther(await signer.getBalance()));
+console.log("Account:", await signer.getAddress());
+const [signer] = await ethers.getSigners();
+console.log("Balance:", ethers.formatEther(await signer.getBalance()));
+console.log("Account:", await signer.getAddress());
+const [signer] = await ethers.getSigners();
+console.log("Balance:", ethers.formatEther(await signer.getBalance()));
+console.log("Account:", await signer.getAddress());
+const [signer] = await ethers.getSigners();
 })();
   }
     console.log("→ setProfileCID FAILED:", e.reason || e.message);

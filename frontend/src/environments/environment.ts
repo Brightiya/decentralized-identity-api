@@ -13,6 +13,6 @@ export const environment = {
 export const environment = {
   production: false,
   backendUrl: 'https://pimv-backend.onrender.com',
-  PROVIDER_URL: 'https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID',
+  PROVIDER_URL: 'https://sepolia.base.org',
   PRIVATE_KEY: ''
 };

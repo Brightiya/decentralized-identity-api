@@ -1,3 +1,11 @@
+console.log("Formatted balance:", ethers.formatEther(balance));
+console.log("Raw balance (wei):", balance.toString());
+const balance = await provider.getBalance("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+console.log("Provider:", provider);
+const provider = ethers.provider;
+console.log("Balance:", ethers.formatEther(await signer.getBalance()));
+console.log("Address:", await signer.getAddress());
+const [signer] = await ethers.getSigners();
 console.log("Signers:", await ethers.getSigners());
 const [signer] = await ethers.getSigners();
 const [signer] = await ethers.getSigners()

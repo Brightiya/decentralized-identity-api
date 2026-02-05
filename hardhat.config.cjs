@@ -48,8 +48,8 @@ module.exports = {
     timeout: 60000,
   },
   baseSepolia: {
-    url: "https://84532.rpc.thirdweb.com",
-    accounts: [process.env.PRIVATE_KEY],
+    url: "https://sepolia.base.org",
+    accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY.trim()] : [],
     chainId: 84532,
     gasPrice: "auto",
     timeout: 60000,

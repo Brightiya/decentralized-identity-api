@@ -200,7 +200,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       <!-- User Menu -->
       <ng-container *ngIf="wallet.address">
         <button mat-icon-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
-          <mat-icon [color]="darkMode() ? 'primary' : 'accent'">account_circle</mat-icon>
+          <mat-icon style="color: white !important;">account_circle</mat-icon>
         </button>
 
         <mat-menu #userMenu="matMenu" xPosition="before">

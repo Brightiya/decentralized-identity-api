@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, inject, PLATFORM_ID, signal } from '@angu
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // ← NEW: for ngModel
 import { ActivatedRoute, Router } from '@angular/router';
+import * as QRCode from 'qrcode';
 
 import { AuthService, AppRole } from '../services/auth.service';
 import { WalletService } from '../services/wallet.service';
@@ -725,7 +726,6 @@ export class LoginComponent {
     // Generate QR code only on browser (desktop)
   if (isPlatformBrowser(this.platformId) && !this.isMobile()) {
     try {
-      const QRCode = await import('qrcode');
       const url = await QRCode.toDataURL(window.location.href, {
         width: 180,
         margin: 2,
@@ -735,8 +735,11 @@ export class LoginComponent {
         }
       });
       this.qrCodeUrl.set(url);
+      console.log('QR code generated successfully');
     } catch (err) {
-      console.warn('Failed to generate QR code:', err);
+      console.error('Failed to generate QR code:', err);
+      // Optional: fallback message
+      this.qrCodeUrl.set(''); // or a placeholder image/data URL
     }
   }
   }

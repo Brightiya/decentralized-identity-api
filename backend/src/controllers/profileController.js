@@ -52,7 +52,7 @@ export const createOrUpdateProfile = async (req, res) => {
     }
 
     const subjectAddress = owner.toLowerCase();
-     //const contract = getContract(); // 🔑 lazy, mock-safe
+    const contract = getContract(); // 🔑 lazy, mock-safe
 
     let existingProfile = {};
 

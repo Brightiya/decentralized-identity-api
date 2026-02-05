@@ -245,372 +245,454 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   `,
 
   styles: [`
-  :host {
-    display: block;
-    height: 100vh;
-    overflow: hidden;
-  }
+    :host {
+      display: block;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-  .sidenav-container {
-    height: 100%;
-    background: #f9fafb;
-    transition: background 0.5s ease;
-  }
+    .sidenav-container {
+      height: 100%;
+      background: #f9fafb;
+      transition: background 0.5s ease;
+    }
 
-  .sidenav-container.dark {
-    background: #0d1117;
-  }
+    .sidenav-container.dark {
+      background: #0d1117;
+    }
 
-  /* ── Glassmorphic Sidebar ── */
-  .glass-sidebar {
-    background: rgba(255,255,255,0.72);
-    backdrop-filter: blur(20px) saturate(160%);
-    border-right: 1px solid rgba(226,232,240,0.4);
-    box-shadow: 4px 0 30px rgba(0,0,0,0.08);
-    transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
-  }
+    /* ── Glassmorphic Sidebar ── */
+    .glass-sidebar {
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(20px) saturate(160%);
+      border-right: 1px solid rgba(226,232,240,0.4);
+      box-shadow: 4px 0 30px rgba(0,0,0,0.08);
+      transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
 
-  .sidenav-container.dark .glass-sidebar {
-    background: rgba(20,25,35,0.65);
-    border-right-color: rgba(100,116,139,0.35);
-    box-shadow: 4px 0 40px rgba(0,0,0,0.45);
-  }
+    .sidenav-container.dark .glass-sidebar {
+      background: rgba(20,25,35,0.65);
+      border-right-color: rgba(100,116,139,0.35);
+      box-shadow: 4px 0 40px rgba(0,0,0,0.45);
+    }
 
-  .sidenav-container.mini .glass-sidebar {
-    width: 84px !important;
-  }
+    .sidenav-container.mini .glass-sidebar {
+      width: 84px !important;
+    }
 
-  /* Brand Header */
-  .brand-header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 28px 20px;
-    cursor: pointer;
-    transition: all 0.35s ease;
-  }
+    /* Brand Header */
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 28px 20px;
+      cursor: pointer;
+      transition: all 0.35s ease;
+    }
 
-  .brand-header:hover {
-    background: rgba(99,102,241,0.08);
-  }
+    .brand-header:hover {
+      background: rgba(99,102,241,0.08);
+    }
 
-  .brand-text {
-    transition: opacity 0.4s ease;
-  }
+    .brand-text {
+      transition: opacity 0.4s ease;
+    }
 
-  .brand-text.collapsed {
-    opacity: 0;
-    width: 0;
-  }
+    .brand-text.collapsed {
+      opacity: 0;
+      width: 0;
+    }
 
-  .brand-name {
-    font-size: 1.6rem;
-    font-weight: 800;
-    letter-spacing: -0.8px;
-    background: linear-gradient(90deg, #6366f1, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+    .brand-name {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      background: linear-gradient(90deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-  .brand-subtitle {
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: #94a3b8;
-    margin-top: 2px;
+    .brand-subtitle {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+  .header-icon {
+    font-size: 42px;
+    color: white;
   }
 
   .header-icon-wrapper {
-    width: 80px;
-    height: 80px;
-    margin: 0 auto 24px;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 10px 30px rgba(99,102,241,0.45);
-    overflow: hidden;
-    transition: transform 0.3s ease;
-  }
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.45);
+  overflow: hidden;                    /* keeps SVG clean */
+  transition: transform 0.3s ease;
+}
 
   .header-icon-wrapper:hover {
     transform: scale(1.08);
   }
 
   .custom-shield {
-    width: 56px;
+    width: 56px;                         /* adjust size as needed */
     height: 56px;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
   }
 
-  /* Navigation */
-  .nav-list .nav-item {
-    margin: 8px 12px;
-    border-radius: 16px;
-    height: 54px;
-    transition: all 0.3s ease;
-    font-weight: 500;
-  }
-
-  .nav-list .nav-item:hover {
-    background: rgba(99,102,241,0.09);
-  }
-
-  .nav-list .nav-item.active {
-    background: rgba(99,102,241,0.18);
-    color: #6366f1;
-    font-weight: 600;
-  }
-
-  .nav-list .nav-item mat-icon {
-    color: #64748b;
-  }
-
-  .nav-list .nav-item.active mat-icon {
-    color: #6366f1;
-  }
-
-  /* Toolbar – full width fix + visibility */
-  .main-toolbar {
-    background: rgba(99,102,241,0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-    padding: 0 28px;
-    min-height: 72px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    width: 100vw !important;
-    max-width: 100vw !important;
-    margin-left: calc(-50vw + 50%);
-    left: 50%;
-    transform: translateX(-50%);
-    box-sizing: border-box;
-  }
-
-  .sidenav-container.dark .main-toolbar {
-    background: rgba(30,41,59,0.88);
-  }
-
-  .menu-btn {
-    margin-right: 16px;
-    color: white;
-  }
-
-  .breadcrumb {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: white;
-    letter-spacing: 0.3px;
-  }
-
-  .toolbar-spacer {
-    flex: 1 1 auto;
-  }
-
-  /* Role Pill */
-  .role-pill {
-    padding: 6px 18px;
-    border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    color: white;
-    backdrop-filter: blur(8px);
-  }
-
-  .role-user    { background: rgba(34,197,94,0.75); }
-  .role-admin   { background: rgba(239,68,68,0.75); }
-  .role-verifier { background: rgba(59,130,246,0.75); }
-
-  /* Wallet & Icons – ensure visibility */
-  .wallet-section {
-    margin-right: 24px;
-  }
-
-  .address-pill {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 999px;
-    color: white;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.92rem;
-    border: 1px solid rgba(255,255,255,0.12);
-  }
-
-  .copy-btn,
-  .user-menu-btn mat-icon,
-  .theme-toggle mat-slide-toggle-thumb,
-  .connect-btn mat-icon {
-    color: white !important;
-  }
-
-  .user-menu-btn {
-    margin-left: 8px;
-  }
-
-  /* Content Area */
-  .page-content {
-    flex: 1;
-    padding: clamp(24px, 4vw, 40px);
-    overflow-y: auto;
-    background: transparent;
-  }
-
-  /* Modern Footer */
-  .main-footer {
-    background: rgba(30,41,59,0.04);
-    border-top: 1px solid rgba(226,232,240,0.3);
-    padding: 28px 40px;
-    font-size: 0.92rem;
-    color: #64748b;
-  }
-
-  .sidenav-container.dark .main-footer {
-    background: rgba(15,17,26,0.45);
-    border-top-color: rgba(100,116,139,0.3);
-    color: #94a3b8;
-  }
-
-  .footer-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .footer-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .footer-logo {
-    font-size: 1.4rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #6366f1, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .footer-title {
-    font-weight: 600;
-  }
-
-  .footer-copyright {
-    text-align: center;
-    flex: 1;
-  }
-
-  .footer-links {
-    display: flex;
-    gap: 32px;
-  }
-
-  .footer-link {
-    color: inherit;
-    text-decoration: none;
-    transition: color 0.25s ease;
-  }
-
-  .footer-link:hover {
-    color: #6366f1;
-  }
-
-  /* ── Mobile & Tablet responsiveness ── */
-  @media (max-width: 960px) {
-    .sidenav-container {
-      overflow: hidden;
+    /* Navigation */
+    .nav-list .nav-item {
+      margin: 8px 12px;
+      border-radius: 16px;
+      height: 54px;
+      transition: all 0.3s ease;
+      font-weight: 500;
     }
 
-    .glass-sidebar {
-      width: 280px !important;
-      box-shadow: -8px 0 32px rgba(0,0,0,0.4);
-      z-index: 1000;
+    .nav-list .nav-item:hover {
+      background: rgba(99,102,241,0.09);
     }
 
-    .sidenav-container.mini .glass-sidebar {
-      width: 280px !important;
+    .nav-list .nav-item.active {
+      background: rgba(99,102,241,0.18);
+      color: #6366f1;
+      font-weight: 600;
     }
 
-    .main-content {
-      transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    .nav-list .nav-item mat-icon {
+      color: #64748b;
     }
 
+    .nav-list .nav-item.active mat-icon {
+      color: #6366f1;
+    }
+
+    /* Toolbar */
     .main-toolbar {
-      padding: 0 16px;
-      min-height: 64px;
+      background: rgba(99,102,241,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      padding: 0 28px;
+      min-height: 72px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
     }
 
-    .page-content {
-      padding: 16px;
-    }
-
-    .footer-container {
-      flex-direction: column;
-      text-align: center;
-      gap: 16px;
-      padding: 24px 16px;
-    }
-
-    .footer-links {
-      gap: 24px;
-      justify-content: center;
+    .sidenav-container.dark .main-toolbar {
+      background: rgba(30,41,59,0.88);
     }
 
     .menu-btn {
-      display: inline-flex;
+      margin-right: 16px;
+      color: white;
     }
 
-    .mini-toggle {
-      display: none !important;
+    .breadcrumb {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.3px;
     }
 
     .toolbar-spacer {
-      flex: 0.5 1 auto !important;
+      flex: 1 1 auto;
     }
 
-    .wallet-section, .role-pill, .theme-toggle {
-      margin-right: 8px !important;
+    /* Role Pill */
+    .role-pill {
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      color: white;
+      backdrop-filter: blur(8px);
     }
 
-    .user-menu-btn {
-      margin-right: 0 !important;
+    .role-user    { background: rgba(34,197,94,0.75); }
+    .role-admin   { background: rgba(239,68,68,0.75); }
+    .role-verifier { background: rgba(59,130,246,0.75); }
+
+    /* Wallet */
+    .wallet-section {
+      margin-right: 24px;
     }
+
+    .address-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 999px;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.92rem;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .copy-btn {
+      color: white;
+    }
+
+    .connect-btn {
+      color: white;
+      border-color: rgba(255,255,255,0.4);
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      margin: 0 16px;
+    }
+
+    /* Content Area */
+    .page-content {
+      flex: 1;
+      padding: clamp(24px, 4vw, 40px);
+      overflow-y: auto;
+      background: transparent;
+    }
+
+    /* Modern Footer */
+    .main-footer {
+      background: rgba(30,41,59,0.04);
+      border-top: 1px solid rgba(226,232,240,0.3);
+      padding: 28px 40px;
+      font-size: 0.92rem;
+      color: #64748b;
+    }
+
+    .sidenav-container.dark .main-footer {
+      background: rgba(15,17,26,0.45);
+      border-top-color: rgba(100,116,139,0.3);
+      color: #94a3b8;
+    }
+
+    .footer-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-logo {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #6366f1, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .footer-title {
+      font-weight: 600;
+    }
+
+    .footer-copyright {
+      text-align: center;
+      flex: 1;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 32px;
+    }
+
+    .footer-link {
+      color: inherit;
+      text-decoration: none;
+      transition: color 0.25s ease;
+    }
+
+    .footer-link:hover {
+      color: #6366f1;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .sidenav {
+        width: 220px;
+      }
+
+      .sidenav-container.mini .sidenav {
+        width: 72px;
+      }
+
+      .page-content {
+        padding: 24px;
+      }
+    }
+
+    /* ── Mobile & Tablet responsiveness ── */
+    @media (max-width: 960px) {
+      .sidenav-container {
+        overflow: hidden;
+      }
+
+      .glass-sidebar {
+        width: 280px !important;          /* drawer width */
+        box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+        z-index: 1000;
+      }
+
+      /* Disable mini mode on mobile */
+      .sidenav-container.mini .glass-sidebar {
+        width: 280px !important;
+      }
+
+      .main-content {
+        transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* When drawer is open, shift content slightly (optional) */
+      .sidenav-container:has(mat-sidenav.opened) .main-content {
+        margin-left: 0 !important;
+      }
+
+      .main-toolbar {
+        padding: 0 16px;
+        min-height: 64px;
+      }
+
+      .page-content {
+        padding: 16px;
+      }
+
+      .footer-container {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+        padding: 24px 16px;
+      }
+
+      .footer-links {
+        gap: 24px;
+        justify-content: center;
+      }
+    }
+
+    /* Drawer backdrop (dim background when open on mobile) */
+    .mat-drawer-backdrop {
+      background-color: rgba(0,0,0,0.5) !important;
+    }
+
+    /* Menu button visibility */
+    .menu-btn {
+      display: none;
+    }
+
+    @media (max-width: 960px) {
+      .menu-btn {
+        display: inline-flex;
+      }
+      .mini-toggle {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .main-toolbar {
+        padding: 0 16px;
+      }
+
+      .footer-container {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .footer-links {
+        gap: 20px;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 360px) {
+  button,
+  .actions button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
   }
 
-  /* Drawer backdrop */
-  .mat-drawer-backdrop {
-    background-color: rgba(0,0,0,0.5) !important;
+  .badge {
+    padding: 2px 8px;
+    font-size: 0.7rem;
   }
 
-  /* Extra small screens */
-  @media (max-width: 600px) {
-    .main-toolbar {
-      padding: 0 12px;
-    }
+  .consents-scroll-container {
+    max-height: 240px;
   }
 
-  @media (max-width: 360px) {
-    button, .actions button {
-      font-size: 0.8rem;
-      padding: 6px 10px;
-    }
-
-    .badge {
-      padding: 2px 8px;
-      font-size: 0.7rem;
-    }
-
-    h1 {
-      font-size: 1.3rem;
-    }
+  h1 {
+    font-size: 1.3rem;
   }
-`]
+}
+
+/* Force toolbar background to full viewport width on all screens */
+.main-toolbar {
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%) !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin-left: calc(-50vw + 50%) !important;  /* center full-width bar */
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+}
+
+/* Dark mode variant */
+.sidenav-container.dark .main-toolbar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+}
+
+/* Prevent content from being cut off on small screens */
+.main-toolbar {
+  padding-right: 16px !important;  /* extra right padding */
+  overflow: hidden;
+}
+
+/* Ensure icons are always visible */
+.user-menu-btn mat-icon,
+.copy-btn mat-icon,
+.theme-toggle,
+.connect-btn mat-icon {
+  color: white !important;
+  min-width: 24px !important;
+}
+
+/* Mobile-specific: make sure toolbar items don't overflow */
+@media (max-width: 600px) {
+  .main-toolbar {
+    padding: 0 8px !important;
+    min-height: 56px !important;
+  }
+
+  .toolbar-spacer {
+    flex: 0.5 1 auto !important;  /* reduce spacer size on very small screens */
+  }
+
+  .wallet-section, .role-pill, .theme-toggle {
+    margin-right: 8px !important;
+  }
+
+  .user-menu-btn {
+    margin-right: 0 !important;
+  }
+}
+  `]
 })
 
 export class AppComponent implements OnInit {

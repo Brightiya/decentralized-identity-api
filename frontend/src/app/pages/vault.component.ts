@@ -704,6 +704,20 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       border: 1px solid var(--card-border);
     }
 
+    .success-snackbar {
+      background-color: #4caf50 !important;    // green background
+      color: white !important;
+      font-weight: 500;
+    }
+
+    .success-snackbar .mat-mdc-snack-bar-label {
+      color: white !important;
+    }
+
+    .success-snackbar .mat-mdc-snack-bar-actions .mdc-button {
+      color: white !important;
+    }
+
     .loading-state {
       display: flex;
       flex-direction: column;
@@ -953,8 +967,20 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
         const txHash = txResponse.hash;
+        const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
-        this.snackBar.open(`Profile created on-chain! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
+        const snackBarRef = this.snackBar.open(
+              `Profile created! Tx: ${txHash.slice(0, 10)}...`,
+              'View',
+              {
+                duration: 10000,
+                panelClass: ['success-snackbar']   // ← this line adds your custom class
+              }
+            );
+
+            snackBarRef.onAction().subscribe(() => {
+              window.open(explorerUrl, '_blank');
+            });
       } else if (response.txHash) {
         // Dev mode: Backend signed
         this.snackBar.open('Vault profile created successfully!', 'Close', { duration: 4000 });

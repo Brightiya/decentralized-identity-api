@@ -650,9 +650,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     position: relative;
   }
 
-  .sidenav-container:not(.mini) {
-    --sidebar-margin: 280px;
-  }
+  
 
   .sidenav-container.mini {
     --sidebar-margin: 84px;

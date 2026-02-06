@@ -741,34 +741,51 @@ export class CredentialsComponent implements OnInit {
     return false;
   }
 
+  // Clean up common mobile input mistakes
+  let cleaned = this.claim.trim();
+
+  // Replace smart quotes (common on iOS/Android keyboards)
+  cleaned = cleaned.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+
+  // Optional: remove trailing commas (some users add them)
+  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
   try {
-        const parsed = JSON.parse(this.claim);
 
-        // Must be a non-null object (not array, not primitive, not null)
-          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-            return false;
-          }
+    const parsed = JSON.parse(cleaned);
 
-          // Must have at least one key (even if value is empty)
-          const keys = Object.keys(parsed);
-          if (keys.length === 0) {
-            return false;
-          }
+    // Must be a non-null object (not array, not primitive)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return false;
+    }
 
-          // Optional: reject if all keys are empty/whitespace-only
-          const hasValidKey = keys.some(key => key.trim() !== '');
-          if (!hasValidKey) {
-            return false;
-          }
+    // Must have at least one key
+    const keys = Object.keys(parsed);
+    if (keys.length === 0) {
+      return false;
+    }
 
-          // Accept almost everything else — even empty values, nulls, empty objects/arrays
-          // This allows {"name": "Perry"}, {"age": 0}, {"active": false}, {"tags": []}, etc.
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
+    // Optional: at least one key should not be empty/whitespace
+    const hasValidKey = keys.some(key => key.trim() !== '');
+    if (!hasValidKey) {
+      return false;
+    }
 
+    // Accept even if values are empty/null/empty objects
+    return true;
+  } catch (e: any) {
+    // Optional: log the exact reason (helpful for debugging on mobile)
+    if (this.isMobileOrTablet()) {
+      console.log('JSON parse failed on mobile:', e.message, 'Input was:', cleaned);
+    }
+    return false;
+  }
+}
+
+  isMobileOrTablet(): boolean {
+    return /Mobi|Android|iPad|iPhone|iPod|Tablet/i.test(navigator.userAgent) || window.innerWidth <= 1024;
+  }
+  
   isIssueValid(): boolean {
     if (!this.context?.trim()) return false;
     if (!this.purpose?.trim()) return false;

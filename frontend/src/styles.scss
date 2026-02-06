@@ -51,8 +51,6 @@ body {
 /* Absolute block of horizontal scroll/movement – everywhere */
 html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-content, .mat-toolbar {
   overflow-x: hidden !important;
-  max-width: 100vw !important;
-  min-width: 100vw !important;
   position: relative;
   left: 0;
   right: 0;
@@ -60,6 +58,20 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   padding-left: 0 !important;
   padding-right: 0 !important;
 }
+
+/* Mobile only: prevent horizontal scroll */
+@media (max-width: 960px) {
+  html, body,
+  .sidenav-container,
+  .mat-sidenav-content,
+  .main-content,
+  .page-content,
+  .mat-toolbar {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+}
+
 
 /* Prevent any finger drag left/right */
 html, body {

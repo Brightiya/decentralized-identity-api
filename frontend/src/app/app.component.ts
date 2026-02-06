@@ -630,15 +630,28 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       font-size: 1.3rem;
     }
   }
+    /* Desktop toolbar — respects sidenav width */
+    @media (min-width: 961px) {
+      .main-toolbar {
+        width: 100%;
+        margin: 0;
+        left: auto;
+        transform: none;
+        max-width: none;
+      }
+    }
 
-  /* Desktop only: shift main content right *only* when sidebar is expanded */
-@media (min-width: 961px) {
+    .main-toolbar {
+      overflow: visible !important;
+    }
 
-  /* When mini sidebar is active, use small shift */
-  .sidenav-container.mini .mat-sidenav-content {
-    margin-left: 100px !important;
-  }
-}
+    .user-menu-btn {
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+
+
 `]
 })
 

@@ -294,6 +294,23 @@ import { MatTooltipModule } from '@angular/material/tooltip';
               <div class="status-content">
                 <h3>No Vault Profile Found</h3>
                 <p class="muted">Create your vault profile to get started.</p>
+
+                 <!-- Gas info + faucet guide – only shown when wallet is connected -->
+                <div class="gas-info" *ngIf="wallet.address">
+                <details>
+                  <summary>Need testnet ETH? (click to expand)</summary>
+                  <p>
+                    Creating a vault profile requires a small amount of testnet ETH on Base Sepolia.<br>
+                    Get free test ETH here:
+                    <a href="https://faucet.quicknode.com/base/sepolia" target="_blank">QuickNode</a> or
+                    <a href="https://www.infura.io/faucet/base" target="_blank">Infura</a>
+                  </p>
+                </details>
+                <button mat-stroked-button (click)="createProfile()" [disabled]="loading()">
+                  I already have ETH → Try again
+                </button>
+              </div>
+
                 <button mat-flat-button color="primary" (click)="createProfile()" [disabled]="loading()">
                   <mat-icon *ngIf="!loading()">add_box</mat-icon>
                   {{ loading() ? 'Creating...' : 'Create Vault Profile' }}
@@ -719,6 +736,49 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     border-radius: 20px;
     background: rgba(34, 197, 94, 0.1);
     border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+    .gas-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    background: rgba(33, 150, 243, 0.08);
+    border-radius: 12px;
+    color: #1e40af;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .gas-info mat-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    color: #1e88e5;
+  }
+
+  .gas-info p {
+    margin: 0;
+  }
+
+  .gas-info a {
+    color: #1e88e5;
+    text-decoration: underline;
+    font-weight: 500;
+  }
+
+  .vault-container.dark .gas-info {
+    background: rgba(33, 150, 243, 0.15);
+    color: #90caf9;
+  }
+
+  .vault-container.dark .gas-info mat-icon {
+    color: #64b5f6;
+  }
+
+  .vault-container.dark .gas-info a {
+    color: #90caf9;
   }
 
   .status-card.success {

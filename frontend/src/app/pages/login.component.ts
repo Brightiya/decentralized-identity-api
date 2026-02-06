@@ -115,14 +115,6 @@ import { firstValueFrom } from 'rxjs';
             <p class="step-desc">
               Link your Ethereum wallet to access your decentralized identity vault.
             </p>
-            <!-- Friendly delay notice – always visible -->
-          <div class="delay-notice" *ngIf="!connecting()">
-            <mat-icon>cloud_upload</mat-icon>
-            <p>
-              <strong>First connection may take 10–30 seconds</strong><br>
-              This is because the backend is waking up on Render (free tier). After that it's instant!
-            </p>
-          </div>
 
             <button mat-flat-button color="primary"
                     class="action-btn connect-btn"
@@ -182,6 +174,16 @@ import { firstValueFrom } from 'rxjs';
                   {{ addr | slice:0:8 }}…{{ addr | slice:-6 }}
                 </div>
                 <div class="full-address">{{ addr }}</div>
+              </div>
+
+              <!-- Friendly delay notice – shown during signing -->
+              <div class="delay-notice" *ngIf="signing()">
+                <mat-icon>cloud</mat-icon>
+                <p>
+                  <strong>Just a moment...</strong><br>
+                  Signing may take 10–30 seconds the first time (Render is waking up).  
+                  It will be instant afterward!
+                </p>
               </div>
 
               <button mat-flat-button color="primary"

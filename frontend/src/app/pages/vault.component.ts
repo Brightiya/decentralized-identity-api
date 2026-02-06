@@ -305,9 +305,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
                     <a href="https://faucet.quicknode.com/base/sepolia" target="_blank">QuickNode</a> or
                     <a href="https://www.infura.io/faucet/base" target="_blank">Infura</a>
                   </p>
-                   <button mat-stroked-button (click)="createProfile()" [disabled]="loading()">
-                  I already have ETH → Try again
-                </button>
                 </details>
               </div>
 

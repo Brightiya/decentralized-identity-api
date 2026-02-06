@@ -62,14 +62,32 @@ body {
   background: #0d1117;
 }
 
-/* Prevent horizontal drag/overscroll globally */
-html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-content {
+/* Absolute block of horizontal scroll/movement – everywhere */
+html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-content, .mat-toolbar {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  min-width: 100vw !important;
+  position: relative;
+  left: 0;
+  right: 0;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Prevent any finger drag left/right */
+html, body {
   overscroll-behavior-x: none !important;
-  touch-action: pan-y pinch-zoom !important;
+  touch-action: pan-y !important;   /* only vertical scroll allowed */
+}
+
+/* Extra safety for all containers */
+* {
+  box-sizing: border-box;
   max-width: 100vw !important;
 }
 
-/* Full-width toolbar – no white gaps, no centering issues */
+/* Toolbar – full width, compact on mobile, no overflow */
 .main-toolbar {
   background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
   -webkit-backdrop-filter: blur(12px);
@@ -80,10 +98,13 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   box-shadow: 0 4px 20px rgba(0,0,0,0.12);
   width: 100%;
   box-sizing: border-box;
-  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
 }
 
-/* Dark mode toolbar */
+/* Dark mode */
 .sidenav-container.dark .main-toolbar {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
@@ -94,12 +115,31 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   min-width: 0;
 }
 
-.main-toolbar .wallet-section,
-.main-toolbar .role-pill,
-.main-toolbar .theme-toggle,
-.main-toolbar .user-menu-btn {
-  margin: 0 4px;
+.wallet-section,
+.role-pill,
+.theme-toggle,
+.user-menu-btn {
   flex-shrink: 1;
+  margin: 0 4px !important;
+  min-width: 0;
+}
+
+/* Wallet address pill – make it compact on mobile */
+.address-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+  color: white;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;                /* smaller font */
+  border: 1px solid rgba(255,255,255,0.12);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;                  /* prevent it from growing too wide */
 }
 
 /* Force white icons everywhere in toolbar */
@@ -112,6 +152,21 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
   width: 28px !important;
   height: 28px !important;
   line-height: 28px !important;
+}
+
+/* User icon – always visible, never cut off */
+.user-menu-btn {
+  padding: 0 !important;
+  margin: 0 0 0 8px !important;
+  min-width: 40px !important;
+  flex-shrink: 0;
+}
+
+.user-menu-btn mat-icon {
+  font-size: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  color: white !important;
 }
 
 /* Drawer – no flicker */
@@ -148,6 +203,37 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
     .page-content {
       padding: 24px !important;
     }
+  }
+}
+
+/* Mobile-specific compacting */
+@media (max-width: 960px) {
+  .main-toolbar {
+    padding: 0 12px !important;
+    min-height: 56px !important;
+    gap: 8px !important;
+  }
+
+  .breadcrumb {
+    font-size: 1.1rem !important;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wallet-section {
+    max-width: 160px;
+  }
+
+  .address-pill {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    max-width: 130px;
+  }
+
+  .user-menu-btn {
+    margin-left: 4px !important;
   }
 }
 

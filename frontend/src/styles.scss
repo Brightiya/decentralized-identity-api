@@ -49,14 +49,15 @@ body {
 }
 
 /* Absolute block of horizontal scroll/movement – everywhere */
-html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-content, .mat-toolbar {
-  overflow-x: hidden !important;
-  position: relative;
-  left: 0;
-  right: 0;
-  margin: 0 !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
+html, body {
+  margin: 0;
+}
+
+.mat-sidenav-content {
+  margin: initial !important; /* allow Angular Material to manage it */
+}
+.mat-sidenav-content {
+  flex: 1 1 auto;
 }
 
 /* Mobile only: prevent horizontal scroll */
@@ -71,7 +72,10 @@ html, body, .sidenav-container, .mat-sidenav-content, .main-content, .page-conte
     overflow-x: hidden !important;
   }
 }
-
+.sidenav-container {
+  display: flex;
+  height: 100%;
+}
 
 /* Prevent any finger drag left/right */
 html, body {
@@ -80,9 +84,10 @@ html, body {
 }
 
 /* Extra safety for all containers */
-* {
-  box-sizing: border-box;
-  max-width: 100vw !important;
+@media (max-width: 960px) {
+  * {
+    max-width: 100vw;
+  }
 }
 
 /* Toolbar – full width, compact on mobile, no overflow */

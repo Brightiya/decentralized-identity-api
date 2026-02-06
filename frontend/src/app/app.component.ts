@@ -61,10 +61,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   <mat-sidenav
     *ngIf="auth.isAuthenticated()"
     #sidenav
+    [fixedInViewport]="isMobile()"
     [mode]="isMobile() ? 'over' : 'side'"
     [opened]="!isMobile() || sidenavOpened()"
     (openedChange)="sidenavOpened.set($event)"
-    fixedInViewport
     hasBackdrop="false"
     class="sidenav glass-sidebar">
 

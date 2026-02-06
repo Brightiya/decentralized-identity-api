@@ -37,6 +37,10 @@ export class WalletService {
 
   private snackBar = inject(MatSnackBar);
 
+  // NEW: Chain configuration for Base Sepolia (matches backend CHAIN_ID=84532)
+  readonly expectedChainId = 84532;
+  readonly expectedChainName = 'Base Sepolia Testnet';
+
   constructor() {
     if (this.isBrowser) {
       const saved = localStorage.getItem('walletAddress');
@@ -74,16 +78,17 @@ export class WalletService {
 
     try {
       if (window.ethereum) {
-      await this.useMetaMask();
-    }
-      else if (this.customRpc()) {
+        await this.useMetaMask();
+      } else if (this.customRpc()) {
         await this.useHardhat(this.customRpc());
-      } 
-       else {
+      } else {
         await this.useHardhat(environment.PROVIDER_URL || 'http://127.0.0.1:8545');
       }
 
       if (!this.signer) throw new Error('Signer did not initialize, please refresh the browser and try again');
+
+      // NEW: After connect, check chain once (optional – can be skipped here if you want)
+      // await this.ensureCorrectChain(); // uncomment if you want chain check on every connect
 
     } catch (err: any) {
       console.error('Wallet connect failed:', err);
@@ -143,6 +148,69 @@ export class WalletService {
     }
   }
 
+  // NEW: Switch or add the correct chain (Base Sepolia)
+  async switchToCorrectChain(): Promise<boolean> {
+    if (!window.ethereum || !this.provider) return false;
+
+    try {
+      const currentChainId = (await this.provider.getNetwork()).chainId;
+
+      if (Number(currentChainId) === this.expectedChainId) {
+        return true; // already correct
+      }
+
+      this.snackBar.open(`Switching to ${this.expectedChainName}...`, 'Close', { duration: 4000 });
+
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${this.expectedChainId.toString(16)}` }],
+      });
+
+      return true;
+    } catch (switchError: any) {
+      // Chain not added → try to add it
+      if (switchError.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: `0x${this.expectedChainId.toString(16)}`,
+              chainName: this.expectedChainName,
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://sepolia.base.org'],
+              blockExplorerUrls: ['https://sepolia.basescan.org']
+            }],
+          });
+
+          // After adding, switch again
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${this.expectedChainId.toString(16)}` }],
+          });
+
+          this.snackBar.open(`Added and switched to ${this.expectedChainName}!`, 'Close', { duration: 5000 });
+          return true;
+        } catch (addError: any) {
+          console.error('Failed to add chain:', addError);
+          this.snackBar.open(`Failed to add ${this.expectedChainName}. Please add it manually.`, 'Close', { duration: 8000 });
+          return false;
+        }
+      }
+
+      console.error('User rejected chain switch:', switchError);
+      this.snackBar.open('Please switch to Base Sepolia Testnet in your wallet', 'Close', { duration: 8000 });
+      return false;
+    }
+  }
+
+  // NEW: Call this before any transaction
+  async ensureCorrectChain(): Promise<void> {
+    const success = await this.switchToCorrectChain();
+    if (!success) {
+      throw new Error(`Please switch to ${this.expectedChainName} in your wallet to continue`);
+    }
+  }
+
   async signMessage(message: string): Promise<string> {
     if (!this.signer) throw new Error('No signer - connect wallet first');
     return await this.signer.signMessage(message);
@@ -157,6 +225,9 @@ export class WalletService {
     if (!this.provider) throw new Error('Provider not initialized');
 
     try {
+      // NEW: Ensure correct chain before signing/sending
+      await this.ensureCorrectChain();
+
       const tx: TransactionResponse = await this.signer.sendTransaction({
         ...unsignedTx,
         gasLimit: unsignedTx.gasLimit ? BigInt(unsignedTx.gasLimit) : undefined,
@@ -189,6 +260,9 @@ export class WalletService {
       }
       if (err.message?.includes('insufficient funds')) {
         throw new Error('Insufficient funds for gas');
+      }
+      if (err.message?.includes('chainId')) {
+        throw new Error(`Wrong network - please switch to ${this.expectedChainName}`);
       }
 
       throw err;

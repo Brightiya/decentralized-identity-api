@@ -658,7 +658,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     --sidebar-margin: 84px;
   }
 }
-}
+
 `]
 })
 

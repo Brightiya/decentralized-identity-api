@@ -741,6 +741,41 @@ import { firstValueFrom } from 'rxjs';
     @media (max-width: 420px) {
       .card-header { padding: 48px 24px 32px; }
     }
+
+    /* Dark mode fixes for role toggle buttons */
+      .login-page.dark {
+        .role-group {
+          background: rgba(30, 41, 59, 0.7) !important;
+          border: 1px solid rgba(59, 69, 94, 0.5) !important;
+        }
+
+        ::ng-deep .role-btn {
+          background: rgba(30, 41, 59, 0.4) !important;
+          color: #f1f5f9 !important;
+          border: 1px solid rgba(59, 69, 94, 0.4) !important;
+        }
+
+        ::ng-deep .role-btn.mat-button-toggle-checked {
+          background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%) !important;
+          color: white !important;
+          border-color: #a78bfa !important;
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5) !important;
+        }
+
+        ::ng-deep .role-btn mat-icon {
+          color: #a5b4fc !important;
+        }
+
+        ::ng-deep .role-btn.mat-button-toggle-checked mat-icon {
+          color: white !important;
+        }
+
+        .role-description {
+          background: rgba(30, 41, 59, 0.6) !important;
+          color: #e2e8f0 !important;
+          border: 1px solid rgba(59, 69, 94, 0.4) !important;
+        }
+      }
   `]
 })
 

@@ -175,18 +175,6 @@ import { firstValueFrom, take } from 'rxjs';
                     required
                   ></textarea>
 
-                  <!-- Prefilled template — shown only when field is empty -->
-                  <mat-hint *ngIf="!claim">
-                  <em>Example (edit as needed):</em><br>
-                  <pre class="json-example">
-                "{{ '{' }}")
-                  "name": "Your Name",
-                  "email": "you&#64;example.com",
-                  "role": "Developer",
-                  "verified": true
-                </pre>"{{ '}' }}")
-                </mat-hint>
-
                   <mat-hint *ngIf="claim && isValidJson()" class="valid-hint">
                     <mat-icon>check_circle</mat-icon> Valid JSON
                   </mat-hint>
@@ -498,22 +486,6 @@ import { firstValueFrom, take } from 'rxjs';
 
     .credentials-page.dark .validation-hint {
       color: #fcd34d;
-    }
-
-    .json-example {
-      display: block;
-      margin: 8px 0 0;
-      padding: 10px 12px;
-      background: rgba(99, 102, 241, 0.08);
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      white-space: pre;
-      overflow-x: auto;
-    }
-
-    .credentials-page.dark .json-example {
-      background: rgba(99, 102, 241, 0.15);
     }
 
     /* ─────────────────────────────────────────────

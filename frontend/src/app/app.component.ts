@@ -638,10 +638,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     transition: margin-left 0.35s ease;
   }
 
-  /* Only shift when NOT in mini mode (sidebar is full width) */
-  .sidenav-container:not(.mini) .mat-sidenav-content {
-    margin-left: 280px !important;
-  }
 
   /* When mini sidebar is active, use small shift */
   .sidenav-container.mini .mat-sidenav-content {

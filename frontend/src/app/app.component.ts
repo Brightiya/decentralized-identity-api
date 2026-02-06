@@ -633,11 +633,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
   /* Desktop only: shift main content right *only* when sidebar is expanded */
 @media (min-width: 961px) {
-  .mat-sidenav-content {
-    margin-left: 0 !important;           /* default: no shift */
-    transition: margin-left 0.35s ease;
-  }
-
 
   /* When mini sidebar is active, use small shift */
   .sidenav-container.mini .mat-sidenav-content {

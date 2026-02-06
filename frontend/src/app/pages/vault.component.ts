@@ -317,10 +317,30 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   :host {
     display: block;
     min-height: 100vh;
-    background: var(--bg, #f8fafc);
+
+    /* LIGHT MODE DEFAULTS */
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
+    --header-bg: linear-gradient(
+      135deg,
+      rgba(99, 102, 241, 0.08) 0%,
+      rgba(167, 139, 250, 0.05) 100%
+    );
+    --status-success-bg: rgba(34, 197, 94, 0.15);
+    --status-warning-bg: rgba(245, 158, 11, 0.15);
+    --status-erased-bg: rgba(239, 68, 68, 0.15);
+    --pill-bg: rgba(99, 102, 241, 0.1);
+
+    background: var(--bg);
   }
 
-  .vault-container.dark {
+  /* DARK MODE VARIABLE OVERRIDES (scope-safe) */
+  :host-context(.dark) {
     --bg: #0f0f1a;
     --card-bg: rgba(30, 41, 59, 0.65);
     --card-border: rgba(59, 69, 94, 0.6);
@@ -335,10 +355,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     --pill-bg: rgba(99, 102, 241, 0.15);
   }
 
+  /* Keep existing dark selector for compatibility */
+  .vault-container.dark {}
+
   .vault-header {
     text-align: center;
     padding: 4rem 1rem 5rem;
-    background: var(--header-bg, linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(167, 139, 250, 0.05) 100%));
+    background: var(--header-bg);
   }
 
   .header-content {
@@ -380,6 +403,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     letter-spacing: -1px;
   }
 
+  h2, h3 {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
   .subtitle {
     font-size: 1.25rem;
     color: var(--text-secondary);
@@ -392,69 +421,36 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     padding: 0 1.5rem;
   }
 
-  .vault-card {
-    background: var(--card-bg, white);
+  .vault-card,
+  .setting-card,
+  .profile-status-section {
+    background: var(--card-bg);
     border-radius: 24px;
-    border: 1px solid var(--card-border, #e2e8f0);
+    border: 1px solid var(--card-border);
     box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-    overflow: hidden;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
   }
 
-  .vault-container.dark .vault-card {
+  :host-context(.dark) .vault-card {
     box-shadow: 0 20px 60px rgba(0,0,0,0.4);
   }
 
-  .primary-card {
-    margin-bottom: 2.5rem;
-  }
-
-  .card-header {
+  .card-header,
+  .setting-header {
     display: flex;
     align-items: center;
     gap: 1rem;
     padding: 1.75rem 2rem;
     border-bottom: 1px solid var(--card-border);
-    background: var(--header-bg, rgba(99, 102, 241, 0.05));
+    background: var(--header-bg);
   }
 
-  .vault-container.dark .card-header {
-    background: var(--header-bg, rgba(99, 102, 241, 0.12));
-  }
-
-  .header-icon {
-    font-size: 32px;
-    width: 48px;
-    height: 48px;
-    background: rgba(99, 102, 241, 0.15);
-    border-radius: 14px;
-    color: #6366f1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .vault-container.dark .header-icon {
-    background: rgba(99, 102, 241, 0.3);
-    color: #a5b4fc;
-  }
-
-  h2, h3 {
-    margin: 0;
-    font-weight: 700;
-    color: var(--text-primary, #1e293b);
-  }
-
-  .vault-container.dark h2, .vault-container.dark h3 {
-    color: var(--text-primary, #f1f5f9);
-  }
-
-  .card-body {
+  .card-body,
+  .setting-content {
     padding: 2rem;
   }
 
-  /* Wallet Connected */
   .address-container {
     display: flex;
     align-items: center;
@@ -464,7 +460,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     border-radius: 16px;
     padding: 0.75rem 1rem;
     margin-bottom: 1.25rem;
-    position: relative;
   }
 
   .address-display {
@@ -472,306 +467,29 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     font-family: 'Courier New', monospace;
     font-size: 1.05rem;
     color: var(--text-primary);
-    position: relative;
   }
 
-  .full-address-tooltip {
-    visibility: hidden;
-    position: absolute;
-    top: -40px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--text-primary, #1e293b);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    white-space: nowrap;
-    z-index: 10;
-  }
-
-  .address-display:hover .full-address-tooltip {
-    visibility: visible;
-  }
-
-  .address {
-    font-weight: 500;
-  }
-
-  .copy-button {
-    color: var(--text-secondary);
-  }
-
-  .vault-container.dark .copy-button {
-    color: #cbd5e1;
-  }
-
-  .did-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap;
-  }
-
-  .label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-  }
-
-  .did {
-    background: var(--pill-bg, rgba(99, 102, 241, 0.1));
-    padding: 0.35rem 0.75rem;
-    border-radius: 10px;
-    font-family: 'Courier New', monospace;
-    color: #6366f1;
-    word-break: break-all;
-  }
-
-  .vault-container.dark .did {
-    background: rgba(99, 102, 241, 0.2);
-    color: #c7d2fe;
-  }
-
-  .connection-status {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-radius: 16px;
-    background: rgba(34, 197, 94, 0.1);
-    color: #166534;
-    font-weight: 500;
-  }
-
-  .vault-container.dark .connection-status.success {
-    background: var(--status-success-bg, rgba(34, 197, 94, 0.2));
-    color: #86efac;
-  }
-
-  .connect-wallet-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem 2.25rem;
-    background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
-    color: white;
-    border: none;
-    border-radius: 16px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
-  }
-
-  .connect-wallet-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 16px 40px rgba(99, 102, 241, 0.45);
-  }
-
-  /* Settings Grid */
-  .settings-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 1.75rem;
-    padding: 2rem;
-  }
-
-  .setting-card {
-    background: var(--card-bg);
-    border-radius: 20px;
-    border: 1px solid var(--card-border);
-    overflow: hidden;
-    transition: transform 0.3s ease;
-  }
-
-  .setting-card:hover {
-    transform: translateY(-6px);
-  }
-
-  .setting-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.25rem 1.75rem;
-    border-bottom: 1px solid var(--card-border);
-    background: var(--header-bg, rgba(99, 102, 241, 0.06));
-  }
-
-  .vault-container.dark .setting-header {
-    background: var(--header-bg, rgba(99, 102, 241, 0.15));
-  }
-
-  .setting-icon {
-    font-size: 28px;
-    width: 44px;
-    height: 44px;
-    background: rgba(99, 102, 241, 0.15);
-    border-radius: 12px;
-    color: #6366f1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .vault-container.dark .setting-icon {
-    background: rgba(99, 102, 241, 0.3);
-    color: #a5b4fc;
-  }
-
-  .setting-content {
-    padding: 1.75rem;
-  }
-
-  .help-text {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.5;
-    margin-bottom: 1.25rem;
-  }
-
-  .external-link {
-    color: #6366f1;
-    text-decoration: underline;
-    font-weight: 500;
-  }
-
-  .vault-container.dark .external-link {
-    color: #a5b4fc;
-  }
-
-  .full-width {
-    width: 100%;
-  }
-
-  .button-group {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.25rem;
-    flex-wrap: wrap;
-  }
-
-  .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-    padding: 0.75rem 1.25rem;
-    border-radius: 999px;
-    background: var(--pill-bg, rgba(99, 102, 241, 0.1));
-    color: #1e40af;
-    font-weight: 500;
-    font-size: 0.95rem;
-  }
-
-  .status-pill.success {
-    background: var(--status-success-bg, rgba(34, 197, 94, 0.15));
-    color: #166534;
-  }
-
-  .vault-container.dark .status-pill.success {
-    background: var(--status-success-bg, rgba(34, 197, 94, 0.25));
-    color: #86efac;
-  }
-
-  .status-pill.warning {
-    background: var(--status-warning-bg, rgba(245, 158, 11, 0.15));
-    color: #92400e;
-  }
-
-  .vault-container.dark .status-pill.warning {
-    background: var(--status-warning-bg, rgba(245, 158, 11, 0.25));
-    color: #fbbf24;
-  }
-
-  .status-pill.accent {
-    background: var(--pill-bg, rgba(168, 85, 247, 0.15));
-    color: #6b21a8;
-  }
-
-  .vault-container.dark .status-pill.accent {
-    background: rgba(168, 85, 247, 0.25);
-    color: #c4b5fd;
-  }
-
-  /* Profile Status Section */
-  .profile-status-section {
-    margin-top: 2.5rem;
-    padding: 2rem;
-    background: var(--card-bg);
-    border-radius: 24px;
-    border: 1px solid var(--card-border);
-  }
-
+  .label,
+  .help-text,
   .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 4rem 0;
     color: var(--text-secondary);
   }
 
-  .status-card {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 2rem;
-    border-radius: 20px;
-    background: rgba(34, 197, 94, 0.1);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+  .did,
+  .status-pill {
+    background: var(--pill-bg);
   }
 
   .status-card.success {
-    background: var(--status-success-bg, rgba(34, 197, 94, 0.12));
-    border-color: rgba(34, 197, 94, 0.4);
-  }
-
-  .vault-container.dark .status-card.success {
-    background: var(--status-success-bg, rgba(34, 197, 94, 0.22));
+    background: var(--status-success-bg);
   }
 
   .status-card.warning {
-    background: var(--status-warning-bg, rgba(245, 158, 11, 0.12));
-    border-color: rgba(245, 158, 11, 0.4);
-  }
-
-  .vault-container.dark .status-card.warning {
-    background: var(--status-warning-bg, rgba(245, 158, 11, 0.22));
-    color: #fbbf24;
+    background: var(--status-warning-bg);
   }
 
   .status-card.erased {
-    background: var(--status-erased-bg, rgba(239, 68, 68, 0.12));
-    border-color: rgba(239, 68, 68, 0.4);
-  }
-
-  .vault-container.dark .status-card.erased {
-    background: var(--status-erased-bg, rgba(239, 68, 68, 0.22));
-  }
-
-  .status-icon {
-    font-size: 48px;
-    width: 64px;
-    height: 64px;
-  }
-
-  .status-content h3 {
-    margin: 0 0 0.5rem;
-  }
-
-  .action-buttons {
-    display: flex;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .refresh-section {
-    text-align: center;
-    margin-top: 2rem;
+    background: var(--status-erased-bg);
   }
 
   @media (max-width: 960px) {
@@ -789,6 +507,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     .action-buttons { flex-direction: column; }
   }
 `]
+
 })
 export class VaultComponent implements OnInit, OnDestroy {
   loading = signal(false);

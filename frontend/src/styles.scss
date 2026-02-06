@@ -23,21 +23,7 @@ $light-theme: mat.define-light-theme((
 // Include **ALL** component themes (this fixes scrambled text)
 @include mat.all-component-themes($light-theme);
 
-// Dark theme support
-$dark-theme: mat.define-dark-theme((
-  color: (
-    primary: $primary,
-    accent: $accent,
-    warn: $warn,
-  ),
-  typography: mat.define-typography-config(),
-  density: 0
-));
 
-// Apply dark theme when .dark is present
-.dark {
-  @include mat.all-component-themes($dark-theme);
-}
 
 // ────────────────────────────────────────────────
 // Global Reset & Mobile-First Improvements

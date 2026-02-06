@@ -742,52 +742,32 @@ export class CredentialsComponent implements OnInit {
   }
 
   try {
-    const parsed = JSON.parse(this.claim);
+        const parsed = JSON.parse(this.claim);
 
-    // 1. Must be a non-null object
-    if (typeof parsed !== 'object' || parsed === null) {
-      return false;
-    }
+        // Must be a non-null object (not array, not primitive, not null)
+          if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+            return false;
+          }
 
-    // 2. Must not be an array
-    if (Array.isArray(parsed)) {
-      return false;
-    }
+          // Must have at least one key (even if value is empty)
+          const keys = Object.keys(parsed);
+          if (keys.length === 0) {
+            return false;
+          }
 
-    const keys = Object.keys(parsed);
+          // Optional: reject if all keys are empty/whitespace-only
+          const hasValidKey = keys.some(key => key.trim() !== '');
+          if (!hasValidKey) {
+            return false;
+          }
 
-    // 3. Must have at least one key
-    if (keys.length === 0) {
-      return false;
-    }
-
-    // 4. Reject if all keys are empty strings (or only whitespace)
-    const hasMeaningfulKey = keys.some(key => key.trim() !== '');
-    if (!hasMeaningfulKey) {
-      return false;
-    }
-
-    // 5. Optional but recommended: reject if all values are empty/meaningless
-    //    (you can adjust or remove this rule depending on your needs)
-    const hasMeaningfulValue = keys.some(key => {
-      const value = parsed[key];
-      if (value === null || value === undefined) return false;
-      if (typeof value === 'string' && value.trim() === '') return false;
-      if (Array.isArray(value) && value.length === 0) return false;
-      if (typeof value === 'object' && value !== null && Object.keys(value).length === 0) return false;
-      return true;
-    });
-
-    if (!hasMeaningfulValue) {
-      return false;
-    }
-
-    // If we reach here → looks like a reasonable claim
-    return true;
-  } catch {
-    return false;
-  }
-}
+          // Accept almost everything else — even empty values, nulls, empty objects/arrays
+          // This allows {"name": "Perry"}, {"age": 0}, {"active": false}, {"tags": []}, etc.
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
 
   isIssueValid(): boolean {
     if (!this.context?.trim()) return false;

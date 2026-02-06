@@ -630,6 +630,18 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       font-size: 1.3rem;
     }
   }
+
+  /* Desktop only: shift main content right when sidebar is open */
+@media (min-width: 961px) {
+  .mat-sidenav-content {
+    margin-left: 280px !important;
+    transition: margin-left 0.35s ease;
+  }
+
+  .sidenav-container.mini .mat-sidenav-content {
+    margin-left: 84px !important;
+  }
+}
 `]
 })
 

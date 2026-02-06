@@ -161,20 +161,38 @@ import { firstValueFrom, take } from 'rxjs';
                   <mat-hint>Unique identifier for this claim (dot notation recommended)</mat-hint>
                 </mat-form-field>
 
-                <!-- Claim JSON (now mandatory + validated) -->
+                <!-- Claim JSON (prefilled + auto-format) -->
                 <mat-form-field appearance="outline" class="full-width"
                                 [class.mat-form-field-invalid]="claim && !isValidJson()">
                   <mat-label>Claim Data (JSON) *</mat-label>
                   <textarea
                     matInput
-                    rows="6"
+                    rows="8"
                     [(ngModel)]="claim"
-                    placeholder='{"name": "Alice Smith", "email": "alice@example.com"}'
+                    (blur)="formatJson()"
+                    (input)="onClaimInput()"
+                    placeholder="Enter claim data as JSON..."
                     required
                   ></textarea>
-                  <mat-hint>Valid JSON object containing the claim data</mat-hint>
+
+                  <!-- Prefilled template — shown only when field is empty -->
+                  <mat-hint *ngIf="!claim">
+                  <em>Example (edit as needed):</em><br>
+                  <pre class="json-example">
+                "{{ '{' }}")
+                  "name": "Your Name",
+                  "email": "you&#64;example.com",
+                  "role": "Developer",
+                  "verified": true
+                </pre>"{{ '}' }}")
+                </mat-hint>
+
+                  <mat-hint *ngIf="claim && isValidJson()" class="valid-hint">
+                    <mat-icon>check_circle</mat-icon> Valid JSON
+                  </mat-hint>
+
                   <mat-error *ngIf="claim && !isValidJson()">
-                    Invalid JSON format — must be a valid object "{{ '{' }}")
+                    Invalid JSON — please fix quotes, commas, or braces
                   </mat-error>
                 </mat-form-field>
 
@@ -482,6 +500,22 @@ import { firstValueFrom, take } from 'rxjs';
       color: #fcd34d;
     }
 
+    .json-example {
+      display: block;
+      margin: 8px 0 0;
+      padding: 10px 12px;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .credentials-page.dark .json-example {
+      background: rgba(99, 102, 241, 0.15);
+    }
+
     /* ─────────────────────────────────────────────
        Dark Mode Material Form Fixes (FULLY RESTORED)
     ────────────────────────────────────────────── */
@@ -652,6 +686,23 @@ import { firstValueFrom, take } from 'rxjs';
         height: 72px;
       }
     }
+
+        .valid-hint {
+      color: #4caf50 !important;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .valid-hint mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    mat-hint em {
+      color: #6366f1;
+    }
   `]
 })
 
@@ -683,10 +734,23 @@ export class CredentialsComponent implements OnInit {
   issuing = signal(false);
   result: any | null = null;
 
+  // Default claim template (prefilled when field is empty)
+private defaultClaimTemplate = `{
+  "name": "Your Name",
+  "email": "you@example.com",
+  "role": "Developer",
+  "verified": true
+}`;
+
   ngOnInit() {
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts = ctxs.sort();
     });
+
+    // Prefill only if claim is empty (first time)
+  if (!this.claim) {
+    this.claim = this.defaultClaimTemplate;
+  }
   }
 
   // --------------------
@@ -736,56 +800,46 @@ export class CredentialsComponent implements OnInit {
   // --------------------
   // Validation Helpers
   // --------------------
-  isValidJson(): boolean {
-  if (!this.claim?.trim()) {
-    return false;
-  }
+  // Auto-format JSON on blur (fix spacing, smart quotes, etc.)
+    formatJson() {
+      if (!this.claim?.trim()) return;
 
-  // Clean up common mobile input mistakes
-  let cleaned = this.claim.trim();
+      let cleaned = this.claim.trim();
 
-  // Replace smart quotes (common on iOS/Android keyboards)
-  cleaned = cleaned.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+      // Fix smart quotes
+      cleaned = cleaned.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
 
-  // Optional: remove trailing commas (some users add them)
-  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+      // Remove trailing commas
+      cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
 
-  try {
-
-    const parsed = JSON.parse(cleaned);
-
-    // Must be a non-null object (not array, not primitive)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      return false;
+      try {
+        const parsed = JSON.parse(cleaned);
+        // Pretty print with 2-space indentation
+        this.claim = JSON.stringify(parsed, null, 2);
+      } catch {
+        // If still invalid, leave as-is (user is typing)
+      }
     }
 
-    // Must have at least one key
-    const keys = Object.keys(parsed);
-    if (keys.length === 0) {
-      return false;
+    // Optional: live validation feedback while typing
+    onClaimInput() {
+      // You can add live formatting or hints here if desired
+      // For now, we just format on blur to avoid annoying the user
     }
 
-    // Optional: at least one key should not be empty/whitespace
-    const hasValidKey = keys.some(key => key.trim() !== '');
-    if (!hasValidKey) {
-      return false;
+    // Keep your existing isValidJson() — it's perfect now
+    isValidJson(): boolean {
+      if (!this.claim?.trim()) return false;
+
+      try {
+        const parsed = JSON.parse(this.claim);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
+        return Object.keys(parsed).length > 0;
+      } catch {
+        return false;
+      }
     }
 
-    // Accept even if values are empty/null/empty objects
-    return true;
-  } catch (e: any) {
-    // Optional: log the exact reason (helpful for debugging on mobile)
-    if (this.isMobileOrTablet()) {
-      console.log('JSON parse failed on mobile:', e.message, 'Input was:', cleaned);
-    }
-    return false;
-  }
-}
-
-  isMobileOrTablet(): boolean {
-    return /Mobi|Android|iPad|iPhone|iPod|Tablet/i.test(navigator.userAgent) || window.innerWidth <= 1024;
-  }
-  
   isIssueValid(): boolean {
     if (!this.context?.trim()) return false;
     if (!this.purpose?.trim()) return false;

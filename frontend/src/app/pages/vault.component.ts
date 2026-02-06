@@ -955,8 +955,8 @@ export class VaultComponent implements OnInit, OnDestroy {
               window.open(explorerUrl, '_blank');
             });
       } else if (response.txHash) {
-        // Dev mode: Backend signed
-        this.snackBar.open('Vault profile created successfully!', 'Close', { duration: 4000 });
+        // Backend signed (when HYBRID_SIGNING=false)
+        this.snackBar.open('Profile created by the app! (no gas paid by you)', 'Close', { duration: 6000 });
       }
 
       this.profileState.setProfileStatus(true, false, null);

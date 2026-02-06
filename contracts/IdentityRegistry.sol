@@ -14,8 +14,9 @@ contract IdentityRegistry {
     event ClaimSet(address indexed owner, bytes32 indexed claimId, bytes32 claimHash);
     event ClaimRemoved(address indexed owner, bytes32 indexed claimId);
 
-    modifier onlyOwner(address owner) {
-        require(msg.sender == owner, "Not owner");
+    // CHANGED: New modifier — only the profile owner can update their data
+    modifier onlySelf(address subject) {
+        require(msg.sender == subject, "Not the profile owner");
         _;
     }
 
@@ -26,7 +27,7 @@ contract IdentityRegistry {
     }
 
     /// @notice set profile CID (e.g., IPFS CID linking to encrypted profile)
-    function setProfileCID(address owner, string calldata cid) external onlyOwner(owner) {
+    function setProfileCID(address owner, string calldata cid) external onlySelf(owner) {
         _profileCID[owner] = cid;
         emit ProfileSet(owner, cid);
     }
@@ -37,13 +38,13 @@ contract IdentityRegistry {
     }
 
     /// @notice set a claim for an owner (claimId is an identifier, claimHash is hash of claim payload)
-    function setClaim(address owner, bytes32 claimId, bytes32 claimHash) external onlyOwner(owner) {
+    function setClaim(address owner, bytes32 claimId, bytes32 claimHash) external onlySelf(owner) {
         _claims[owner][claimId] = claimHash;
         emit ClaimSet(owner, claimId, claimHash);
     }
 
     /// @notice remove a claim
-    function removeClaim(address owner, bytes32 claimId) external onlyOwner(owner) {
+    function removeClaim(address owner, bytes32 claimId) external onlySelf(owner) {
         delete _claims[owner][claimId];
         emit ClaimRemoved(owner, claimId);
     }

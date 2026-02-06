@@ -4,7 +4,9 @@ yarn-error.log
 directory.txt
 testCode.txt
 backend/.DS_Store
+registry.txt
 # Environment variables
 .env
 .env.test
 .DS_Store
+

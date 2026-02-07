@@ -5,8 +5,52 @@ import { jest } from "@jest/globals";
 // 🚨 MUST be first
 process.env.NODE_ENV = "test";
 
-// Load envs from the single source of truth
-//await import("../src/config/env.js");
+// =========================
+// 🧪 MOCK SIWE VERIFY HERE
+// =========================
+// ────────────────────────────────────────────────
+// Force SIWE mock at the very top — before anything else imports siwe
+// ────────────────────────────────────────────────
+import { SiweMessage as OriginalSiweMessage } from "siwe";
+
+console.log("[TEST SETUP] Applying global SIWE mock (immediate)");
+
+const mockedVerify = async function (options) {
+  console.log("[TEST MOCK] SIWE verify() bypassed");
+  return {
+    success: true,
+    data: {
+      ...this,
+      address: this.address?.toLowerCase(),
+      nonce: this.nonce,
+      chainId: this.chainId || 31337,
+      domain: this.domain,
+      uri: this.uri,
+      version: this.version || "1",
+      statement: this.statement,
+      issuedAt: this.issuedAt,
+      expirationTime: this.expirationTime,
+    },
+  };
+};
+
+// Apply to prototype immediately
+OriginalSiweMessage.prototype.verify = mockedVerify;
+
+// Also patch the constructor so newly created instances get the mock
+const PatchedSiweMessage = function (...args) {
+  const instance = new OriginalSiweMessage(...args);
+  instance.verify = mockedVerify;
+  return instance;
+};
+
+// Replace the exported class
+jest.mock("siwe", () => ({
+  SiweMessage: PatchedSiweMessage,
+  SiweError: OriginalSiweMessage.SiweError, // preserve error class if needed
+}));
+
+console.log("[TEST SETUP] SIWE mock applied (prototype + constructor patched)");
 
 // Now it is SAFE to import DB
 import { pool } from "../src/utils/db.js";
@@ -20,21 +64,7 @@ console.log(
   !!process.env.JWT_SECRET
 );
 
-// =========================
-// 🧪 MOCK SIWE VERIFY HERE
-// =========================
-jest.mock("siwe", () => {
-  const originalModule = jest.requireActual("siwe");
-  return {
-    ...originalModule,
-    SiweMessage: class extends originalModule.SiweMessage {
-      async verify() {
-        console.log("[TEST MOCK] SIWE verify() bypassed");
-        return { data: this };
-      }
-    }
-  };
-});
+
 // =========================
 
 afterAll(async () => {

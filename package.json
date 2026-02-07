@@ -49,6 +49,7 @@
       "<rootDir>/backend/test/setup-contract-mock.js"
     ],
     "globalSetup": "<rootDir>/backend/test/global-setup.js",
+    "globalTeardown": "<rootDir>/backend/test/global-teardown.js",
     "setupFilesAfterEnv": [
       "<rootDir>/backend/test/setup.js"
     ],

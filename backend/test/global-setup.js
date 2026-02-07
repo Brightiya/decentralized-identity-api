@@ -19,6 +19,9 @@ export default async function globalSetup() {
   // ─────────────────────────────────────────────
   const mockProvider = new JsonRpcProvider("http://localhost:0");
 
+  mockProvider.pollingInterval = 0;
+  mockProvider._start = () => {};
+
   // Disable all real network behavior
   mockProvider.detectNetwork = async () => ({
     name: "test",

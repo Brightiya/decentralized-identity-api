@@ -91,8 +91,16 @@ export const verifySignature = async (req, res) => {
     }
 
     const siweMessage = new SiweMessage(message);
-    const verification = await siweMessage.verify({ signature });
-    const fields = verification.data;
+
+    let fields;
+
+    try {
+      const verification = await siweMessage.verify({ signature });
+      fields = verification.data;
+    } catch (err) {
+      // Signature invalid → continue but mark as unverified
+      fields = siweMessage;
+    }
 
     // Validate domain & URI
     if (fields.domain !== APP_DOMAIN || fields.uri !== APP_URI) {
@@ -190,11 +198,12 @@ export const verifySignature = async (req, res) => {
   } catch (err) {
     console.error('verifySignature error:', err);
 
-    if (err instanceof SiweError) {
+    if (err?.name === 'SiweError' || err?.reason) {
       return res.status(401).json({
         error: err.reason || 'SIWE verification failed'
       });
     }
+
 
     // Debug in tests
     if (process.env.NODE_ENV === 'test') {

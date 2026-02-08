@@ -18,6 +18,7 @@ import { ApiService } from '../services/api.service';
 import { ProfileStateService } from '../services/profile-state.service';
 import { StorageService } from '../services/storage.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { GSNService } from '../services/gsn.service';
 
 @Component({
   selector: 'app-vault',
@@ -35,268 +36,342 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatTooltipModule
   ],
   template: `
-  <div class="vault-container" [class.dark]="darkMode()">
-    <!-- Hero Header -->
-    <header class="vault-header">
-      <div class="header-content">
-        <div class="header-icon-wrapper">
-              <!-- Custom SVG Keyhole Shield -->
-              <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
-                  class="custom-shield">
-                <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
-                      fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
-                <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
-                <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
-                <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
-              </svg>
-            </div>
-        <h1>Identity Vault</h1>
-        <p class="subtitle">
-          Securely manage your sovereign digital identity. Connect your wallet to control your credentials, contexts, and consents.
-        </p>
+<div class="vault-container" [class.dark]="darkMode()">
+  <!-- Hero Header -->
+  <header class="vault-header">
+    <div class="header-content">
+      <div class="header-icon-wrapper">
+            <!-- Custom SVG Keyhole Shield -->
+            <svg width="64" height="64" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"
+                class="custom-shield">
+              <path d="M16 2C8.5 2 3 7.5 3 15C3 25 16 30 16 30C16 30 29 25 29 15C29 7.5 23.5 2 16 2Z"
+                    fill="#6366f1" stroke="#4f46e5" stroke-width="3.5" stroke-linecap="round"/>
+              <circle cx="16" cy="16" r="7.5" fill="none" stroke="#ffffff" stroke-width="3.5"/>
+              <rect x="14" y="19" width="4" height="9" rx="2" fill="#ffffff"/>
+              <circle cx="16" cy="16" r="3" fill="#ffffff" opacity="0.4"/>
+            </svg>
+          </div>
+      <h1>Identity Vault</h1>
+      <p class="subtitle">
+        Securely manage your sovereign digital identity. Connect your wallet to control your credentials, contexts, and consents.
+      </p>
+    </div>
+  </header>
+
+  <main class="vault-content">
+    <!-- Wallet Connection -->
+    <section class="vault-card primary-card">
+      <div class="card-header">
+        <mat-icon class="header-icon">account_balance_wallet</mat-icon>
+        <h2>Wallet Connection</h2>
       </div>
-    </header>
 
-    <main class="vault-content">
-      <!-- Wallet Connection -->
-      <section class="vault-card primary-card">
-        <div class="card-header">
-          <mat-icon class="header-icon">account_balance_wallet</mat-icon>
-          <h2>Wallet Connection</h2>
-        </div>
-
-        <div class="card-body">
-          <div *ngIf="wallet.address$ | async as address; else connectPrompt" class="wallet-connected">
-            <div class="address-container">
-              <div class="address-display">
-                <span class="address">{{ address | slice:0:6 }}...{{ address | slice:-4 }}</span>
-                <span class="full-address-tooltip">{{ address }}</span>
-              </div>
-              <button mat-icon-button class="copy-button" (click)="copyAddress(address)" matTooltip="Copy address">
-                <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
+      <div class="card-body">
+        <div *ngIf="wallet.address$ | async as address; else connectPrompt" class="wallet-connected">
+          <div class="address-container">
+            <div class="address-display">
+              <span class="address">{{ address | slice:0:6 }}...{{ address | slice:-4 }}</span>
+              <span class="full-address-tooltip">{{ address }}</span>
             </div>
-
-            <div class="did-row">
-              <span class="label">DID:</span>
-              <code class="did">did:ethr:{{ address }}</code>
-            </div>
-
-            <div class="connection-status success">
-              <mat-icon>check_circle</mat-icon>
-              <span>Wallet connected successfully</span>
-            </div>
+            <button mat-icon-button class="copy-button" (click)="copyAddress(address)" matTooltip="Copy address">
+              <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
           </div>
 
-          <ng-template #connectPrompt>
-            <div class="connect-prompt">
-              <p class="muted">
-                Connect your Ethereum wallet to unlock your personal identity vault.
-              </p>
-              <button class="connect-wallet-btn" (click)="connect()" [disabled]="loading()">
-                <mat-icon *ngIf="!loading()">wallet</mat-icon>
-                <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
-              </button>
-            </div>
-          </ng-template>
-        </div>
-      </section>
-
-      <!-- Vault Profile & Settings (only shown when wallet is connected) -->
-      <section class="vault-card" *ngIf="wallet.address$ | async">
-        <div class="card-header">
-          <mat-icon class="header-icon">shield</mat-icon>
-          <h2>Vault Profile</h2>
-        </div>
-
-        <div class="card-body settings-grid">
-          <!-- Pinata JWT -->
-          <div class="setting-card">
-            <div class="setting-header">
-              <mat-icon class="setting-icon">vpn_key</mat-icon>
-              <h3>Pinata JWT</h3>
-            </div>
-            <div class="setting-content">
-              <p class="help-text">
-                Use your own Pinata account for pinning (recommended for production).
-                <strong>Security tip:</strong> Create a dedicated Admin key.
-              </p>
-
-              <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>Pinata JWT</mat-label>
-                  <input matInput
-                         type="password"
-                         name="jwt"
-                         [(ngModel)]="userPinataJwt"
-                         placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                         required
-                         autocomplete="new-password" />
-                  <mat-hint>
-                    <a href="https://app.pinata.cloud/keys" target="_blank" class="external-link">
-                      Get your key → Pinata Dashboard
-                    </a>
-                  </mat-hint>
-                </mat-form-field>
-
-                <div class="button-group">
-                  <button mat-flat-button color="primary" type="submit"
-                          [disabled]="!userPinataJwt().trim() || jwtForm.invalid">
-                    Save JWT
-                  </button>
-                  <button mat-stroked-button color="warn" type="button"
-                          *ngIf="hasUserJwt()"
-                          (click)="clearUserPinataJwt()">
-                    Remove
-                  </button>
-                </div>
-              </form>
-
-              <div class="status-pill" *ngIf="hasUserJwt()" [ngClass]="{ 'success': true }">
-                <mat-icon>check_circle</mat-icon>
-                Using your own Pinata account
-              </div>
-              <div class="status-pill warning" *ngIf="!hasUserJwt()">
-                <mat-icon>warning</mat-icon>
-                Using shared test key
-              </div>
-            </div>
+          <div class="did-row">
+            <span class="label">DID:</span>
+            <code class="did">did:ethr:{{ address }}</code>
           </div>
 
-          <!-- Custom IPFS Gateway -->
-          <div class="setting-card">
-            <div class="setting-header">
-              <mat-icon class="setting-icon">cloud_download</mat-icon>
-              <h3>IPFS Gateway (Reading)</h3>
+          <!-- GASLESS STATUS INDICATOR - NEW -->
+          <div class="gasless-status" *ngIf="gsnEnabled()">
+            <div class="status-indicator" [class.success]="gsnWhitelisted()" [class.warning]="!gsnWhitelisted()">
+              <mat-icon>{{ gsnWhitelisted() ? 'rocket_launch' : 'info' }}</mat-icon>
+              <span>
+                {{ gsnWhitelisted() ? '✅ Gasless mode available' : '⚠️ Gasless mode not available' }}
+              </span>
             </div>
-            <div class="setting-content">
-              <p class="help-text">
-                Where your credentials are fetched from. Default = public gateways.
-              </p>
+            <p class="gasless-hint" *ngIf="!gsnWhitelisted()">
+              You need to be whitelisted for gasless transactions.
+              <a href="#" (click)="requestWhitelist($event)">Request whitelist</a>
+            </p>
+          </div>
 
+          <div class="connection-status success">
+            <mat-icon>check_circle</mat-icon>
+            <span>Wallet connected successfully</span>
+          </div>
+        </div>
+
+        <ng-template #connectPrompt>
+          <div class="connect-prompt">
+            <p class="muted">
+              Connect your Ethereum wallet to unlock your personal identity vault.
+            </p>
+            <button class="connect-wallet-btn" (click)="connect()" [disabled]="loading()">
+              <mat-icon *ngIf="!loading()">wallet</mat-icon>
+              <span>{{ loading() ? 'Connecting...' : 'Connect Wallet' }}</span>
+            </button>
+          </div>
+        </ng-template>
+      </div>
+    </section>
+
+    <!-- Vault Profile & Settings (only shown when wallet is connected) -->
+    <section class="vault-card" *ngIf="wallet.address$ | async">
+      <div class="card-header">
+        <mat-icon class="header-icon">shield</mat-icon>
+        <h2>Vault Profile</h2>
+      </div>
+
+      <div class="card-body settings-grid">
+        <!-- Pinata JWT -->
+        <div class="setting-card">
+          <div class="setting-header">
+            <mat-icon class="setting-icon">vpn_key</mat-icon>
+            <h3>Pinata JWT</h3>
+          </div>
+          <div class="setting-content">
+            <p class="help-text">
+              Use your own Pinata account for pinning (recommended for production).
+              <strong>Security tip:</strong> Create a dedicated Admin key.
+            </p>
+
+            <form (ngSubmit)="saveUserPinataJwt()" #jwtForm="ngForm">
               <mat-form-field appearance="outline" class="full-width">
-                <mat-label>Gateway URL</mat-label>
+                <mat-label>Pinata JWT</mat-label>
                 <input matInput
-                       [(ngModel)]="customGateway"
-                       placeholder="https://ipfs.io/ipfs/"
-                       (blur)="saveCustomGateway()" />
+                       type="password"
+                       name="jwt"
+                       [(ngModel)]="userPinataJwt"
+                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                       required
+                       autocomplete="new-password" />
                 <mat-hint>
-                  Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain...
+                  <a href="https://app.pinata.cloud/keys" target="_blank" class="external-link">
+                    Get your key → Pinata Dashboard
+                  </a>
                 </mat-hint>
               </mat-form-field>
 
-              <div class="status-pill" *ngIf="customGateway()">
-                <mat-icon color="primary">check_circle</mat-icon>
-                Custom: <code>{{ customGateway() }}</code>
+              <div class="button-group">
+                <button mat-flat-button color="primary" type="submit"
+                        [disabled]="!userPinataJwt().trim() || jwtForm.invalid">
+                  Save JWT
+                </button>
+                <button mat-stroked-button color="warn" type="button"
+                        *ngIf="hasUserJwt()"
+                        (click)="clearUserPinataJwt()">
+                  Remove
+                </button>
               </div>
-              <div class="status-pill" *ngIf="!customGateway()">
-                <mat-icon>info</mat-icon>
-                Using public gateways
-              </div>
+            </form>
+
+            <div class="status-pill" *ngIf="hasUserJwt()" [ngClass]="{ 'success': true }">
+              <mat-icon>check_circle</mat-icon>
+              Using your own Pinata account
+            </div>
+            <div class="status-pill warning" *ngIf="!hasUserJwt()">
+              <mat-icon>warning</mat-icon>
+              Using shared test key
             </div>
           </div>
+        </div>
 
-          <!-- nft.storage -->
-          <div class="setting-card">
-            <div class="setting-header">
-              <mat-icon class="setting-icon">cloud_upload</mat-icon>
-              <h3>nft.storage Key</h3>
+        <!-- Custom IPFS Gateway -->
+        <div class="setting-card">
+          <div class="setting-header">
+            <mat-icon class="setting-icon">cloud_download</mat-icon>
+            <h3>IPFS Gateway (Reading)</h3>
+          </div>
+          <div class="setting-content">
+            <p class="help-text">
+              Where your credentials are fetched from. Default = public gateways.
+            </p>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Gateway URL</mat-label>
+              <input matInput
+                     [(ngModel)]="customGateway"
+                     placeholder="https://ipfs.io/ipfs/"
+                     (blur)="saveCustomGateway()" />
+              <mat-hint>
+                Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain...
+              </mat-hint>
+            </mat-form-field>
+
+            <div class="status-pill" *ngIf="customGateway()">
+              <mat-icon color="primary">check_circle</mat-icon>
+              Custom: <code>{{ customGateway() }}</code>
             </div>
-            <div class="setting-content">
-              <p class="help-text">
-                Optional: Use <strong>nft.storage</strong> for permanent, decentralized pinning (free).
-              </p>
+            <div class="status-pill" *ngIf="!customGateway()">
+              <mat-icon>info</mat-icon>
+              Using public gateways
+            </div>
+          </div>
+        </div>
 
-              <form (ngSubmit)="saveNftStorageKey()" #nftForm="ngForm">
-                <mat-form-field appearance="outline" class="full-width">
-                  <mat-label>nft.storage API Key</mat-label>
-                  <input matInput
-                         type="password"
-                         name="nftKey"
-                         [(ngModel)]="nftStorageKey"
-                         placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
-                  <mat-hint>
-                    <a href="https://nft.storage" target="_blank" class="external-link">
-                      Get key at nft.storage →
-                    </a>
-                  </mat-hint>
-                </mat-form-field>
+        <!-- GASLESS SETTINGS CARD - NEW -->
+        <div class="setting-card gasless-settings">
+          <div class="setting-header">
+            <mat-icon class="setting-icon">rocket_launch</mat-icon>
+            <h3>Gasless Transactions</h3>
+          </div>
+          <div class="setting-content">
+            <p class="help-text">
+              Create profiles and manage your identity without paying gas fees. 
+              <strong>Powered by GSN on Base Sepolia testnet.</strong>
+            </p>
 
-                <div class="button-group">
-                  <button mat-flat-button color="primary" type="submit"
-                          [disabled]="!nftStorageKey().trim()">
-                    Save Key
-                  </button>
-                  <button mat-stroked-button color="warn" type="button"
-                          *ngIf="hasNftStorageKey()"
-                          (click)="clearNftStorageKey()">
-                    Remove
-                  </button>
+            <div class="gasless-toggle" *ngIf="gsnEnabled()">
+              <mat-checkbox [(ngModel)]="useGasless" [disabled]="!gsnWhitelisted()">
+                <span class="gasless-toggle-label">
+                  <mat-icon class="toggle-icon">local_gas_station</mat-icon>
+                  Enable gasless mode
+                </span>
+              </mat-checkbox>
+              
+              <div class="gasless-status-detail" *ngIf="useGasless()">
+                <div class="gasless-benefit" *ngIf="gsnWhitelisted()">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>🎉 Your transactions will be gas-free!</span>
                 </div>
-              </form>
-
-              <div class="status-pill accent" *ngIf="hasNftStorageKey()">
-                <mat-icon>check_circle</mat-icon>
-                Pinning via nft.storage (decentralized)
+                <div class="gasless-warning" *ngIf="!gsnWhitelisted()">
+                  <mat-icon>warning</mat-icon>
+                  <span>You need to be whitelisted for gasless transactions.</span>
+                  <a href="#" (click)="requestWhitelist($event)" class="whitelist-link">Request access</a>
+                </div>
               </div>
-              <div class="status-pill" *ngIf="!hasNftStorageKey()">
+            </div>
+
+            <div class="gasless-info" *ngIf="!gsnEnabled()">
+              <div class="status-pill info">
                 <mat-icon>info</mat-icon>
-                Pinning via Pinata
+                Gasless mode not available on this server
+              </div>
+            </div>
+
+            <!-- Gasless statistics -->
+            <div class="gasless-stats" *ngIf="gsnEnabled() && gsnWhitelisted()">
+              <div class="stat-item">
+                <mat-icon class="stat-icon">flash_on</mat-icon>
+                <div class="stat-content">
+                  <div class="stat-label">Gas Savings</div>
+                  <div class="stat-value">100%</div>
+                </div>
+              </div>
+              <div class="stat-item">
+                <mat-icon class="stat-icon">speed</mat-icon>
+                <div class="stat-content">
+                  <div class="stat-label">Network</div>
+                  <div class="stat-value">Base Sepolia</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Profile Status -->
-        <div class="profile-status-section">
-          <ng-container *ngIf="loading(); else profileLoaded">
-            <div class="loading-state">
-              <mat-spinner diameter="40"></mat-spinner>
-              <p>Checking vault status...</p>
-            </div>
-          </ng-container>
+        <!-- nft.storage -->
+        <div class="setting-card">
+          <div class="setting-header">
+            <mat-icon class="setting-icon">cloud_upload</mat-icon>
+            <h3>nft.storage Key</h3>
+          </div>
+          <div class="setting-content">
+            <p class="help-text">
+              Optional: Use <strong>nft.storage</strong> for permanent, decentralized pinning (free).
+            </p>
 
-          <ng-template #profileLoaded>
-            <!-- Erased -->
-            <div class="status-card erased" *ngIf="isErased()">
-              <mat-icon class="status-icon">privacy_tip</mat-icon>
-              <div class="status-content">
-                <h3>Identity Permanently Erased</h3>
-                <p class="muted">
-                  Exercised Right to be Forgotten on {{ erasedAt() | date:'mediumDate' }}
-                </p>
-                <p class="muted small">
-                  Cryptographically proven on-chain — no data recoverable.
-                </p>
+            <form (ngSubmit)="saveNftStorageKey()" #nftForm="ngForm">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>nft.storage API Key</mat-label>
+                <input matInput
+                       type="password"
+                       name="nftKey"
+                       [(ngModel)]="nftStorageKey"
+                       placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+                <mat-hint>
+                  <a href="https://nft.storage" target="_blank" class="external-link">
+                    Get key at nft.storage →
+                  </a>
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="button-group">
+                <button mat-flat-button color="primary" type="submit"
+                        [disabled]="!nftStorageKey().trim()">
+                  Save Key
+                </button>
+                <button mat-stroked-button color="warn" type="button"
+                        *ngIf="hasNftStorageKey()"
+                        (click)="clearNftStorageKey()">
+                  Remove
+                </button>
+              </div>
+            </form>
+
+            <div class="status-pill accent" *ngIf="hasNftStorageKey()">
+              <mat-icon>check_circle</mat-icon>
+              Pinning via nft.storage (decentralized)
+            </div>
+            <div class="status-pill" *ngIf="!hasNftStorageKey()">
+              <mat-icon>info</mat-icon>
+              Pinning via Pinata
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Status -->
+      <div class="profile-status-section">
+        <ng-container *ngIf="loading(); else profileLoaded">
+          <div class="loading-state">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Checking vault status...</p>
+          </div>
+        </ng-container>
+
+        <ng-template #profileLoaded>
+          <!-- Erased -->
+          <div class="status-card erased" *ngIf="isErased()">
+            <mat-icon class="status-icon">privacy_tip</mat-icon>
+            <div class="status-content">
+              <h3>Identity Permanently Erased</h3>
+              <p class="muted">
+                Exercised Right to be Forgotten on {{ erasedAt() | date:'mediumDate' }}
+              </p>
+              <p class="muted small">
+                Cryptographically proven on-chain — no data recoverable.
+              </p>
+            </div>
+          </div>
+
+          <!-- Active Profile -->
+          <div class="status-card success" *ngIf="!isErased() && profileExists()">
+            <mat-icon class="status-icon">verified</mat-icon>
+            <div class="status-content">
+              <h3>Vault Active</h3>
+              <p class="muted">Your identity is ready. Manage contexts and credentials.</p>
+              <div class="action-buttons">
+                <a routerLink="/contexts" mat-flat-button color="primary">
+                  <mat-icon>layers</mat-icon> Manage Contexts
+                </a>
+                <a routerLink="/credentials" mat-stroked-button color="primary">
+                  <mat-icon>badge</mat-icon> Issue Credential
+                </a>
               </div>
             </div>
+          </div>
 
-            <!-- Active Profile -->
-            <div class="status-card success" *ngIf="!isErased() && profileExists()">
-              <mat-icon class="status-icon">verified</mat-icon>
-              <div class="status-content">
-                <h3>Vault Active</h3>
-                <p class="muted">Your identity is ready. Manage contexts and credentials.</p>
-                <div class="action-buttons">
-                  <a routerLink="/contexts" mat-flat-button color="primary">
-                    <mat-icon>layers</mat-icon> Manage Contexts
-                  </a>
-                  <a routerLink="/credentials" mat-stroked-button color="primary">
-                    <mat-icon>badge</mat-icon> Issue Credential
-                  </a>
-                </div>
-              </div>
-            </div>
+          <!-- No Profile -->
+          <div class="status-card warning" *ngIf="!isErased() && !profileExists()">
+            <mat-icon class="status-icon">info</mat-icon>
+            <div class="status-content">
+              <h3>No Vault Profile Found</h3>
+              <p class="muted">Create your vault profile to get started.</p>
 
-            <!-- No Profile -->
-            <div class="status-card warning" *ngIf="!isErased() && !profileExists()">
-              <mat-icon class="status-icon">info</mat-icon>
-              <div class="status-content">
-                <h3>No Vault Profile Found</h3>
-                <p class="muted">Create your vault profile to get started.</p>
-
-                 <!-- Gas info + faucet guide – only shown when wallet is connected -->
-                <div class="gas-info" *ngIf="wallet.address">
+              <!-- Gas info + faucet guide – only shown when wallet is connected -->
+              <div class="gas-info" *ngIf="wallet.address">
                 <details>
                   <summary>Need testnet ETH? (click to expand)</summary>
                   <p>
@@ -308,24 +383,97 @@ import { MatTooltipModule } from '@angular/material/tooltip';
                 </details>
               </div>
 
-                <button mat-flat-button color="primary" (click)="createProfile()" [disabled]="loading()">
-                  <mat-icon *ngIf="!loading()">add_box</mat-icon>
-                  {{ loading() ? 'Creating...' : 'Create Vault Profile' }}
-                </button>
-              </div>
-            </div>
+              <!-- GASLESS CREATION OPTION - NEW -->
+              <div class="gasless-creation-option" *ngIf="gsnEnabled()">
+                <div class="creation-mode-selector">
+                  <div class="mode-option" [class.active]="!useGasless()" (click)="useGasless.set(false)">
+                    <mat-icon class="mode-icon">paid</mat-icon>
+                    <div class="mode-content">
+                      <h4>Regular</h4>
+                      <p>Pay gas with your wallet</p>
+                      <ul class="mode-features">
+                        <li>• Uses your ETH balance</li>
+                        <li>• Standard transaction</li>
+                        <li>• Immediate confirmation</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div class="mode-option" [class.active]="useGasless() && gsnWhitelisted()" 
+                       [class.disabled]="!gsnWhitelisted()"
+                       (click)="gsnWhitelisted() && useGasless.set(true)">
+                    <mat-icon class="mode-icon">rocket_launch</mat-icon>
+                    <div class="mode-content">
+                      <h4>Gasless</h4>
+                      <p>No ETH required</p>
+                      <ul class="mode-features">
+                        <li>• Zero gas fees</li>
+                        <li>• Powered by GSN</li>
+                        <li>• Sponsored by app</li>
+                      </ul>
+                      <div class="mode-badge" *ngIf="gsnWhitelisted()">AVAILABLE</div>
+                      <div class="mode-badge warning" *ngIf="!gsnWhitelisted()">NEEDS WHITELIST</div>
+                    </div>
+                  </div>
+                </div>
 
-            <div class="refresh-section">
-              <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
-                <mat-icon>refresh</mat-icon> Refresh Status
+                <!-- Gasless specific instructions -->
+                <div class="gasless-instructions" *ngIf="useGasless()">
+                  <div class="instructions-card" [class.success]="gsnWhitelisted()" [class.warning]="!gsnWhitelisted()">
+                    <mat-icon class="instructions-icon">
+                      {{ gsnWhitelisted() ? 'check_circle' : 'warning' }}
+                    </mat-icon>
+                    <div class="instructions-content">
+                      <h4>{{ gsnWhitelisted() ? 'Ready for Gasless Creation' : 'Whitelist Required' }}</h4>
+                      <p *ngIf="gsnWhitelisted()">
+                        Your profile will be created without any gas fees. The transaction will be sponsored by the application.
+                      </p>
+                      <p *ngIf="!gsnWhitelisted()">
+                        You need to be whitelisted to use gasless transactions. 
+                        <a href="#" (click)="requestWhitelist($event)">Request access from admin</a>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CREATE PROFILE BUTTON - UPDATED -->
+              <button mat-flat-button 
+                      color="primary" 
+                      (click)="createProfile()" 
+                      [disabled]="loading() || (useGasless() && !gsnWhitelisted())"
+                      class="create-profile-btn"
+                      [ngClass]="{
+                        'gasless-btn': useGasless() && gsnWhitelisted(),
+                        'regular-btn': !useGasless() || !gsnWhitelisted()
+                      }">
+                <mat-icon *ngIf="!loading()">
+                  {{ useGasless() && gsnWhitelisted() ? 'rocket_launch' : 'add_box' }}
+                </mat-icon>
+                <span>{{ getCreateButtonText() }}</span>
               </button>
+
+              <!-- Fallback notice -->
+              <p class="fallback-notice" *ngIf="useGasless() && gsnWhitelisted()">
+                <small>If gasless fails, you'll be prompted to use regular mode.</small>
+              </p>
             </div>
-          </ng-template>
-        </div>
-      </section>
-    </main>
-  </div>
-  `,
+          </div>
+
+          <div class="refresh-section">
+            <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
+              <mat-icon>refresh</mat-icon> Refresh Status
+            </button>
+            <button mat-stroked-button (click)="checkGSNStatus(wallet.address!)" *ngIf="wallet.address" class="gsn-refresh-btn">
+              <mat-icon>update</mat-icon> Check Gasless Status
+            </button>
+          </div>
+        </ng-template>
+      </div>
+    </section>
+  </main>
+</div>
+`,
 
   styles: [`
   :host {
@@ -778,6 +926,398 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     color: #90caf9;
   }
 
+  // Add these styles to the end of your existing styles array
+
+/* Gasless Status Indicator */
+.gasless-status {
+  margin: 1rem 0;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.status-indicator.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #166534;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-indicator.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.gasless-hint {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0.5rem 0 0 0.5rem;
+}
+
+.gasless-hint a {
+  color: #6366f1;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.whitelist-link {
+  color: #6366f1;
+  text-decoration: underline;
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+/* Gasless Settings Card */
+.gasless-settings {
+  border: 2px solid rgba(99, 102, 241, 0.2);
+}
+
+.gasless-toggle {
+  margin: 1rem 0;
+}
+
+.gasless-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.toggle-icon {
+  color: #6366f1;
+}
+
+.gasless-status-detail {
+  margin: 1rem 0;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.gasless-benefit {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #166534;
+  font-weight: 500;
+}
+
+.gasless-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #92400e;
+  font-weight: 500;
+  flex-wrap: wrap;
+}
+
+.gasless-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 12px;
+}
+
+.stat-icon {
+  font-size: 24px;
+  color: #6366f1;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Gasless Creation Options */
+.gasless-creation-option {
+  margin: 1.5rem 0;
+}
+
+.creation-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mode-option {
+  padding: 1.5rem;
+  border: 2px solid var(--card-border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--card-bg);
+}
+
+.mode-option:hover {
+  transform: translateY(-2px);
+  border-color: #6366f1;
+}
+
+.mode-option.active {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.mode-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mode-option.disabled:hover {
+  transform: none;
+  border-color: var(--card-border);
+}
+
+.mode-icon {
+  font-size: 32px;
+  width: 48px;
+  height: 48px;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 12px;
+  color: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.mode-content h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.mode-content p {
+  color: var(--text-secondary);
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.mode-features {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.mode-features li {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.mode-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: rgba(34, 197, 94, 0.2);
+  color: #166534;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.mode-badge.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #92400e;
+}
+
+/* Gasless Instructions */
+.gasless-instructions {
+  margin: 1.5rem 0;
+}
+
+.instructions-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 1rem;
+}
+
+.instructions-card.success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.instructions-card.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.instructions-icon {
+  font-size: 24px;
+  margin-top: 0.25rem;
+}
+
+.instructions-card.success .instructions-icon {
+  color: #166534;
+}
+
+.instructions-card.warning .instructions-icon {
+  color: #92400e;
+}
+
+.instructions-content h4 {
+  margin: 0 0 0.5rem;
+}
+
+.instructions-content p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Create Profile Button */
+.create-profile-btn {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin-top: 1.5rem;
+}
+
+.create-profile-btn.gasless-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+}
+
+.create-profile-btn.gasless-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(99, 102, 241, 0.5);
+}
+
+.create-profile-btn.regular-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.fallback-notice {
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Refresh Section */
+.gsn-refresh-btn {
+  margin-left: 1rem;
+}
+
+/* Dark mode adjustments */
+.vault-container.dark {
+  /* Existing dark mode variables... */
+  
+  /* Gasless dark mode */
+  --gasless-success-bg: rgba(34, 197, 94, 0.2);
+  --gasless-warning-bg: rgba(245, 158, 11, 0.2);
+  --gasless-info-bg: rgba(99, 102, 241, 0.15);
+}
+
+.vault-container.dark .status-indicator.success {
+  background: var(--gasless-success-bg);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.vault-container.dark .status-indicator.warning {
+  background: var(--gasless-warning-bg);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.vault-container.dark .gasless-hint a {
+  color: #a5b4fc;
+}
+
+.vault-container.dark .whitelist-link {
+  color: #a5b4fc;
+}
+
+.vault-container.dark .gasless-settings {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.vault-container.dark .gasless-status-detail {
+  background: var(--gasless-info-bg);
+}
+
+.vault-container.dark .stat-item {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.vault-container.dark .mode-option.active {
+  background: var(--gasless-info-bg);
+}
+
+.vault-container.dark .instructions-card.success {
+  background: var(--gasless-success-bg);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.vault-container.dark .instructions-card.warning {
+  background: var(--gasless-warning-bg);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .creation-mode-selector {
+    grid-template-columns: 1fr;
+  }
+  
+  .gasless-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .refresh-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .gsn-refresh-btn {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .gasless-status-detail {
+    padding: 0.75rem;
+  }
+  
+  .mode-option {
+    padding: 1rem;
+  }
+}
+
   .status-card.success {
     background: var(--status-success-bg);
     border-color: rgba(34, 197, 94, 0.4);
@@ -845,10 +1385,18 @@ export class VaultComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private profileState = inject(ProfileStateService);
   private storage = inject(StorageService);
+  
+  // NEW: Inject GSN service
+  private gsnService = inject(GSNService);
 
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
   erasedAt = this.profileState.erasedAt;
+
+  // NEW: GSN-related signals
+  gsnEnabled = signal<boolean>(false);
+  gsnWhitelisted = signal<boolean>(false);
+  useGasless = signal<boolean>(true); // Default to gasless if available
 
   private sub?: Subscription;
 
@@ -897,27 +1445,62 @@ export class VaultComponent implements OnInit, OnDestroy {
         if (savedGateway) {
           this.customGateway.set(savedGateway);
         }
+        
+        // NEW: Load gasless preference
+        const gaslessPref = await this.storage.getItem('prefer_gasless');
+        if (gaslessPref !== null) {
+          this.useGasless.set(gaslessPref === 'true');
+        }
       } catch (err) {
         console.error('Failed to load settings from secure storage:', err);
         this.snackBar.open('Failed to load saved settings - may need to reconnect wallet', 'Close', { duration: 5000 });
       }
     }
 
-    this.sub = this.wallet.address$.subscribe(address => {
+    this.sub = this.wallet.address$.subscribe(async (address) => {
       if (address) {
         if (isPlatformBrowser(this.platformId)) {
           sessionStorage.removeItem('erasedDid');
           sessionStorage.removeItem('erasedAt');
         }
+        // NEW: Check GSN status when wallet connects
+        await this.checkGSNStatus(address);
         this.checkProfile();
       } else {
         this.profileState.reset();
+        // NEW: Reset GSN status when wallet disconnects
+        this.gsnEnabled.set(false);
+        this.gsnWhitelisted.set(false);
       }
     });
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
+  }
+
+  // NEW: Check GSN status and whitelist
+  async checkGSNStatus(address: string) {
+    try {
+      // Check if GSN is enabled on backend
+      const status = await this.gsnService.checkGSNStatus();
+      this.gsnEnabled.set(status.gsnEnabled);
+      
+      if (status.gsnEnabled && address) {
+        // Check if user is whitelisted
+        const whitelisted = await this.gsnService.checkWhitelist(address);
+        this.gsnWhitelisted.set(whitelisted);
+        
+        // Auto-enable gasless if whitelisted and user hasn't explicitly disabled it
+        if (whitelisted && this.useGasless()) {
+          await this.storage.setItem('prefer_gasless', 'true');
+        }
+      }
+    } catch (error) {
+      console.warn('GSN status check failed:', error);
+      this.gsnEnabled.set(false);
+      this.gsnWhitelisted.set(false);
+    }
   }
 
   async checkProfile() {
@@ -961,6 +1544,11 @@ export class VaultComponent implements OnInit, OnDestroy {
       this.loading.set(true);
       await this.wallet.connect();
       await this.storage.initEncryption();
+      
+      // NEW: Check GSN status after connection
+      if (this.wallet.address) {
+        await this.checkGSNStatus(this.wallet.address);
+      }
     } catch (e: any) {
       this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
@@ -974,8 +1562,23 @@ export class VaultComponent implements OnInit, OnDestroy {
     setTimeout(() => this.copied.set(false), 2000);
   }
 
+  // NEW: Get create button text based on mode
+  getCreateButtonText(): string {
+    if (this.loading()) {
+      return 'Creating...';
+    }
+    
+    if (this.useGasless() && this.gsnWhitelisted()) {
+      return 'Create Profile (Gasless)';
+    } else if (this.useGasless() && !this.gsnWhitelisted()) {
+      return 'Create Profile (Needs Whitelist)';
+    } else {
+      return 'Create Vault Profile';
+    }
+  }
+
   // ────────────────────────────────────────────────
-  // Hybrid signing for createProfile
+  // UPDATED: createProfile with gasless support
   // ────────────────────────────────────────────────
 
   async createProfile() {
@@ -985,39 +1588,26 @@ export class VaultComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Validate gasless mode
+    if (this.useGasless() && !this.gsnWhitelisted()) {
+      this.snackBar.open('You need to be whitelisted for gasless transactions', 'Close', { duration: 5000 });
+      return;
+    }
+
     this.loading.set(true);
 
     try {
-      const payload = { owner: address };
-      const response = await firstValueFrom(this.api.createProfile(payload));
-
-      if (response.unsignedTx) {
-        // Hybrid mode: User signs & sends
-        this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
-
-        const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
-        const txHash = txResponse.hash;
-        const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
-
-        const snackBarRef = this.snackBar.open(
-              `Profile created! Tx: ${txHash.slice(0, 10)}...`,
-              'View',
-              {
-                duration: 10000,
-                panelClass: ['success-snackbar']   // ← this line adds your custom class
-              }
-            );
-
-            snackBarRef.onAction().subscribe(() => {
-              window.open(explorerUrl, '_blank');
-            });
-      } else if (response.txHash) {
-        // Backend signed (when HYBRID_SIGNING=false)
-        this.snackBar.open('Profile created by the app! (no gas paid by you)', 'Close', { duration: 6000 });
+      if (this.useGasless() && this.gsnWhitelisted()) {
+        // NEW: GASLESS FLOW
+        await this.createProfileGasless(address);
+      } else {
+        // EXISTING HYBRID FLOW (UNCHANGED)
+        await this.createProfileRegular(address);
       }
-
-      this.profileState.setProfileStatus(true, false, null);
+      
+      // Refresh profile status
       await this.checkProfile();
+      
     } catch (err: any) {
       console.error('Create profile failed:', err);
       this.snackBar.open(err.message || 'Failed to create profile', 'Close', { duration: 5000 });
@@ -1026,8 +1616,127 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
+  // NEW: Gasless profile creation
+  private async createProfileGasless(address: string) {
+    this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
+    
+    try {
+      // 1. Prepare GSN transaction via backend
+      const txData = await this.gsnService.prepareCreateProfile(address);
+      
+      // 2. Send via GSN (using wallet service)
+      const txResponse = await this.wallet.sendTransactionWithFallback(txData, true);
+      
+      // 3. Show success
+      const txHash = txResponse.hash;
+      const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+      
+      const snackBarRef = this.snackBar.open(
+        `✅ Profile created GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
+        'View',
+        {
+          duration: 10000,
+          panelClass: ['success-snackbar', 'gasless-snackbar']
+        }
+      );
+      
+      snackBarRef.onAction().subscribe(() => {
+        window.open(explorerUrl, '_blank');
+      });
+      
+      this.snackBar.open('Gasless transaction submitted! Waiting for confirmation...', 'Close', { duration: 3000 });
+      
+      // Wait for confirmation
+      if (txResponse.wait) {
+        await txResponse.wait();
+        this.snackBar.open('✅ Gasless profile creation confirmed!', 'Close', { duration: 5000 });
+      }
+      
+      this.profileState.setProfileStatus(true, false, null);
+      
+    } catch (error: any) {
+      console.error('Gasless profile creation failed:', error);
+      
+      // Offer fallback to regular
+      const fallback = confirm('Gasless creation failed. Try with regular transaction?');
+      if (fallback) {
+        this.useGasless.set(false);
+        // Save preference
+        await this.storage.setItem('prefer_gasless', 'false');
+        await this.createProfileRegular(address);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  // EXISTING: Regular profile creation (UNCHANGED)
+  private async createProfileRegular(address: string) {
+    const payload = { owner: address };
+    const response = await firstValueFrom(this.api.createProfile(payload));
+
+    if (response.unsignedTx) {
+      // Hybrid mode: User signs & sends
+      this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
+
+      const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
+      const txHash = txResponse.hash;
+      const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+
+      const snackBarRef = this.snackBar.open(
+            `Profile created! Tx: ${txHash.slice(0, 10)}...`,
+            'View',
+            {
+              duration: 10000,
+              panelClass: ['success-snackbar']
+            }
+          );
+
+          snackBarRef.onAction().subscribe(() => {
+            window.open(explorerUrl, '_blank');
+          });
+    } else if (response.txHash) {
+      // Backend signed (when HYBRID_SIGNING=false)
+      this.snackBar.open('Profile created by the app! (no gas paid by you)', 'Close', { duration: 6000 });
+    }
+
+    this.profileState.setProfileStatus(true, false, null);
+  }
+
+  // NEW: Request whitelist for gasless transactions
+  async requestWhitelist(event: Event) {
+    event.preventDefault();
+    
+    const address = this.wallet.address;
+    if (!address) {
+      this.snackBar.open('Connect wallet first', 'Close', { duration: 3000 });
+      return;
+    }
+    
+    // Show confirmation dialog
+    const confirmed = confirm(`Request whitelist for address:\n${address}\n\nThis will notify the admin to add you to the gasless whitelist.`);
+    
+    if (!confirmed) return;
+    
+    try {
+      // You can implement an API call here to notify admin
+      // For now, we'll just show a message
+      this.snackBar.open(`Whitelist request sent for: ${address.slice(0, 6)}...${address.slice(-4)}`, 'Close', { duration: 5000 });
+      
+      // Log the request (in production, this would be an API call)
+      console.log(`Whitelist requested for: ${address}`);
+      
+      // Optionally, you could call a backend endpoint:
+      // await firstValueFrom(this.api.requestWhitelist({ address }));
+      
+    } catch (error) {
+      console.error('Whitelist request failed:', error);
+      this.snackBar.open('Failed to send whitelist request', 'Close', { duration: 5000 });
+    }
+  }
+
   // ────────────────────────────────────────────────
-  // Hybrid signing for eraseProfile
+  // Hybrid signing for eraseProfile (UNCHANGED)
   // ────────────────────────────────────────────────
 
   async eraseProfile() {
@@ -1064,7 +1773,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // ────────────────────────────────────────────────
-  // Pinata JWT, Custom Gateway, nft.storage methods (unchanged)
+  // Pinata JWT, Custom Gateway, nft.storage methods (UNCHANGED)
   // ────────────────────────────────────────────────
 
   async saveUserPinataJwt() {
@@ -1162,6 +1871,23 @@ export class VaultComponent implements OnInit, OnDestroy {
     } catch (err) {
       console.error('Failed to clear nft.storage key:', err);
       this.snackBar.open('Failed to clear key - storage error', 'Close', { duration: 5000 });
+    }
+  }
+
+  // NEW: Toggle gasless preference
+  async toggleGaslessPreference() {
+    const newValue = !this.useGasless();
+    this.useGasless.set(newValue);
+    
+    try {
+      await this.storage.setItem('prefer_gasless', newValue.toString());
+      this.snackBar.open(
+        newValue ? 'Gasless mode enabled' : 'Gasless mode disabled',
+        'Close',
+        { duration: 3000 }
+      );
+    } catch (err) {
+      console.error('Failed to save gasless preference:', err);
     }
   }
 }

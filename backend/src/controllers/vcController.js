@@ -35,6 +35,7 @@ function getPinataJwtForRequest(req) {
 function getVcSigner() {
   if (process.env.NODE_ENV === "test") {
     return {
+      // eslint-disable-next-line no-unused-vars
       async signMessage(message) {
         // Deterministic mock signature – low-s, ethers v6 accepts it
         return (

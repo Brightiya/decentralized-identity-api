@@ -45,6 +45,7 @@ function getPinataJwtForRequest(req) {
 ------------------------------------------------------------------- */
 export const createOrUpdateProfile = async (req, res) => {
   try {
+    // eslint-disable-next-line no-unused-vars
     const { owner, contexts = {}, credentials = [], attributes = {} } = req.body;
 
     if (!owner) {
@@ -212,6 +213,7 @@ export const getProfile = async (req, res) => {
             Object.assign(attributes, claim);
           }
         }
+      // eslint-disable-next-line no-unused-vars
       } catch (e) {
         console.warn(`⚠️ Failed to resolve VC: ${cred.cid}`);
       }

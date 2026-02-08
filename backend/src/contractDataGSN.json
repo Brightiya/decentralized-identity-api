@@ -1,0 +1,17 @@
+{
+  "gsnEnabled": true,
+  "forwarderAddress": "0xCcD7bAB94081f4B948B78d189492790CE51a413e",
+  "paymasterAddress": "0x6d82483257B7FbEA96496354277a2F4C9b73538B",
+  "identityRegistryGSN": "0x3F0b694f12e767868CB57b363578F7c5db55e553",
+  "deployer": "0xE45b5aC031a332D1d6Db90566aA4F649921AE260",
+  "startingNonce": 36,
+  "endingNonce": 41,
+  "timestamp": "2026-02-07T16:54:00.733Z",
+  "network": "baseSepolia",
+  "paymasterBalance": "0.02",
+  "transactions": {
+    "funding": "0x7862d10cbef961d270de0ec5a4e190ecdd63eccd48773544fa61e8182b4cf5ff",
+    "configure": "0x11e6bde1c707be1ea59e915ec6b9e5e67b6055592cb8b0f71187fc76fe12a1d1",
+    "whitelist": "0xe7c8cda690566278a4faa92dc3078fc5211e678c8deeb298aae72fa8dd016ac2"
+  }
+}

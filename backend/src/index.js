@@ -21,8 +21,6 @@ import { authMiddleware } from "../middleware/auth.js";
 // Only import lightweight helpers — NOT the contract instance
 import { isHybridMode } from "./utils/contract.js";
 
-
-
 const app = express();
 
 app.disable('etag');
@@ -82,6 +80,54 @@ app.get('/api/auth/challenge', getChallenge);
 app.post('/api/auth/verify', verifySignature);
 
 // ────────────────────────────────────────────────
+// GSN Routes (some public, some protected)
+// ────────────────────────────────────────────────
+
+// Option 1: SIMPLE - Mount all GSN routes without auth for now (easier to test)
+import gsnRoutes from "./routes/gsnRoutes.js";
+app.use("/gsn", gsnRoutes);
+
+// Option 2: OR if you want to separate public vs protected GSN routes:
+/*
+import gsnRoutes from "./routes/gsnRoutes.js";
+
+// Create separate routers for public vs protected GSN routes
+const gsnPublicRouter = express.Router();
+const gsnProtectedRouter = express.Router();
+
+// Public GSN routes
+gsnPublicRouter.get('/config', (req, res, next) => {
+  import('./controllers/gsnController.js')
+    .then(module => module.getGSNConfig(req, res, next))
+    .catch(next);
+});
+
+gsnPublicRouter.get('/status', (req, res, next) => {
+  import('./controllers/gsnController.js')
+    .then(module => module.getGSNStatus(req, res, next))
+    .catch(next);
+});
+
+gsnPublicRouter.get('/whitelist/:address', (req, res, next) => {
+  import('./controllers/gsnController.js')
+    .then(module => module.checkGSNWhitelist(req, res, next))
+    .catch(next);
+});
+
+// Protected GSN routes (require auth)
+gsnProtectedRouter.use(authMiddleware);
+// Mount the remaining gsnRoutes (prepare-* endpoints) under protected router
+const { Router } = express;
+const gsnSubRoutes = Router();
+// You'd need to modify gsnRoutes to only have the protected routes
+// or extract them differently
+
+// Mount both
+app.use("/gsn", gsnPublicRouter);
+app.use("/gsn", gsnProtectedRouter);
+*/
+
+// ────────────────────────────────────────────────
 // Protected API Routes (JWT auth required)
 // ────────────────────────────────────────────────
 const apiRouter = express.Router();
@@ -100,6 +146,7 @@ app.use("/api", apiRouter);
 // ────────────────────────────────────────────────
 // Global Error Handler (last middleware)
 // ────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   console.error('❌ Global error:', err.stack || err.message);
   
@@ -124,4 +171,5 @@ app.listen(PORT, () => {
   console.log(`Signing mode: ${isHybridMode() ? 'Hybrid (frontend signs)' : 'Backend (PRIVATE_KEY)'}`);
   console.log(`Auth endpoints: /api/auth/challenge, /api/auth/verify`);
   console.log(`Protected APIs: /api/vc, /api/profile, etc.`);
+  console.log(`GSN endpoints: /gsn/*`);
 });

@@ -179,6 +179,25 @@ html, body {
   background-color: rgba(0,0,0,0.4) !important;
 }
 
+// Add these styles
+.success-snackbar {
+  background: #10b981 !important;
+  color: white !important;
+  
+  .mat-simple-snackbar-action {
+    color: #d1fae5 !important;
+  }
+}
+
+.gasless-snackbar {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+  
+  .mat-simple-snackbar-action {
+    color: #e0e7ff !important;
+    font-weight: bold;
+  }
+}
+
 /* Mobile & tablet global adjustments */
 @media (max-width: 960px) {
   .main-toolbar {

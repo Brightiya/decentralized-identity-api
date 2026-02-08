@@ -183,4 +183,71 @@ getDisclosuresByVerifier(verifierDid: string): Observable<any> {
   eraseProfile(payload: { did: string }): Observable<any> {
     return this.http.delete(`${this.base}/api/gdpr/erase`, { body: payload });
   }
+
+  // Add these methods to your existing ApiService in api.service.ts
+
+/* -------------------------------------------------
+   GSN (Gasless) endpoints
+-------------------------------------------------- */
+
+// Get GSN configuration
+getGSNConfig(): Observable<any> {
+  return this.http.get(`${this.base}/gsn/config`);
+}
+
+// Get GSN status
+getGSNStatus(): Observable<any> {
+  return this.http.get(`${this.base}/gsn/status`);
+}
+
+// Check if address is whitelisted for GSN
+checkGSNWhitelist(address: string): Observable<any> {
+  return this.http.get(`${this.base}/gsn/whitelist/${encodeURIComponent(address)}`);
+}
+
+// Prepare GSN transaction (requires auth)
+prepareGSNTransaction(methodName: string, args: any[]): Observable<any> {
+  const headers = this.getAuthHeaders();
+  return this.http.post(
+    `${this.base}/gsn/prepare-tx`,
+    { methodName, args },
+    { headers }
+  );
+}
+
+// Prepare GSN setProfileCID (requires auth)
+prepareGSNSetProfileCID(subjectAddress: string, cid: string): Observable<any> {
+  const headers = this.getAuthHeaders();
+  return this.http.post(
+    `${this.base}/gsn/prepare-set-profile-cid`,
+    { subjectAddress, cid },
+    { headers }
+  );
+}
+
+// Prepare GSN createProfile (requires auth)
+prepareGSNCreateProfile(subjectAddress: string): Observable<any> {
+  const headers = this.getAuthHeaders();
+  return this.http.post(
+    `${this.base}/gsn/prepare-create-profile`,
+    { subjectAddress },
+    { headers }
+  );
+}
+
+// NEW: Create profile with GSN option
+createProfileWithGSN(payload: { owner: string, useGSN?: boolean }): Observable<any> {
+  const headers = this.getAuthHeaders();
+  return this.http.post(`${this.base}/api/profile`, payload, { headers });
+}
+
+// Add this helper method if you don't have it
+private getAuthHeaders(): HttpHeaders {
+  const token = localStorage.getItem('authToken');
+  let headers = this.getBaseHeaders();
+  if (token) {
+    headers = headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
+}
 }

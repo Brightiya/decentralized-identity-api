@@ -2,17 +2,17 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/IdentityRegistry.sol": {
-      "lastModificationDate": 1770361979349,
+      "lastModificationDate": 1770471133197,
       "contentHash": "09a55b800f2623bb71a2ffa21c2d2f74",
       "sourceName": "contracts/IdentityRegistry.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
-          "evmVersion": "paris",
           "optimizer": {
-            "enabled": false,
+            "enabled": true,
             "runs": 200
           },
+          "evmVersion": "paris",
           "outputSelection": {
             "*": {
               "*": [
@@ -35,6 +35,190 @@
       ],
       "artifacts": [
         "IdentityRegistry"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/IdentityRegistryGSN.sol": {
+      "lastModificationDate": 1770478267839,
+      "contentHash": "967ba77dc3ed83e87ce24614a0e9a373",
+      "sourceName": "contracts/IdentityRegistryGSN.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./gsn/BaseRelayRecipient.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IdentityRegistryGSN"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/gsn/BaseRelayRecipient.sol": {
+      "lastModificationDate": 1770473179985,
+      "contentHash": "a307954e9b0a55ecb6be1eb135d2e4c7",
+      "sourceName": "contracts/gsn/BaseRelayRecipient.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../interfaces/IRelayRecipient.sol"
+      ],
+      "versionPragmas": [
+        ">=0.6.0"
+      ],
+      "artifacts": [
+        "BaseRelayRecipient"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/interfaces/IRelayRecipient.sol": {
+      "lastModificationDate": 1770472977558,
+      "contentHash": "0e7d13af2ea66471071e07593bdc23ea",
+      "sourceName": "contracts/interfaces/IRelayRecipient.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.6.0"
+      ],
+      "artifacts": [
+        "IRelayRecipient"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/gsn/Forwarder.sol": {
+      "lastModificationDate": 1770481406216,
+      "contentHash": "c5fae3b673d104fb11598d85de37eff3",
+      "sourceName": "contracts/gsn/Forwarder.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Forwarder"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/contracts/gsn/WhitelistPaymaster.sol": {
+      "lastModificationDate": 1770481346155,
+      "contentHash": "ed3f51bf05d3fd13af28c129c3c71d3e",
+      "sourceName": "contracts/gsn/WhitelistPaymaster.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "WhitelistPaymaster"
       ]
     }
   }

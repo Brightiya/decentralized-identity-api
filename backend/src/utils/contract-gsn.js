@@ -43,7 +43,7 @@ function getContractABI() {
 }
 
 /**
- * Get regular provider (for read-only operations)
+ * Get regular provider (for read-only operations) — v5 style
  */
 function getRegularProvider() {
   if (!_regularProvider) {
@@ -111,7 +111,7 @@ export async function getGSNProvider() {
       throw new Error('GSN provider package not installed');
     }
     
-    // Standard JSON RPC provider as base
+    // Standard JSON RPC provider as base — v5 style
     const baseProvider = getRegularProvider();
     
     // GSN configuration
@@ -131,7 +131,8 @@ export async function getGSNProvider() {
       config: gsnConfig,
     }).init();
     
-    _gsnProvider = new ethers.BrowserProvider(relayProvider);
+    // v5 uses BrowserProvider for browser-like providers
+    _gsnProvider = new ethers.providers.BrowserProvider(relayProvider);
     console.log('✅ GSN provider initialized');
     return _gsnProvider;
     
@@ -151,18 +152,15 @@ export async function getGSNContract(userAddress = null) {
     throw new Error("GSN is not enabled");
   }
   
+  let provider;
   if (!userAddress) {
-    // Return read-only contract if no user address
-    const provider = getRegularProvider();
-    return new ethers.Contract(
-      GSN_CONFIG.registryAddress,
-      getContractABI(),
-      provider
-    );
+    // Read-only: use regular provider
+    provider = getRegularProvider();
+  } else {
+    // Use GSN relay provider
+    provider = await getGSNProvider();
   }
   
-  // Get GSN provider (with relay)
-  const provider = await getGSNProvider();
   return new ethers.Contract(
     GSN_CONFIG.registryAddress,
     getContractABI(),
@@ -171,7 +169,7 @@ export async function getGSNContract(userAddress = null) {
 }
 
 /**
- * Check if a user is whitelisted for GSN
+ * Check if a user is whitelisted for GSN — FIXED for v5
  * @param {string} address - User address to check
  * @returns {Promise<boolean>} True if whitelisted
  */
@@ -180,9 +178,13 @@ export async function isUserWhitelistedForGSN(address) {
   
   try {
     const contract = await getGSNContract(); // Read-only
-    return await contract.isWhitelisted(address);
+    
+    // v5: use .call() instead of direct method call
+    const isWhitelisted = await contract.isWhitelisted.call(address);
+    
+    return isWhitelisted;
   } catch (error) {
-    console.error('Error checking GSN whitelist:', error);
+    console.error('Error checking GSN whitelist:', error.message);
     return false;
   }
 }
@@ -190,9 +192,6 @@ export async function isUserWhitelistedForGSN(address) {
 /**
  * Prepare GSN transaction data (unsigned)
  * This is for frontend to sign and send via GSN
- * @param {string} methodName - Contract method to call
- * @param {...any} args - Arguments for the method
- * @returns {Promise<Object>} Transaction data object
  */
 export async function prepareGSNTransaction(methodName, ...args) {
   if (!isGSNEnabled()) {
@@ -200,7 +199,7 @@ export async function prepareGSNTransaction(methodName, ...args) {
   }
   
   const abi = getContractABI();
-  const iface = new ethers.Interface(abi);
+  const iface = new ethers.utils.Interface(abi); // v5: ethers.utils.Interface
   const data = iface.encodeFunctionData(methodName, args);
   
   return {
@@ -217,30 +216,22 @@ export async function prepareGSNTransaction(methodName, ...args) {
   };
 }
 
-/**
- * Convenience method: Prepare GSN transaction for createProfile
- */
+// ────────────────────────────────────────────────
+// Convenience wrappers (unchanged)
+// ────────────────────────────────────────────────
+
 export async function prepareGSNCreateProfile(subjectAddress) {
   return prepareGSNTransaction("createProfile", subjectAddress);
 }
 
-/**
- * Convenience method: Prepare GSN transaction for setClaim
- */
 export async function prepareGSNSetClaim(subjectAddress, claimIdBytes32, claimHash) {
   return prepareGSNTransaction("setClaim", subjectAddress, claimIdBytes32, claimHash);
 }
 
-/**
- * Convenience method: Prepare GSN transaction for setProfileCID
- */
 export async function prepareGSNSetProfileCID(subjectAddress, cid) {
   return prepareGSNTransaction("setProfileCID", subjectAddress, cid);
 }
 
-/**
- * Convenience method: Prepare GSN transaction for setVerifiableCredential
- */
 export async function prepareGSNSetVerifiableCredential(
   subjectAddress, 
   credentialHash, 
@@ -256,9 +247,10 @@ export async function prepareGSNSetVerifiableCredential(
   );
 }
 
-/**
- * Get contract health/status for GSN
- */
+// ────────────────────────────────────────────────
+// Health & Test functions (minor v5 fixes)
+// ────────────────────────────────────────────────
+
 export function getGSNHealth() {
   return {
     gsnEnabled: isGSNEnabled(),
@@ -276,34 +268,33 @@ export function getGSNHealth() {
   };
 }
 
-/**
- * Test GSN connectivity
- */
 export async function testGSNConnectivity() {
   if (!isGSNEnabled()) {
     return { success: false, message: 'GSN not enabled' };
   }
   
   try {
-    // Test 1: Regular provider connection
+    // Test 1: Regular provider connection — v5 style
     const provider = getRegularProvider();
     const blockNumber = await provider.getBlockNumber();
     
     // Test 2: Contract connection
     const contract = await getGSNContract();
-    const contractAddress = await contract.getAddress();
+    
+    // v5: use .call() for read-only methods
+    const contractAddress = await contract.address; // or contract.getAddress() if available
     
     // Test 3: Check if contract has expected methods
     let contractMethods = [];
     try {
       const abi = getContractABI();
-      const iface = new ethers.Interface(abi);
+      const iface = new ethers.utils.Interface(abi);
       contractMethods = Object.keys(iface.functions);
     } catch (e) {
       contractMethods = ['Error reading ABI'];
     }
     
-    // Test 4: GSN provider (if possible)
+    // Test 4: GSN provider
     let gsnProviderStatus = 'NOT_INITIALIZED';
     try {
       const gsnProvider = await getGSNProvider();
@@ -318,7 +309,7 @@ export async function testGSNConnectivity() {
       details: {
         blockNumber,
         contractAddress,
-        contractMethods: contractMethods.slice(0, 10), // First 10 methods
+        contractMethods: contractMethods.slice(0, 10),
         gsnProviderStatus,
         whitelistContract: GSN_CONFIG.registryAddress,
         forwarder: GSN_CONFIG.forwarderAddress,

@@ -103,7 +103,7 @@ export async function prepareUnsignedTx(methodName, ...args) {
     fs.readFileSync(path.resolve(__dirname, "../contractData.json"), "utf8")
   );
 
-  const iface = new ethers.Interface(contractData.abi);
+  const iface = new ethers.utils.Interface(contractData.abi);
   const data = iface.encodeFunctionData(methodName, args);
 
   if (isHybridMode()) {

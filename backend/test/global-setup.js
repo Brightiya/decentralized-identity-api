@@ -2,7 +2,7 @@
 
 //await import("../src/config/env.js");
 import {ethers} from "ethers";
-const { JsonRpcProvider } =  ethers;
+
 
 export default async function globalSetup() {
  
@@ -18,9 +18,9 @@ export default async function globalSetup() {
   // Register GLOBAL mocked ethers provider
   // (must exist BEFORE any controller imports)
   // ─────────────────────────────────────────────
-  const mockProvider = new JsonRpcProvider("http://localhost:0");
+  const mockProvider = new ethers.providers.JsonRpcProvider("http://localhost:0");
 
-  mockProvider.pollingInterval = 0;
+ 
   mockProvider._start = () => {};
 
   // Disable all real network behavior

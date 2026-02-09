@@ -1,6 +1,6 @@
 // backend/src/utils/did.js
 import { ethers } from "ethers";
-const  { isAddress }  = ethers;
+
 
 /**
  * Normalize DID or Ethereum address to lowercase 0x-address.
@@ -18,7 +18,7 @@ export const didToAddress = (didOrAddress) => {
   }
 
   // Enforce Ethereum address validity
-  if (!isAddress(addr)) {
+  if (!ethers.utils.isAddress(addr)) {
     return null;
   }
 

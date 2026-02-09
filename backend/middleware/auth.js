@@ -32,7 +32,7 @@ export const authMiddleware = async (req, res, next) => {
         const decoded = jwt.verify(token, JWT_SECRET);
 
         // Basic sanity check
-        if (!decoded.ethAddress || !ethers.isAddress(decoded.ethAddress)) {
+        if (!decoded.ethAddress || !ethers.utils.isAddress(decoded.ethAddress)) {
           return res.status(401).json({ error: 'Invalid token payload' });
         }
 
@@ -80,7 +80,7 @@ export const authMiddleware = async (req, res, next) => {
 
       // Extract Ethereum address from DID
       const address = did.split(':').pop()?.toLowerCase();
-      if (!address || !ethers.isAddress(address)) {
+      if (!address || !ethers.utils.isAddress(address)) {
         return res.status(400).json({ error: 'Invalid DID format' });
       }
 
@@ -88,7 +88,7 @@ export const authMiddleware = async (req, res, next) => {
       const message = `Authorize GDPR action for ${did}`;
 
       // Recover signer
-      const recovered = ethers.verifyMessage(message, signature);
+      const recovered = ethers.utils.verifyMessage(message, signature);
 
       if (recovered.toLowerCase() !== address) {
         return res.status(403).json({ error: 'Signature verification failed' });

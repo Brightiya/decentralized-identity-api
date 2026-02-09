@@ -41,7 +41,7 @@ export const registerDID = async (req, res) => {
   try {
     const { address, name, email } = req.body;
 
-    if (!address || !ethers.isAddress(address)) {
+    if (!address || !ethers.utils.isAddress(address)) {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
 
@@ -124,7 +124,7 @@ export const registerDID = async (req, res) => {
 export const resolveDID = async (req, res) => {
   try {
     let { address } = req.params;
-    if (!address || !ethers.isAddress(address)) {
+    if (!address || !ethers.utils.isAddress(address)) {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
 
@@ -160,7 +160,7 @@ export const resolveDID = async (req, res) => {
 export const verifyDID = async (req, res) => {
   try {
     const { address, signature } = req.body;
-    if (!address || !ethers.isAddress(address) || !signature) {
+    if (!address || !ethers.utils.isAddress(address) || !signature) {
       return res.status(400).json({ error: "address and signature are required" });
     }
 
@@ -180,7 +180,7 @@ export const verifyDID = async (req, res) => {
     const message = `Verifying DID ownership for ${did}`;
     let recovered;
     try {
-      recovered = ethers.verifyMessage(message, signature);
+      recovered = ethers.utils.verifyMessage(message, signature);
     } catch (sigErr) {
       return res.status(400).json({ error: "Invalid signature format" });
     }

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.97% </span>
+                <span class="strong">32.55% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/43</span>
+                <span class='fraction'>14/43</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">3.12% </span>
+                <span class="strong">25% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/32</span>
+                <span class='fraction'>8/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">33.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>1/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.97% </span>
+                <span class="strong">32.55% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/43</span>
+                <span class='fraction'>14/43</span>
             </div>
         
             
@@ -229,27 +229,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -260,13 +260,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -373,45 +373,45 @@ const JWT_SECRET = process.env.JWT_SECRET || <span class="branch-1 cbranch-no" t
  * On success, attaches:
  *   req.user = { ethAddress, role, userId, ... }
  */
-export const authMiddleware = <span class="fstat-no" title="function not covered" >as</span>ync (req, res, next) =&gt; {
-<span class="cstat-no" title="statement not covered" >  try {</span>
+export const authMiddleware = async (req, res, next) =&gt; {
+  try {
     // ────────────────────────────────────────────────
     // 1. Preferred: Bearer Token (JWT from SIWE login)
     // ────────────────────────────────────────────────
-    const authHeader = <span class="cstat-no" title="statement not covered" >req.headers.authorization;</span>
+    const authHeader = req.headers.authorization;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    if (authHeader &amp;&amp; authHeader.startsWith('Bearer ')) {</span>
-      const token = <span class="cstat-no" title="statement not covered" >authHeader.split(' ')[1];</span>
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (authHeader &amp;&amp; authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      try {</span>
-        const decoded = <span class="cstat-no" title="statement not covered" >jwt.verify(token, JWT_SECRET);</span>
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
 &nbsp;
         // Basic sanity check
-<span class="cstat-no" title="statement not covered" >        if (!decoded.ethAddress || !ethers.isAddress(decoded.ethAddress)) {</span>
+        <span class="missing-if-branch" title="if path not taken" >I</span>if (!decoded.ethAddress || !ethers.utils.isAddress(decoded.ethAddress)) {
 <span class="cstat-no" title="statement not covered" >          return res.status(401).json({ error: 'Invalid token payload' });</span>
         }
 &nbsp;
-        const normalizedAddress = <span class="cstat-no" title="statement not covered" >decoded.ethAddress.toLowerCase();</span>
+        const normalizedAddress = decoded.ethAddress.toLowerCase();
 &nbsp;
         // Attach full user context
-<span class="cstat-no" title="statement not covered" >        req.user = {</span>
+        req.user = {
           ethAddress: normalizedAddress,
           address: normalizedAddress, // alias for compatibility
           did: `did:ethr:${normalizedAddress}`,
-          role: decoded.role || 'USER',
+          role: decoded.role || <span class="branch-1 cbranch-no" title="branch not covered" >'USER',</span>
           userId: decoded.userId,
           iat: decoded.iat,
           exp: decoded.exp
         };
 &nbsp;
         // Optional: Log successful login (audit trail)
-<span class="cstat-no" title="statement not covered" >        await pool.query(</span>
+        await pool.query(
           `INSERT INTO login_audit (eth_address, login_role, logged_in_at)
            VALUES ($1, $2, NOW())`,
           [normalizedAddress, req.user.role]
         );
 &nbsp;
-<span class="cstat-no" title="statement not covered" >        return next();</span>
+        return next();
       } catch (jwtErr) {
 <span class="cstat-no" title="statement not covered" >        if (jwtErr.name === 'TokenExpiredError') {</span>
 <span class="cstat-no" title="statement not covered" >          return res.status(401).json({ error: 'Token has expired – please sign in again' });</span>
@@ -435,7 +435,7 @@ export const authMiddleware = <span class="fstat-no" title="function not covered
 &nbsp;
       // Extract Ethereum address from DID
       const address = <span class="cstat-no" title="statement not covered" >did.split(':').pop()?.toLowerCase();</span>
-<span class="cstat-no" title="statement not covered" >      if (!address || !ethers.isAddress(address)) {</span>
+<span class="cstat-no" title="statement not covered" >      if (!address || !ethers.utils.isAddress(address)) {</span>
 <span class="cstat-no" title="statement not covered" >        return res.status(400).json({ error: 'Invalid DID format' });</span>
       }
 &nbsp;
@@ -443,7 +443,7 @@ export const authMiddleware = <span class="fstat-no" title="function not covered
       const message = <span class="cstat-no" title="statement not covered" >`Authorize GDPR action for ${did}`;</span>
 &nbsp;
       // Recover signer
-      const recovered = <span class="cstat-no" title="statement not covered" >ethers.verifyMessage(message, signature);</span>
+      const recovered = <span class="cstat-no" title="statement not covered" >ethers.utils.verifyMessage(message, signature);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      if (recovered.toLowerCase() !== address) {</span>
 <span class="cstat-no" title="statement not covered" >        return res.status(403).json({ error: 'Signature verification failed' });</span>
@@ -505,7 +505,7 @@ export const requireRole = <span class="fstat-no" title="function not covered" >
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-09T00:03:27.338Z
+                at 2026-02-09T10:04:58.728Z
             </div>
         <script src="../prettify.js"></script>
         <script>

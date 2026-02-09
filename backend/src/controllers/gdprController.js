@@ -28,7 +28,7 @@ export const eraseProfile = async (req, res) => {
 
     // 1️⃣ Fetch current profile CID
     const cid = await registry.getProfileCID(address);
-    if (!cid || cid === ethers.ZeroHash || cid.length === 0) {
+    if (!cid || cid === ethers.utils.ZeroHash || cid.length === 0) {
       return res.status(404).json({ error: "Profile not found" });
     }
 

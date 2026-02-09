@@ -18,7 +18,7 @@ const ALLOWED_ROLES = ['USER', 'ADMIN', 'VERIFIER'];
 // Helpers
 // =====================================
 function generateNonce() {
-  return ethers.hexlify(ethers.randomBytes(32));
+  return ethers.utils.hexlify(ethers.utils.randomBytes(32));
 }
 
 function normalizeRole(role) {
@@ -35,11 +35,11 @@ export const getChallenge = async (req, res) => {
   try {
     const { address } = req.query;
 
-    if (!address || !ethers.isAddress(address)) {
+    if (!address || !ethers.utils.isAddress(address)) {
       return res.status(400).json({ error: 'Valid Ethereum address required' });
     }
 
-    const checksumAddress = ethers.getAddress(address);
+    const checksumAddress = ethers.utils.getAddress(address);
     const normalizedAddress = didToAddress(address);
 
     const nonce = generateNonce();

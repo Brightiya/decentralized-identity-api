@@ -128,7 +128,8 @@
           "noBuild": false,
           "baseHref": "/decentralized-identity-api/",
           "branch": "gh-pages",
-          "dir": "dist/angular-src/browser"             
+          "dir": "dist/angular-src",
+          "noJekyll": true             
   }
         }
       }

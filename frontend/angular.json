@@ -123,7 +123,13 @@
           }
         },
         "deploy": {
-          "builder": "angular-cli-ghpages:deploy"
+          "builder": "angular-cli-ghpages:deploy",
+          "options": {
+          "noBuild": false,
+          "baseHref": "/decentralized-identity-api/",
+          "branch": "gh-pages",
+          "dir": "dist/angular-src/browser"             
+  }
         }
       }
     }

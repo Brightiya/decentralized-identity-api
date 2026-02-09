@@ -25,7 +25,7 @@ async function main() {
   console.log("   Network:  ", gsnData.network);
   console.log("   Deployer: ", gsnData.deployer);
   
-  const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+  const provider = new ethers.providers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
   
   // Test 1: Check contract deployments
   console.log("\n1️⃣  CONTRACT DEPLOYMENT VERIFICATION:");

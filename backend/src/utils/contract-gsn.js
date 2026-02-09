@@ -51,7 +51,7 @@ function getRegularProvider() {
     if (!rpcUrl) {
       throw new Error("RPC URL not configured for GSN");
     }
-    _regularProvider = new ethers.JsonRpcProvider(rpcUrl);
+    _regularProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
   }
   return _regularProvider;
 }

@@ -814,16 +814,36 @@ import { GSNService } from '../services/gsn.service';
   }
 
   .status-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-    padding: 0.75rem 1.25rem;
-    border-radius: 999px;
-    background: var(--pill-bg);
-    color: #1e40af;
-    font-weight: 500;
-    font-size: 0.95rem;
+  display: inline-flex;              /* ← better than flex for natural width */
+  align-items: center;
+  gap: 0.5rem;                       /* smaller gap on mobile */
+  margin-top: 1rem;                  /* slightly less margin */
+  padding: 0.5rem 1rem;              /* more compact padding */
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: #1e40af;
+  font-weight: 500;
+  font-size: 0.95rem;
+  max-width: 100%;                   /* prevents overflow */
+  white-space: nowrap;               /* keeps text on one line */
+  overflow: hidden;                  /* hides overflow nicely */
+  text-overflow: ellipsis;           /* adds ... when text is too long */
+}
+
+  /* Extra safety for very small screens */
+  @media (max-width: 480px) {
+    .status-pill {
+      font-size: 0.875rem;             /* slightly smaller text */
+      padding: 0.4rem 0.9rem;          /* even more compact */
+      gap: 0.4rem;
+    }
+  }
+
+  /* If you want the pill to wrap when text is extremely long (rare case) */
+  .status-pill.long-text {
+    white-space: normal;
+    text-align: center;
+    padding: 0.6rem 1rem;
   }
 
   .status-pill.success {

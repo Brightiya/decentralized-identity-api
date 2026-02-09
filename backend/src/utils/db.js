@@ -29,8 +29,10 @@ pool.on("connect", () => {
   console.log("🟢 PostgreSQL connected");
 });
 
-const result = await pool.query("SELECT current_database()");
-console.log("🧪 Connected to database:", result.rows[0].current_database);
+(async () => {
+  const result = await pool.query("SELECT current_database()");
+  console.log("🧪 Connected to database:", result.rows[0].current_database);
+})();
 
 
 pool.on("error", (err, client) => {

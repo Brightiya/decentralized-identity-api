@@ -1,7 +1,8 @@
 // backend/test/global-setup.js
 
 //await import("../src/config/env.js");
-import { JsonRpcProvider } from "ethers";
+import {ethers} from "ethers";
+const { JsonRpcProvider } =  ethers;
 
 export default async function globalSetup() {
  

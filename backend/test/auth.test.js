@@ -1,14 +1,4 @@
 // backend/test/auth.test.js
-
-//import { jest } from '@jest/globals';
-//import * as chai from "chai";
-//import request from "supertest";
-//import app from "./testServer.js";
-//import jwt from "jsonwebtoken";
-//import { ethers } from "ethers";
-//import { pool } from "../src/utils/db.js";
-//import { getValidJwtFor } from "./testHelpers.js";
-
 import { jest } from '@jest/globals';
 import * as chai from "chai";
 import request from "supertest";

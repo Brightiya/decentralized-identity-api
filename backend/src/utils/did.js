@@ -1,5 +1,6 @@
 // backend/src/utils/did.js
-import { isAddress } from "ethers";
+import { ethers } from "ethers";
+const  { isAddress }  = ethers;
 
 /**
  * Normalize DID or Ethereum address to lowercase 0x-address.

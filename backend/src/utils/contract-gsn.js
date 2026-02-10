@@ -20,6 +20,12 @@ const GSN_CONFIG = {
   maxPriorityFeePerGas: '1000000000', // 1 gwei
 };
 
+// GSN methods that must NOT go through the generic path
+const FORBIDDEN_METHODS = new Set([
+  "registerIdentity",   // must use dedicated helper
+]);
+
+
 let _gsnProvider = null;
 let _regularProvider = null;
 

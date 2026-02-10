@@ -685,6 +685,17 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
     flex-wrap: wrap;
   }
 
+  .gateway-status {
+  margin-top: 8px; /* separation from mat-hint */
+}
+
+@media (max-width: 768px) {
+  .gateway-status {
+    margin-top: 12px; /* extra breathing room on mobile */
+  }
+}
+
+
   .label {
     font-weight: 500;
     color: var(--text-secondary);

@@ -250,6 +250,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     height: 100vh;
     overflow: hidden;
   }
+    .main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 100%;
+  }
+
 
   .sidenav-container {
     height: 100%;
@@ -455,17 +462,20 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
   /* Content Area */
   .page-content {
-    flex: 1;
-    padding: clamp(24px, 4vw, 40px);
-    overflow-y: auto;
-    background: transparent;
+  flex: 1 1 auto;
+  min-height: 0;           /* CRITICAL for flex scrolling */
+  padding: clamp(24px, 4vw, 40px);
+  overflow-y: auto;
+  background: transparent;
   }
+
 
   /* Modern Footer */
   .main-footer {
     background: rgba(30,41,59,0.04);
     border-top: 1px solid rgba(226,232,240,0.3);
     padding: 28px 40px;
+    flex-shrink: 0;
     font-size: 0.92rem;
     color: #64748b;
   }
@@ -561,8 +571,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       min-height: 64px;
     }
 
-    .page-content {
-      padding: 16px;
+    @media (min-width: 961px) {
+  .mat-sidenav-content {
+    margin-left: auto !important;
+      }
     }
 
     .footer-container {

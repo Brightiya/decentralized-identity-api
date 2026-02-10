@@ -19,6 +19,7 @@ import { ProfileStateService } from '../services/profile-state.service';
 import { StorageService } from '../services/storage.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GSNService } from '../services/gsn.service';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 
 @Component({
   selector: 'app-vault',
@@ -33,7 +34,8 @@ import { GSNService } from '../services/gsn.service';
     MatSnackBarModule,
     MatFormFieldModule,
     MatInputModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatCheckboxModule
   ],
   template: `
 <div class="vault-container" [class.dark]="darkMode()">
@@ -224,10 +226,13 @@ import { GSNService } from '../services/gsn.service';
             </p>
 
             <div class="gasless-toggle" *ngIf="gsnEnabled()">
-              <mat-checkbox [(ngModel)]="useGasless" [disabled]="!gsnWhitelisted()">
+              <mat-checkbox  [checked]="useGasless()"
+                (change)="toggleGaslessPreference()"
+                [disabled]="!gsnWhitelisted()">
+                >
                 <span class="gasless-toggle-label">
                   <mat-icon class="toggle-icon">local_gas_station</mat-icon>
-                  Enable gasless mode
+                   Use gasless transactions
                 </span>
               </mat-checkbox>
               

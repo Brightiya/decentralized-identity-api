@@ -192,26 +192,30 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
             </p>
 
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Gateway URL</mat-label>
-              <input matInput
-                     [(ngModel)]="customGateway"
-                     placeholder="https://ipfs.io/ipfs/"
-                     (blur)="saveCustomGateway()" />
-              <mat-hint>
-                Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain...
-              </mat-hint>
-            </mat-form-field>
+            <mat-label>Gateway URL</mat-label>
+            <input
+              matInput
+              [(ngModel)]="customGateway"
+              placeholder="https://ipfs.io/ipfs/"
+              (blur)="saveCustomGateway()"
+            />
+            <mat-hint>
+              Examples: https://dweb.link/ipfs/, http://localhost:8080/ipfs/, your-pinata-subdomain...
+            </mat-hint>
+          </mat-form-field>
 
+          <div class="gateway-status">
             <div class="status-pill" *ngIf="customGateway()">
               <mat-icon color="primary">check_circle</mat-icon>
               Custom: <code>{{ customGateway() }}</code>
             </div>
+
             <div class="status-pill" *ngIf="!customGateway()">
               <mat-icon>info</mat-icon>
               Using public gateways
             </div>
           </div>
-        </div>
+
 
         <!-- GASLESS SETTINGS CARD - NEW -->
         <div class="setting-card gasless-settings">
@@ -816,6 +820,17 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
     margin-top: 1.25rem;
     flex-wrap: wrap;
   }
+
+  .gateway-status {
+  margin-top: 8px; /* separation from mat-hint */
+}
+
+@media (max-width: 768px) {
+  .gateway-status {
+    margin-top: 12px; /* extra breathing room on mobile */
+  }
+}
+
 
   .status-pill {
     display: flex;

@@ -108,7 +108,7 @@ export const prepareGSNRegisterIdentityTx = async (req, res) => {
       });
     }
 
-    const txData = await prepareGSNRegisterIdentity(cid);
+    const txData = await prepareGSNRegisterIdentity(userAddress);
 
     res.status(200).json({
       success: true,

@@ -180,7 +180,7 @@ export async function isUserWhitelistedForGSN(address) {
     const contract = await getGSNContract(); // Read-only
     
     // v5: use .call() instead of direct method call
-    const isWhitelisted = await contract.isWhitelisted.call(address);
+    const isWhitelisted = await contract.isWhitelisted(address);
     
     return isWhitelisted;
   } catch (error) {

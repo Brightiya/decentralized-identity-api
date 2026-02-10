@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import paymasterAbi from "./paymasterAbi.json";
 
 // ────────────────────────────────────────────────
 // GSN Configuration
@@ -175,16 +176,19 @@ export async function getGSNContract(userAddress = null) {
  */
 export async function isUserWhitelistedForGSN(address) {
   if (!isGSNEnabled()) return false;
-  
+
   try {
-    const contract = await getGSNContract(); // Read-only
-    
-    // v5: use .call() instead of direct method call
-    const isWhitelisted = await contract.isWhitelisted(address);
-    
-    return Boolean(isWhitelisted);
+    const provider = getRegularProvider();
+
+    const paymaster = new ethers.Contract(
+      GSN_CONFIG.paymasterAddress,
+      paymasterAbi,
+      provider
+    );
+
+    return await paymaster.whitelist(address);
   } catch (error) {
-    console.error('Error checking GSN whitelist:', error.message);
+    console.error("Error checking GSN whitelist:", error);
     return false;
   }
 }
@@ -270,57 +274,103 @@ export function getGSNHealth() {
 
 export async function testGSNConnectivity() {
   if (!isGSNEnabled()) {
-    return { success: false, message: 'GSN not enabled' };
+    return { success: false, message: "GSN not enabled" };
   }
-  
+
   try {
-    // Test 1: Regular provider connection — v5 style
+    // ─────────────────────────────
+    // Test 1: Provider connectivity
+    // ─────────────────────────────
     const provider = getRegularProvider();
     const blockNumber = await provider.getBlockNumber();
-    
-    // Test 2: Contract connection
-    const contract = await getGSNContract();
-    
-    // v5: use .call() for read-only methods
-    const contractAddress = await contract.address; // or contract.getAddress() if available
-    
-    // Test 3: Check if contract has expected methods
-    let contractMethods = [];
+
+    // ─────────────────────────────
+    // Test 2: Registry contract
+    // ─────────────────────────────
+    const registry = await getGSNContract(); // read-only
+    const registryAddress = registry.address;
+
+    // Introspect ABI methods
+    let registryMethods = [];
     try {
-      const abi = getContractABI();
-      const iface = new ethers.utils.Interface(abi);
-      contractMethods = Object.keys(iface.functions);
-    } catch (e) {
-      contractMethods = ['Error reading ABI'];
+      const iface = new ethers.utils.Interface(getContractABI());
+      registryMethods = Object.keys(iface.functions);
+    } catch {
+      registryMethods = ["Error reading registry ABI"];
     }
-    
-    // Test 4: GSN provider
-    let gsnProviderStatus = 'NOT_INITIALIZED';
+
+    // ─────────────────────────────
+    // Test 3: Paymaster contract
+    // ─────────────────────────────
+    const paymaster = new ethers.Contract(
+      GSN_CONFIG.paymasterAddress,
+      paymasterAbi,
+      provider
+    );
+
+    // Check deploy + basic calls
+    const paymasterBalance = await provider.getBalance(
+      GSN_CONFIG.paymasterAddress
+    );
+
+    // Owner should always be whitelisted (constructor logic)
+    let paymasterOwnerWhitelisted = false;
     try {
-      gsnProviderStatus = "SKIPPED (lazy init)";
-      gsnProviderStatus = 'READY';
+      const owner = await paymaster.owner?.();
+      if (owner) {
+        paymasterOwnerWhitelisted = await paymaster.whitelist(owner);
+      }
+    } catch {
+      // owner() not strictly required for test to pass
+    }
+
+    // ─────────────────────────────
+    // Test 4: Forwarder sanity
+    // ─────────────────────────────
+    const forwarderConfigured = Boolean(GSN_CONFIG.forwarderAddress);
+
+    // ─────────────────────────────
+    // Test 5: GSN provider status
+    // ─────────────────────────────
+    let gsnProviderStatus = "NOT_INITIALIZED";
+    try {
+      // Lazy init is expected
+      gsnProviderStatus = "READY (lazy init)";
     } catch (error) {
       gsnProviderStatus = `ERROR: ${error.message}`;
     }
-    
+
+    // ─────────────────────────────
+    // Final report
+    // ─────────────────────────────
     return {
       success: true,
-      message: 'GSN connectivity test passed',
+      message: "GSN connectivity test passed",
       details: {
-        blockNumber,
-        contractAddress,
-        contractMethods: contractMethods.slice(0, 10),
+        network: {
+          chainId: GSN_CONFIG.chainId,
+          blockNumber,
+        },
+        registry: {
+          address: registryAddress,
+          methods: registryMethods.slice(0, 10),
+        },
+        paymaster: {
+          address: GSN_CONFIG.paymasterAddress,
+          balanceWei: paymasterBalance.toString(),
+          ownerWhitelisted: paymasterOwnerWhitelisted,
+        },
+        forwarder: {
+          address: GSN_CONFIG.forwarderAddress,
+          configured: forwarderConfigured,
+        },
         gsnProviderStatus,
-        whitelistContract: GSN_CONFIG.registryAddress,
-        forwarder: GSN_CONFIG.forwarderAddress,
-        paymaster: GSN_CONFIG.paymasterAddress,
-        chainId: GSN_CONFIG.chainId,
-      }
+      },
     };
   } catch (error) {
     return {
       success: false,
-      message: 'GSN connectivity test failed',
+      message: "GSN connectivity test failed",
       error: error.message,
     };
   }

@@ -1,0 +1,9 @@
+[
+  {
+    "inputs": [{ "name": "", "type": "address" }],
+    "name": "whitelist",
+    "outputs": [{ "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

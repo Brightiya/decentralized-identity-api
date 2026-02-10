@@ -153,12 +153,12 @@ export class GSNService {
  * Prepare registerIdentity transaction via GSN (DEDICATED ENDPOINT)
  */
 async prepareRegisterIdentity(
-  cid: string
+  userAddress: string
 ): Promise<GSNTransaction> {
   const response = await firstValueFrom(
     this.http.post<{ success: boolean; txData: GSNTransaction }>(
       `${this.baseUrl}/gsn/prepare-register-identity`,
-      { cid}
+      { userAddress }
     )
   );
 

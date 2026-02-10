@@ -86,16 +86,16 @@ export const checkGSNWhitelist = async (req, res) => {
 ------------------------------------------------------------------- */
 export const prepareGSNRegisterIdentityTx = async (req, res) => {
   try {
-    const { cid, userAddress } = req.body;
+    const { userAddress } = req.body;
 
     if (!isGSNEnabled()) {
       return res.status(400).json({ error: "GSN not enabled" });
     }
 
-    if (!cid || !userAddress) {
+    if (!userAddress) {
       return res
         .status(400)
-        .json({ error: "cid and userAddress are required" });
+        .json({ error: "userAddress are required" });
     }
 
     const normalized = userAddress.toLowerCase();
@@ -114,7 +114,6 @@ export const prepareGSNRegisterIdentityTx = async (req, res) => {
       success: true,
       operation: "registerIdentity",
       userAddress: normalized,
-      cid,
       txData,
       timestamp: new Date().toISOString(),
     });

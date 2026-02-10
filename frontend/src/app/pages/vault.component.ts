@@ -229,7 +229,6 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
               <mat-checkbox  [checked]="useGasless()"
                 (change)="toggleGaslessPreference()"
                 [disabled]="!gsnWhitelisted()">
-                >
                 <span class="gasless-toggle-label">
                   <mat-icon class="toggle-icon">local_gas_station</mat-icon>
                    Use gasless transactions

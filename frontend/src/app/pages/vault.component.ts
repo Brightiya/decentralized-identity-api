@@ -215,6 +215,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
               Using public gateways
             </div>
           </div>
+          </div>
 
 
         <!-- GASLESS SETTINGS CARD - NEW -->

@@ -152,9 +152,10 @@ export class GSNService {
   /**
    * Prepare createProfile transaction via GSN
    */
-  async prepareCreateProfile(subjectAddress: string): Promise<GSNTransaction> {
-    return this.prepareTransaction('createProfile', [subjectAddress]);
-  }
+  async prepareRegisterIdentity(cid: string): Promise<GSNTransaction> {
+  return this.prepareTransaction('registerIdentity', [cid]);
+}
+
   
   /**
    * Check if GSN is available and user is whitelisted
@@ -194,7 +195,7 @@ export class GSNService {
   getRegistryABI(): any {
     // You should load this from your actual ABI file
     return [
-      "function createProfile(address owner)",
+      "function registerIdentity(owner cid)",
       "function setProfileCID(address subject, string cid)",
       "function setClaim(address subject, bytes32 claimId, bytes32 claimHash)",
       "function isWhitelisted(address) view returns (bool)"

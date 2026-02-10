@@ -496,10 +496,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     margin: 0 auto;
   }
 
-  .footer-brand {
+    .footer-brand {
     display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
   }
 
   .footer-logo {
@@ -511,8 +513,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   }
 
   .footer-title {
-    font-weight: 600;
-  }
+  opacity: 0.85;
+  white-space: normal;
+}
+
 
   .footer-copyright {
     text-align: center;
@@ -583,6 +587,24 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       gap: 16px;
       padding: 24px 16px;
     }
+
+    @media (max-width: 960px) {
+      .footer-container {
+        padding: 12px 16px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .footer-container {
+        padding: 10px 12px;
+      }
+
+      .main-footer {
+        font-size: 13px;
+        font-weight: 400;
+      }
+    }
+
 
     .footer-links {
       gap: 24px;

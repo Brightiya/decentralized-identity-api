@@ -3,8 +3,8 @@ import {
   isGSNEnabled, 
   getGSNConfigForFrontend,
   prepareGSNTransaction,
-  prepareGSNSetProfileCID,
-  prepareGSNCreateProfile,  // Now being used
+  prepareGSNRegisterIdentity,
+  prepareGSNSetProfileCID,  
   getGSNHealth,
   testGSNConnectivity,
   isUserWhitelistedForGSN
@@ -81,156 +81,155 @@ export const checkGSNWhitelist = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   PREPARE GSN CREATE PROFILE TRANSACTION (Protected)
+   PREPARE GSN REGISTER IDENTITY (Protected)
+   registerIdentity(string cid)
 ------------------------------------------------------------------- */
-export const prepareGSNCreateProfileTx = async (req, res) => {
+export const prepareGSNRegisterIdentityTx = async (req, res) => {
   try {
-    const { subjectAddress } = req.body;
-    
+    const { cid, userAddress } = req.body;
+
     if (!isGSNEnabled()) {
-      return res.status(400).json({ error: 'GSN not enabled' });
+      return res.status(400).json({ error: "GSN not enabled" });
     }
-    
-    if (!subjectAddress) {
-      return res.status(400).json({ error: 'Subject address required' });
+
+    if (!cid || !userAddress) {
+      return res
+        .status(400)
+        .json({ error: "cid and userAddress are required" });
     }
-    
-    // Check if user is whitelisted
-    const isWhitelisted = await isUserWhitelistedForGSN(subjectAddress);
+
+    const normalized = userAddress.toLowerCase();
+    const isWhitelisted = await isUserWhitelistedForGSN(normalized);
+
     if (!isWhitelisted) {
-      return res.status(403).json({ 
-        error: 'Not whitelisted for GSN',
-        address: subjectAddress,
-        isWhitelisted: false 
+      return res.status(403).json({
+        error: "Not whitelisted for GSN",
+        address: normalized,
       });
     }
-    
-    // Prepare the transaction
-    const txData = await prepareGSNCreateProfile(subjectAddress);
-    
+
+    const txData = await prepareGSNRegisterIdentity(cid);
+
     res.status(200).json({
       success: true,
+      operation: "registerIdentity",
+      userAddress: normalized,
+      cid,
       txData,
-      operation: 'createProfile',
-      subject: subjectAddress,
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error) {
-    console.error('❌ prepareGSNCreateProfileTx error:', error);
-    res.status(500).json({ 
-      error: 'Failed to prepare GSN createProfile transaction',
-      message: error.message 
+    console.error("❌ prepareGSNRegisterIdentityTx error:", error);
+    res.status(500).json({
+      error: "Failed to prepare registerIdentity transaction",
+      message: error.message,
     });
   }
 };
 
 /* ------------------------------------------------------------------
-   PREPARE GSN SET PROFILE CID TRANSACTION (Protected)
+   PREPARE GSN SET PROFILE CID (Protected)
 ------------------------------------------------------------------- */
 export const prepareGSNSetProfileCIDTx = async (req, res) => {
   try {
-    const { subjectAddress, cid } = req.body;
-    
+    const { owner, cid } = req.body;
+
     if (!isGSNEnabled()) {
-      return res.status(400).json({ error: 'GSN not enabled' });
+      return res.status(400).json({ error: "GSN not enabled" });
     }
-    
-    if (!subjectAddress || !cid) {
-      return res.status(400).json({ error: 'Subject address and CID required' });
+
+    if (!owner || !cid) {
+      return res
+        .status(400)
+        .json({ error: "owner and cid are required" });
     }
-    
-    // Check if user is whitelisted
-    const isWhitelisted = await isUserWhitelistedForGSN(subjectAddress);
+
+    const normalized = owner.toLowerCase();
+    const isWhitelisted = await isUserWhitelistedForGSN(normalized);
+
     if (!isWhitelisted) {
-      return res.status(403).json({ 
-        error: 'Not whitelisted for GSN',
-        address: subjectAddress,
-        isWhitelisted: false 
+      return res.status(403).json({
+        error: "Not whitelisted for GSN",
+        address: normalized,
       });
     }
-    
-    // Prepare the transaction
-    const txData = await prepareGSNSetProfileCID(subjectAddress, cid);
-    
+
+    const txData = await prepareGSNSetProfileCID(normalized, cid);
+
     res.status(200).json({
       success: true,
-      txData,
-      operation: 'setProfileCID',
-      subject: subjectAddress,
+      operation: "setProfileCID",
+      owner: normalized,
       cid,
+      txData,
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error) {
-    console.error('❌ prepareGSNSetProfileCIDTx error:', error);
-    res.status(500).json({ 
-      error: 'Failed to prepare GSN setProfileCID transaction',
-      message: error.message 
+    console.error("❌ prepareGSNSetProfileCIDTx error:", error);
+    res.status(500).json({
+      error: "Failed to prepare setProfileCID transaction",
+      message: error.message,
     });
   }
 };
 
 /* ------------------------------------------------------------------
-   PREPARE GENERAL GSN TRANSACTION (Protected)
+   PREPARE GENERIC GSN TRANSACTION (Protected)
 ------------------------------------------------------------------- */
 export const prepareGSNTransactionTx = async (req, res) => {
   try {
-    const { methodName, args } = req.body;
-    
+    const { methodName, args = [] } = req.body;
+
     if (!isGSNEnabled()) {
-      return res.status(400).json({ error: 'GSN not enabled' });
+      return res.status(400).json({ error: "GSN not enabled" });
     }
-    
+
     if (!methodName) {
-      return res.status(400).json({ error: 'Method name required' });
+      return res.status(400).json({ error: "methodName is required" });
     }
-    
-    // Extract user address from args if possible (first arg is often the user)
+
+    // Hard block identity creation from generic endpoint
+    if (methodName === "registerIdentity") {
+      return res.status(400).json({
+        error: "registerIdentity must use the dedicated endpoint",
+      });
+    }
+
+    // Try to extract user address from args
     let userAddress = null;
-    if (args && args.length > 0) {
-      // Try to find an Ethereum address in the args
-      const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
-      for (const arg of args) {
-        if (typeof arg === 'string' && ethAddressRegex.test(arg)) {
-          userAddress = arg.toLowerCase();
-          break;
-        }
+    const ethAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+
+    for (const arg of args) {
+      if (typeof arg === "string" && ethAddressRegex.test(arg)) {
+        userAddress = arg.toLowerCase();
+        break;
       }
     }
-    
+
     if (userAddress) {
-      // Check if user is whitelisted
       const isWhitelisted = await isUserWhitelistedForGSN(userAddress);
       if (!isWhitelisted) {
-        return res.status(403).json({ 
-          error: 'Not whitelisted for GSN',
+        return res.status(403).json({
+          error: "Not whitelisted for GSN",
           address: userAddress,
-          isWhitelisted: false 
         });
       }
     }
-    
-    // Prepare the transaction
+
     const txData = await prepareGSNTransaction(methodName, ...args);
-    
-    if (userAddress) {
-      txData.userAddress = userAddress;
-    }
-    
+
     res.status(200).json({
       success: true,
-      txData,
       operation: methodName,
       userAddress,
+      txData,
       timestamp: new Date().toISOString(),
     });
-    
   } catch (error) {
-    console.error('❌ prepareGSNTransactionTx error:', error);
-    res.status(500).json({ 
-      error: 'Failed to prepare GSN transaction',
-      message: error.message 
+    console.error("❌ prepareGSNTransactionTx error:", error);
+    res.status(500).json({
+      error: "Failed to prepare GSN transaction",
+      message: error.message,
     });
   }
 };

@@ -14,7 +14,8 @@ import didRoutes from "./routes/didRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
-
+// Option 1: SIMPLE - Mount all GSN routes without auth for now (easier to test)
+import gsnRoutes from "./routes/gsnRoutes.js";
 // Middleware
 import { authMiddleware } from "../middleware/auth.js";
 
@@ -83,8 +84,7 @@ app.post('/api/auth/verify', verifySignature);
 // GSN Routes (some public, some protected)
 // ────────────────────────────────────────────────
 
-// Option 1: SIMPLE - Mount all GSN routes without auth for now (easier to test)
-import gsnRoutes from "./routes/gsnRoutes.js";
+
 app.use("/gsn", gsnRoutes);
 
 // Option 2: OR if you want to separate public vs protected GSN routes:

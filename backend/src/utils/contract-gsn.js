@@ -33,7 +33,7 @@ const __dirname = path.dirname(__filename);
  * Get contract ABI (shared with regular contract)
  */
 function getContractABI() {
-  const contractPath = path.resolve(__dirname, "../contractData.json");
+  const contractPath = path.resolve(__dirname, "../contractDataGSN.json");
   try {
     const contractData = JSON.parse(fs.readFileSync(contractPath, "utf8"));
     return contractData.abi;
@@ -206,17 +206,50 @@ export async function isUserWhitelistedForGSN(address) {
 
 /**
  * Prepare GSN transaction data (unsigned)
- * This is for frontend to sign and send via GSN
+ * Generic GSN-safe ABI methods ONLY
  */
 export async function prepareGSNTransaction(methodName, ...args) {
   if (!isGSNEnabled()) {
     throw new Error("GSN is not enabled");
   }
-  
+
+  if (FORBIDDEN_METHODS.has(methodName)) {
+    throw new Error(
+      `${methodName} must use a dedicated GSN preparation function`
+    );
+  }
+
   const abi = getContractABI();
-  const iface = new ethers.utils.Interface(abi); // v5: ethers.utils.Interface
-  const data = iface.encodeFunctionData(methodName, args);
-  
+  const iface = new ethers.utils.Interface(abi);
+
+  // Validate method existence
+  let fragment;
+  try {
+    fragment = iface.getFunction(methodName);
+  } catch (err) {
+    throw new Error(
+      `GSN method "${methodName}" does not exist in contract ABI`
+    );
+  }
+
+  // Validate argument count
+  if (args.length !== fragment.inputs.length) {
+    throw new Error(
+      `GSN method "${methodName}" expects ${fragment.inputs.length} arguments, ` +
+      `received ${args.length}`
+    );
+  }
+
+  // Encode safely
+  let data;
+  try {
+    data = iface.encodeFunctionData(methodName, args);
+  } catch (err) {
+    throw new Error(
+      `Failed to encode GSN transaction for "${methodName}": ${err.message}`
+    );
+  }
+
   return {
     to: GSN_CONFIG.registryAddress,
     data,
@@ -231,13 +264,15 @@ export async function prepareGSNTransaction(methodName, ...args) {
   };
 }
 
+
 // ────────────────────────────────────────────────
 // Convenience wrappers (unchanged)
 // ────────────────────────────────────────────────
 
-export async function prepareGSNCreateProfile(subjectAddress) {
-  return prepareGSNTransaction("createProfile", subjectAddress);
+export async function prepareGSNRegisterIdentity(cid) {
+  return prepareGSNTransaction("registerIdentity", cid);
 }
+
 
 export async function prepareGSNSetClaim(subjectAddress, claimIdBytes32, claimHash) {
   return prepareGSNTransaction("setClaim", subjectAddress, claimIdBytes32, claimHash);

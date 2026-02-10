@@ -5,7 +5,7 @@ import {
   getGSNConfig,
   getGSNStatus,
   checkGSNWhitelist,
-  prepareGSNCreateProfileTx,
+  prepareGSNRegisterIdentityTx,
   prepareGSNSetProfileCIDTx,
   prepareGSNTransactionTx
 } from '../controllers/gsnController.js';
@@ -18,7 +18,7 @@ router.get('/status', getGSNStatus);
 router.get('/whitelist/:address', checkGSNWhitelist);
 
 // Protected endpoints (require JWT auth)
-router.post('/prepare-create-profile', authMiddleware, prepareGSNCreateProfileTx);
+router.post('/prepare-create-profile', authMiddleware, prepareGSNRegisterIdentityTx);
 router.post('/prepare-set-profile-cid', authMiddleware, prepareGSNSetProfileCIDTx);
 router.post('/prepare-tx', authMiddleware, prepareGSNTransactionTx);
 

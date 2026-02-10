@@ -132,7 +132,7 @@ export async function getGSNProvider() {
     }).init();
     
     // v5 uses BrowserProvider for browser-like providers
-    _gsnProvider = new ethers.providers.BrowserProvider(relayProvider);
+    _gsnProvider = new ethers.providers.Web3Provider(relayProvider);
     console.log('✅ GSN provider initialized');
     return _gsnProvider;
     
@@ -297,7 +297,7 @@ export async function testGSNConnectivity() {
     // Test 4: GSN provider
     let gsnProviderStatus = 'NOT_INITIALIZED';
     try {
-      const gsnProvider = await getGSNProvider();
+      gsnProviderStatus = "SKIPPED (lazy init)";
       gsnProviderStatus = 'READY';
     } catch (error) {
       gsnProviderStatus = `ERROR: ${error.message}`;

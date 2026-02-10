@@ -182,7 +182,7 @@ export async function isUserWhitelistedForGSN(address) {
     // v5: use .call() instead of direct method call
     const isWhitelisted = await contract.isWhitelisted(address);
     
-    return isWhitelisted;
+    return Boolean(isWhitelisted);
   } catch (error) {
     console.error('Error checking GSN whitelist:', error.message);
     return false;

@@ -315,3 +315,13 @@ html, body {
 .mat-sidenav-content {
   transition: margin-left 0ms !important;
 }
+
+/* Fix MDC mat-hint overlapping content on mobile */
+.mat-mdc-form-field-subscript-wrapper {
+  margin-bottom: 8px;
+}
+@media (max-width: 960px) {
+  .mat-mdc-form-field-subscript-wrapper {
+    margin-bottom: 12px;
+  }
+}

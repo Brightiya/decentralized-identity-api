@@ -16,9 +16,21 @@ $light-theme: mat.define-light-theme((
     accent: $accent,
     warn: $warn,
   ),
-  typography: mat.define-typography-config(),
+  typography: mat.define-typography-config(
+    $font-family: 'Roboto, "Helvetica Neue", sans-serif',
+
+    $body-1: mat.define-typography-level(14px, 1.6, 400),
+    $body-2: mat.define-typography-level(15px, 1.6, 500),
+
+    $subtitle-1: mat.define-typography-level(16px, 1.5, 500),
+    $subtitle-2: mat.define-typography-level(14px, 1.5, 500),
+
+    $button: mat.define-typography-level(14px, 1.25, 600),
+    $caption: mat.define-typography-level(12px, 1.4, 500),
+  ),
   density: 0
 ));
+
 
 // Include **ALL** component themes (this fixes scrambled text)
 @include mat.all-component-themes($light-theme);
@@ -318,10 +330,10 @@ html, body {
 
 /* Fix MDC mat-hint overlapping content on mobile */
 .mat-mdc-form-field-subscript-wrapper {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 @media (max-width: 960px) {
   .mat-mdc-form-field-subscript-wrapper {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 }

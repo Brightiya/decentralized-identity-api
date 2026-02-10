@@ -39,7 +39,7 @@ const __dirname = path.dirname(__filename);
  * Get contract ABI (shared with regular contract)
  */
 function getContractABI() {
-  const contractPath = path.resolve(__dirname, "../contractDataGSN.json");
+  const contractPath = path.resolve(__dirname, "../contractData.json");
   try {
     const contractData = JSON.parse(fs.readFileSync(contractPath, "utf8"));
     return contractData.abi;

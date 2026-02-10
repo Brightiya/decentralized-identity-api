@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import paymasterAbi from "./paymasterAbi.json";
+
 
 // ────────────────────────────────────────────────
 // GSN Configuration
@@ -42,6 +42,17 @@ function getContractABI() {
     throw err;
   }
 }
+
+function getPaymasterABI() {
+  const abiPath = path.resolve(__dirname, "./paymasterAbi.json");
+  try {
+    return JSON.parse(fs.readFileSync(abiPath, "utf8"));
+  } catch (err) {
+    console.error("Failed to load paymasterAbi.json:", err);
+    throw err;
+  }
+}
+
 
 /**
  * Get regular provider (for read-only operations) — v5 style
@@ -182,7 +193,7 @@ export async function isUserWhitelistedForGSN(address) {
 
     const paymaster = new ethers.Contract(
       GSN_CONFIG.paymasterAddress,
-      paymasterAbi,
+      getPaymasterABI(),
       provider
     );
 
@@ -304,7 +315,7 @@ export async function testGSNConnectivity() {
     // ─────────────────────────────
     const paymaster = new ethers.Contract(
       GSN_CONFIG.paymasterAddress,
-      paymasterAbi,
+      getPaymasterABI(),
       provider
     );
 

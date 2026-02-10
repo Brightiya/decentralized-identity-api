@@ -150,11 +150,25 @@ export class GSNService {
   }
   
   /**
-   * Prepare createProfile transaction via GSN
-   */
-  async prepareRegisterIdentity(cid: string): Promise<GSNTransaction> {
-  return this.prepareTransaction('registerIdentity', [cid]);
+ * Prepare registerIdentity transaction via GSN (DEDICATED ENDPOINT)
+ */
+async prepareRegisterIdentity(
+  cid: string
+): Promise<GSNTransaction> {
+  const response = await firstValueFrom(
+    this.http.post<{ success: boolean; txData: GSNTransaction }>(
+      `${this.baseUrl}/gsn/prepare-register-identity`,
+      { cid}
+    )
+  );
+
+  if (!response.success) {
+    throw new Error('Failed to prepare GSN registerIdentity transaction');
+  }
+
+  return response.txData;
 }
+
 
   
   /**

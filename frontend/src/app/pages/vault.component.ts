@@ -1635,12 +1635,12 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
   // NEW: Gasless profile creation
-  private async createProfileGasless(address: string) {
+  private async createProfileGasless(cid: string) {
     this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
     
     try {
       // 1. Prepare GSN transaction via backend
-      const txData = await this.gsnService.prepareCreateProfile(address);
+      const txData = await this.gsnService.prepareRegisterIdentity(cid);
       
       // 2. Send via GSN (using wallet service)
       const txResponse = await this.wallet.sendTransactionWithFallback(txData, true);
@@ -1681,7 +1681,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         this.useGasless.set(false);
         // Save preference
         await this.storage.setItem('prefer_gasless', 'false');
-        await this.createProfileRegular(address);
+        await this.createProfileRegular(cid);
       } else {
         throw error;
       }

@@ -276,8 +276,36 @@ export async function prepareGSNTransaction(methodName, ...args) {
 // ────────────────────────────────────────────────
 
 export async function prepareGSNRegisterIdentity(cid) {
-  return prepareGSNTransaction("registerIdentity", cid);
+  if (!isGSNEnabled()) {
+    throw new Error("GSN is not enabled");
+  }
+
+  const abi = getContractABI();
+  const iface = new ethers.utils.Interface(abi);
+
+  let data;
+  try {
+    data = iface.encodeFunctionData("registerIdentity", [cid]);
+  } catch (err) {
+    throw new Error(
+      `Failed to encode registerIdentity GSN tx: ${err.message}`
+    );
+  }
+
+  return {
+    to: GSN_CONFIG.registryAddress,
+    data,
+    chainId: GSN_CONFIG.chainId,
+    gasLimit: GSN_CONFIG.gasLimit,
+    value: "0",
+    useGSN: true,
+    paymasterAddress: GSN_CONFIG.paymasterAddress,
+    forwarderAddress: GSN_CONFIG.forwarderAddress,
+    description: "GSN: registerIdentity",
+    timestamp: new Date().toISOString(),
+  };
 }
+
 
 
 export async function prepareGSNSetClaim(subjectAddress, claimIdBytes32, claimHash) {

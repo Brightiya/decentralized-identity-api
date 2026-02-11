@@ -7,7 +7,8 @@ import {
   prepareGSNSetProfileCID,  
   getGSNHealth,
   testGSNConnectivity,
-  isUserWhitelistedForGSN
+  isUserWhitelistedForGSN,
+  prepareGSNSetClaim
 } from '../utils/contract-gsn.js';
 import { requireDidAddress as didToAddress } from "../utils/did.js";
 

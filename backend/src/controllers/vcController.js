@@ -160,6 +160,7 @@ export const issueVC = async (req, res) => {
       cid: enrichedCid,
       signedCid: cid,
       claimId,
+      claimIdBytes32,
       context,
       claimHash,
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`,

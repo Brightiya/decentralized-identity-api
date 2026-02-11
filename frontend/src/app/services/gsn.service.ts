@@ -181,6 +181,26 @@ async prepareRegisterIdentity(
     const whitelisted = await this.checkWhitelist(address);
     return whitelisted;
   }
+
+  async prepareSetClaim(
+  subject: string,
+  claimIdBytes32: string,
+  claimHash: string
+): Promise<GSNTransaction> {
+  const response = await firstValueFrom(
+    this.http.post<{ success: boolean; txData: GSNTransaction }>(
+      `${this.baseUrl}/gsn/prepare-set-claim`,
+      { subject, claimId: claimIdBytes32, claimHash }
+    )
+  );
+
+  if (!response.success) {
+    throw new Error("Failed to prepare GSN setClaim transaction");
+  }
+
+  return response.txData;
+}
+
   
   /**
    * Get current GSN configuration

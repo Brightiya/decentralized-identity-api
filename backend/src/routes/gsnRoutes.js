@@ -7,7 +7,8 @@ import {
   checkGSNWhitelist,
   prepareGSNRegisterIdentityTx,
   prepareGSNSetProfileCIDTx,
-  prepareGSNTransactionTx
+  prepareGSNTransactionTx,
+  prepareGSNSetClaimTx
 } from '../controllers/gsnController.js';
 
 const router = express.Router();
@@ -21,5 +22,7 @@ router.get('/whitelist/:address', checkGSNWhitelist);
 router.post('/prepare-register-identity', authMiddleware, prepareGSNRegisterIdentityTx);
 router.post('/prepare-set-profile-cid', authMiddleware, prepareGSNSetProfileCIDTx);
 router.post('/prepare-tx', authMiddleware, prepareGSNTransactionTx);
+router.post("/prepare-set-claim",authMiddleware,prepareGSNSetClaimTx);
+
 
 export default router;

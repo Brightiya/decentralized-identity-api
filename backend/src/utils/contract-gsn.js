@@ -23,6 +23,7 @@ const GSN_CONFIG = {
 // GSN methods that must NOT go through the generic path
 const FORBIDDEN_METHODS = new Set([
   "registerIdentity",   // must use dedicated helper
+  "setClaim",
 ]);
 
 
@@ -306,11 +307,43 @@ export async function prepareGSNRegisterIdentity(cid) {
   };
 }
 
+export async function prepareGSNSetClaim(
+  subjectAddress,
+  claimIdBytes32,
+  claimHash
+) {
+  if (!isGSNEnabled()) {
+    throw new Error("GSN not enabled");
+  }
 
+  const abi = getContractABI();
+  const iface = new ethers.utils.Interface(abi);
 
-export async function prepareGSNSetClaim(subjectAddress, claimIdBytes32, claimHash) {
-  return prepareGSNTransaction("setClaim", subjectAddress, claimIdBytes32, claimHash);
+  let data;
+  try {
+    data = iface.encodeFunctionData("setClaim", [
+      subjectAddress,
+      claimIdBytes32,
+      claimHash,
+    ]);
+  } catch (err) {
+    throw new Error(`Failed to encode setClaim GSN tx: ${err.message}`);
+  }
+
+  return {
+    to: GSN_CONFIG.registryAddress,
+    data,
+    chainId: GSN_CONFIG.chainId,
+    gasLimit: GSN_CONFIG.gasLimit,
+    value: "0",
+    useGSN: true,
+    paymasterAddress: GSN_CONFIG.paymasterAddress,
+    forwarderAddress: GSN_CONFIG.forwarderAddress,
+    description: "GSN: setClaim",
+    timestamp: new Date().toISOString(),
+  };
 }
+
 
 export async function prepareGSNSetProfileCID(subjectAddress, cid) {
   return prepareGSNTransaction("setProfileCID", subjectAddress, cid);

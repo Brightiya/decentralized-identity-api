@@ -5,6 +5,7 @@ import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ContextService } from '../services/context.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { GSNService } from '../services/gsn.service';
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -684,6 +685,8 @@ export class CredentialsComponent implements OnInit {
   private contextService = inject(ContextService);
   private snackBar = inject(MatSnackBar);
   private themeService = inject(ThemeService);
+  private gsn = inject(GSNService);
+
 
   darkMode = this.themeService.darkMode;
 
@@ -870,6 +873,61 @@ async issueVC() {
     };
 
     const response = await firstValueFrom(this.api.issueVC(payload));
+
+      // ─────────────────────────────────────────────
+  // GSN MODE (Gasless setClaim)
+  // ─────────────────────────────────────────────
+  if (this.gsn.isEnabled()) {
+
+    const isAvailable = await this.gsn.isGaslessAvailable(addr);
+    if (!isAvailable) {
+      console.warn('GSN enabled but user not whitelisted');
+    } else {
+
+      this.snackBar.open(
+        'Preparing gasless credential anchoring...',
+        'Close',
+        { duration: 6000 }
+      );
+
+      // You must receive these from backend response
+      const claimIdBytes32 = response.claimIdBytes32;
+      const claimHash = response.claimHash;
+
+      if (!claimIdBytes32 || !claimHash) {
+        throw new Error('Backend did not return claimIdBytes32 or claimHash');
+      }
+
+      const gsnTx = await this.gsn.prepareSetClaim(
+        `did:ethr:${addr}`,
+        claimIdBytes32,
+        claimHash
+      );
+
+      this.snackBar.open(
+        'Please confirm gasless transaction in your wallet...',
+        'Close',
+        { duration: 12000 }
+      );
+
+      const { hash } = await this.wallet.signAndSendTransaction(gsnTx);
+
+      this.snackBar.open(
+        `Credential anchored gaslessly! Tx: ${hash.slice(0, 10)}...`,
+        'Close',
+        { duration: 8000, panelClass: ['success-snackbar'] }
+      );
+
+      this.result = {
+        ...response,
+        txHash: hash
+      };
+
+      this.resetFormAfterSuccess();
+      return;
+    }
+  }
+
 
     // ── Backend-signed (dev) mode ────────────────────────────────
     if (!response.unsignedTx && response.txHash) {

@@ -9,6 +9,7 @@ import {
   testGSNConnectivity,
   isUserWhitelistedForGSN
 } from '../utils/contract-gsn.js';
+import { requireDidAddress as didToAddress } from "../utils/did.js";
 
 
 /* ------------------------------------------------------------------
@@ -229,6 +230,51 @@ export const prepareGSNTransactionTx = async (req, res) => {
     res.status(500).json({
       error: "Failed to prepare GSN transaction",
       message: error.message,
+    });
+  }
+};
+
+/* ------------------------------------------------------------------
+   PREPARE GSN SET CLAIM (Protected)
+------------------------------------------------------------------- */
+export const prepareGSNSetClaimTx = async (req, res) => {
+  try {
+    const { subject, claimId, claimHash } = req.body;
+
+    if (!subject || !claimId || !claimHash) {
+      return res.status(400).json({
+        error: "subject, claimId, and claimHash are required",
+      });
+    }
+
+    const subjectAddress = didToAddress(subject).toLowerCase();
+
+    const isWhitelisted = await isUserWhitelistedForGSN(subjectAddress);
+    if (!isWhitelisted) {
+      return res.status(403).json({
+        error: "Not whitelisted for GSN",
+        address: subjectAddress,
+      });
+    }
+
+    const txData = await prepareGSNSetClaim(
+      subjectAddress,
+      claimId,
+      claimHash
+    );
+
+    return res.status(200).json({
+      success: true,
+      operation: "setClaim",
+      subject: subjectAddress,
+      txData,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("❌ prepareGSNSetClaimTx error:", err);
+    return res.status(500).json({
+      error: "Failed to prepare GSN setClaim transaction",
+      message: err.message,
     });
   }
 };

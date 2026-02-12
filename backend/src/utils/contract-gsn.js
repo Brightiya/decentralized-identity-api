@@ -70,7 +70,7 @@ function getRegularProvider() {
     if (!rpcUrl) {
       throw new Error("RPC URL not configured for GSN");
     }
-    _regularProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+    _regularProvider = new ethers.JsonRpcProvider(rpcUrl);
   }
   return _regularProvider;
 }
@@ -150,8 +150,8 @@ export async function getGSNProvider() {
       config: gsnConfig,
     }).init();
     
-    // v5 uses BrowserProvider for browser-like providers
-    _gsnProvider = new ethers.providers.Web3Provider(relayProvider);
+    
+    _gsnProvider = new ethers.BrowserProvider(relayProvider);
     console.log('✅ GSN provider initialized');
     return _gsnProvider;
     
@@ -227,7 +227,7 @@ export async function prepareGSNTransaction(methodName, ...args) {
   }
 
   const abi = getContractABI();
-  const iface = new ethers.utils.Interface(abi);
+  const iface = new ethers.Interface(abi);
 
   // Validate method existence
   let fragment;
@@ -282,7 +282,7 @@ export async function prepareGSNRegisterIdentity(cid) {
   }
 
   const abi = getContractABI();
-  const iface = new ethers.utils.Interface(abi);
+  const iface = new ethers.Interface(abi);
 
   let data;
   try {
@@ -317,7 +317,7 @@ export async function prepareGSNSetClaim(
   }
 
   const abi = getContractABI();
-  const iface = new ethers.utils.Interface(abi);
+  const iface = new ethers.Interface(abi);
 
   let data;
   try {
@@ -406,7 +406,7 @@ export async function testGSNConnectivity() {
     // Introspect ABI methods
     let registryMethods = [];
     try {
-      const iface = new ethers.utils.Interface(getContractABI());
+      const iface = new ethers.Interface(getContractABI());
       registryMethods = Object.keys(iface.functions);
     } catch {
       registryMethods = ["Error reading registry ABI"];

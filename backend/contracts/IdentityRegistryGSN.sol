@@ -22,11 +22,9 @@ contract IdentityRegistryGSN is BaseRelayRecipient {
     event ClaimRemoved(address indexed owner, bytes32 indexed claimId);
     event IdentityRegistered(address indexed owner, string cid);
 
-    constructor() {
-        // For simplified testing, we'll set the forwarder to the contract itself
-        // In production, you would pass a real GSN forwarder address
-        _setTrustedForwarder(address(this));
-    }
+  constructor(address forwarder) {
+    _setTrustedForwarder(forwarder);
+}
 
     // Modifier - only the profile owner can update their data
     modifier onlySelf(address subject) {

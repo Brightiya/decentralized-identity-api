@@ -18,7 +18,7 @@ export default async function globalSetup() {
   // Register GLOBAL mocked ethers provider
   // (must exist BEFORE any controller imports)
   // ─────────────────────────────────────────────
-  const mockProvider = new ethers.providers.JsonRpcProvider("http://localhost:0");
+  const mockProvider = new ethers.JsonRpcProvider("http://localhost:0");
 
  
   mockProvider._start = () => {};

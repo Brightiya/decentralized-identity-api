@@ -10,23 +10,22 @@
     "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand --verbose",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
-    "compile": "hardhat compile --config ../hardhat.config.cjs",
-    "test:contracts": "hardhat test --config ../hardhat.config.cjs",
-    "start:node": "hardhat node --config ../hardhat.config.cjs",
-    "deploy:localhost": "hardhat run --network localhost ../scripts/deploy.mjs --config ../hardhat.config.cjs"
+    "compile": "hardhat compile",
+    "test:contracts": "hardhat test",
+    "start:node": "hardhat node",
+    "deploy:localhost": "hardhat run --network localhost ../scripts/deploy.mjs"
   },
   "engines": {
     "node": "20.x"
   },
   "dependencies": {
-    "@opengsn/contracts": "3.0.0-beta.6",
-    "@opengsn/provider": "3.0.0-beta.6",
+    "@openzeppelin/contracts": "5.0.2",
     "@pinata/sdk": "^2.1.0",
     "axios": "^1.7.7",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "ethers": "^5.7.2",
+    "ethers": "^6.16.0",
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",

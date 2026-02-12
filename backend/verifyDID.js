@@ -11,9 +11,10 @@ const privateKey = process.env.PRIVATE_KEY; // your wallet private key
 const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
 
 const signer = new ethers.Wallet(privateKey, provider);
-const address = await signer.getAddress();
+
 
 async function verifyDID() {
+  const address = await signer.getAddress();
   try {
     // 1️⃣ Build DID message
     const did = `did:ethr:${address}`;

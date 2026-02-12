@@ -14,5 +14,7 @@ export const environment = {
   production: false,
   backendUrl: 'https://pimv-backend.onrender.com',
   PROVIDER_URL: 'https://sepolia.base.org',
-  PRIVATE_KEY: ''
+  PRIVATE_KEY: '',
+  forwarderAddress: '0xCcD7bAB94081f4B948B78d189492790CE51a413e',
+  identityRegistryAddress: '0x3F0b694f12e767868CB57b363578F7c5db55e553'
 };

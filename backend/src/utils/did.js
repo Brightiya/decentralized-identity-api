@@ -18,7 +18,7 @@ export const didToAddress = (didOrAddress) => {
   }
 
   // Enforce Ethereum address validity
-  if (!ethers.utils.isAddress(addr)) {
+  if (!ethers.isAddress(addr)) {
     return null;
   }
 

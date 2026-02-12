@@ -6,6 +6,15 @@ import { ApiService } from '../services/api.service';
 import { ContextService } from '../services/context.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GSNService } from '../services/gsn.service';
+import { MetaTxService } from '../services/metaTx.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
+import ForwarderArtifact from '../abi/Forwarder.json';
+import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';
+
+const ForwarderAbi = ForwarderArtifact.abi;
+const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
+
 
 // Material Modules
 import { MatIconModule } from '@angular/material/icon';
@@ -686,6 +695,8 @@ export class CredentialsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private themeService = inject(ThemeService);
   private gsn = inject(GSNService);
+  private metaTx = inject(MetaTxService);
+  private http = inject(HttpClient);
 
 
   darkMode = this.themeService.darkMode;
@@ -877,56 +888,87 @@ async issueVC() {
       // ─────────────────────────────────────────────
   // GSN MODE (Gasless setClaim)
   // ─────────────────────────────────────────────
-  if (this.gsn.isEnabled()) {
+    if (this.gsn.isEnabled()) {
 
-    const isAvailable = await this.gsn.isGaslessAvailable(addr);
-    if (!isAvailable) {
-      console.warn('GSN enabled but user not whitelisted');
-    } else {
+      const isAvailable = await this.gsn.isGaslessAvailable(addr);
+      if (!isAvailable) {
+        console.warn('GSN enabled but user not whitelisted');
+      } else {
 
-      this.snackBar.open(
-        'Preparing gasless credential anchoring...',
-        'Close',
-        { duration: 6000 }
-      );
+        this.snackBar.open(
+          'Preparing gasless credential anchoring...',
+          'Close',
+          { duration: 6000 }
+        );
 
-      // You must receive these from backend response
-      const claimIdBytes32 = response.claimIdBytes32;
-      const claimHash = response.claimHash;
+        const claimIdBytes32 = response.claimIdBytes32;
+        const claimHash = response.claimHash;
 
-      if (!claimIdBytes32 || !claimHash) {
-        throw new Error('Backend did not return claimIdBytes32 or claimHash');
+        if (!claimIdBytes32 || !claimHash) {
+          throw new Error('Backend did not return claimIdBytes32 or claimHash');
+        }
+
+        try {
+
+          // 1️⃣ Build & sign meta-tx in browser (LIKE VAULT)
+          const { req, signature } = await this.metaTx.buildAndSignMetaTx({
+            forwarderAddress: environment.forwarderAddress,
+            forwarderAbi: ForwarderAbi,
+            targetAddress: environment.identityRegistryAddress,
+            targetAbi: IdentityRegistryAbi,
+            functionName: "setClaim",
+            functionArgs: [
+              `did:ethr:${addr}`,
+              claimIdBytes32,
+              claimHash
+            ]
+          });
+
+          this.snackBar.open(
+            'Submitting gasless transaction...',
+            'Close',
+            { duration: 8000 }
+          );
+
+          // 2️⃣ Send to backend relayer (SAME AS VAULT)
+          const relayResponse: any = await this.http.post(
+            `${environment.backendUrl}/relay`,
+            { req, signature }
+          ).toPromise();
+
+          const txHash = relayResponse.txHash;
+
+          if (!txHash) {
+            throw new Error('Relay failed — no txHash returned');
+          }
+
+          this.snackBar.open(
+            `Credential anchored GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
+            'Close',
+            { duration: 8000, panelClass: ['success-snackbar'] }
+          );
+
+          this.result = {
+            ...response,
+            txHash,
+            gasless: true
+          };
+
+          this.resetFormAfterSuccess();
+          return;
+
+        } catch (gaslessErr: any) {
+          console.error('Gasless credential anchoring failed:', gaslessErr);
+
+          const fallback = confirm('Gasless anchoring failed. Try regular transaction?');
+          if (fallback) {
+            // Let it fall through to hybrid logic below
+          } else {
+            throw gaslessErr;
+          }
+        }
       }
-
-      const gsnTx = await this.gsn.prepareSetClaim(
-        `did:ethr:${addr}`,
-        claimIdBytes32,
-        claimHash
-      );
-
-      this.snackBar.open(
-        'Please confirm gasless transaction in your wallet...',
-        'Close',
-        { duration: 12000 }
-      );
-
-      const { hash } = await this.wallet.signAndSendTransaction(gsnTx);
-
-      this.snackBar.open(
-        `Credential anchored gaslessly! Tx: ${hash.slice(0, 10)}...`,
-        'Close',
-        { duration: 8000, panelClass: ['success-snackbar'] }
-      );
-
-      this.result = {
-        ...response,
-        txHash: hash
-      };
-
-      this.resetFormAfterSuccess();
-      return;
     }
-  }
 
 
     // ── Backend-signed (dev) mode ────────────────────────────────

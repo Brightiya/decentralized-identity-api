@@ -17,11 +17,9 @@
     "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --detectOpenHandles --forceExit"
   },
   "dependencies": {
-    "ethers": "6",
     "qrcode": "^1.5.4",
     "readable-stream": "^4.7.0",
-    "typescript": "5.4.5",
-    "web3": "^4.16.0"
+    "typescript": "5.4.5"
   },
   "resolutions": {
     "typescript": "5.4.5"

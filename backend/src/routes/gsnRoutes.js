@@ -8,7 +8,8 @@ import {
   prepareGSNRegisterIdentityTx,
   prepareGSNSetProfileCIDTx,
   prepareGSNTransactionTx,
-  prepareGSNSetClaimTx
+  prepareGSNSetClaimTx,
+   relayMetaTx 
 } from '../controllers/gsnController.js';
 
 const router = express.Router();
@@ -23,6 +24,8 @@ router.post('/prepare-register-identity', authMiddleware, prepareGSNRegisterIden
 router.post('/prepare-set-profile-cid', authMiddleware, prepareGSNSetProfileCIDTx);
 router.post('/prepare-tx', authMiddleware, prepareGSNTransactionTx);
 router.post("/prepare-set-claim",authMiddleware,prepareGSNSetClaimTx);
+// 🔥 NEW: Relay endpoint
+router.post("/relay", authMiddleware, relayMetaTx);
 
 
 export default router;

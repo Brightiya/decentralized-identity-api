@@ -10,6 +10,9 @@ import {
   getContract,
 } from "../utils/contract.js";
 
+const isGSNMode = () => process.env.TX_MODE === "gsn";
+
+
 /* ------------------------------------------------------------------
    Helper: Get Pinata JWT for this request (user > shared)
 ------------------------------------------------------------------- */
@@ -147,9 +150,9 @@ export const issueVC = async (req, res) => {
     const enrichedCid = enrichedIpfsUri.replace("ipfs://", "");
 
     // Prepare on-chain anchoring
-    const claimHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(cid));
-    const claimIdBytes32 = ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(claimId),
+    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(cid));
+    const claimIdBytes32 = ethers.keccak256(
+      ethers.toUtf8Bytes(claimId),
     );
     const subjectAddress = didToAddress(subject);
 
@@ -229,6 +232,26 @@ export const issueVC = async (req, res) => {
           profileErr.message,
         );
       }
+    }
+        // ────────────────────────────────
+    // GSN MODE (Gasless)
+    // ────────────────────────────────
+    else if (isGSNMode()) {
+      responseData.message =
+        "✅ VC issued. Please sign the gasless transaction.";
+
+        responseData.metaTx = {
+            forwarder: process.env.GSN_FORWARDER_ADDRESS,
+            to: contract.address,
+            subjectAddress,
+            claimIdBytes32,
+            claimHash,
+          };
+
+          console.log("[GSN] Prepared meta-tx payload");
+
+      // 🚨 IMPORTANT: DO NOT CALL contract.setClaim()
+      // Relaying happens via /gsn/prepare-set-claim + /gsn/relay
     }
     // ────────────────────────────────
     // DEV MODE: Backend signs and submits
@@ -353,7 +376,7 @@ export const verifyVC = async (req, res) => {
       if (process.env.NODE_ENV === "test") {
         recovered = didToAddress(vc.issuer);
       } else {
-        recovered = ethers.utils.verifyMessage(vcString, proof.jws);
+        recovered = ethers.verifyMessage(vcString, proof.jws);
       }
       const issuerAddress = didToAddress(vc.issuer);
 
@@ -482,7 +505,7 @@ export const validateRawVC = async (req, res) => {
     // ─────────────────────────────────────────────
     let recovered;
     try {
-      recovered = ethers.utils.verifyMessage(
+      recovered = ethers.verifyMessage(
         JSON.stringify(unsignedVC),
         proof.jws,
       );
@@ -525,11 +548,11 @@ export const validateRawVC = async (req, res) => {
 
     const subjectAddress = didToAddress(vc.credentialSubject.id);
 
-    const claimHash = ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(cidForValidation),
+    const claimHash = ethers.keccak256(
+      ethers.toUtf8Bytes(cidForValidation),
     );
-    const claimIdBytes32 = ethers.utils.keccak256(
-      ethers.utils.toUtf8Bytes(claimId),
+    const claimIdBytes32 = ethers.keccak256(
+      ethers.toUtf8Bytes(claimId),
     );
 
     // ─────────────────────────────────────────────
@@ -553,7 +576,7 @@ export const validateRawVC = async (req, res) => {
     const isTestHybridDefault =
       process.env.NODE_ENV === "test" &&
       isHybridMode() &&
-      onChainHash === ethers.utils.ZeroHash;
+      onChainHash === ethers.ZeroHash;
 
     if (onChainHash !== claimHash && !isTestHybridDefault) {
       return res.status(400).json({

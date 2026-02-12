@@ -95,10 +95,15 @@ async function main() {
     // 4. Deploy IdentityRegistryGSN
     console.log(`\n4️⃣  Deploying IdentityRegistryGSN (nonce: ${currentNonce})...`);
     const IdentityRegistryGSN = await ethers.getContractFactory("IdentityRegistryGSN");
-    const registryGSN = await IdentityRegistryGSN.deploy({
-      nonce: currentNonce++,
-      gasPrice: ethers.parseUnits("3", "gwei")
-    });
+    const registryGSN = await IdentityRegistryGSN.deploy(
+        forwarderAddress,
+        {
+          nonce: currentNonce++,
+          gasPrice: ethers.parseUnits("3", "gwei")
+        }
+      );
+
+
     const registryReceipt = await registryGSN.waitForDeployment();
     const registryGSNAddress = await registryGSN.getAddress();
     console.log(`✅ IdentityRegistryGSN: ${registryGSNAddress}`);

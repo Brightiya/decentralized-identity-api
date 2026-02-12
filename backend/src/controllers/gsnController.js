@@ -11,7 +11,7 @@ import {
   prepareGSNSetClaim
 } from '../utils/contract-gsn.js';
 import { requireDidAddress as didToAddress } from "../utils/did.js";
-
+import { getForwarder, getRelayerSigner } from "../utils/gsn.js";
 
 /* ------------------------------------------------------------------
    GET GSN CONFIGURATION (Public)
@@ -279,3 +279,51 @@ export const prepareGSNSetClaimTx = async (req, res) => {
     });
   }
 };
+
+export const relayMetaTx = async (req, res) => {
+  try {
+    const { req: forwardRequest, signature } = req.body;
+
+    if (!forwardRequest || !signature) {
+      return res.status(400).json({
+        error: "req and signature are required",
+      });
+    }
+
+    const sender = forwardRequest.from.toLowerCase();
+
+    const isWhitelisted = await isUserWhitelistedForGSN(sender);
+    if (!isWhitelisted) {
+      return res.status(403).json({
+        error: "Not whitelisted for GSN",
+        address: sender,
+      });
+    }
+
+    const relayerSigner = getRelayerSigner();
+    const forwarder = getForwarder().connect(relayerSigner);
+
+    console.log("[GSN] Relaying meta-tx for:", sender);
+
+    const tx = await forwarder.execute(
+      forwardRequest,
+      signature,
+      {
+        gasLimit: Number(forwardRequest.gas) + 100000,
+      }
+    );
+
+    const receipt = await tx.wait();
+
+    return res.json({
+      success: true,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+    });
+
+  } catch (err) {
+    console.error("[GSN] Relay error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+

@@ -298,10 +298,10 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
 
     for (const claimId of commonClaimIds) {
       try {
-        const claimIdBytes32 = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(claimId));
+        const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
         const claimHash = await contract.getClaim(subjectAddress, claimIdBytes32);
 
-        if (claimHash !== ethers.utils.utils.ZeroHash) { // claim is anchored
+        if (claimHash !== ethers.ZeroHash) { // claim is anchored
           if (!suggestions.has(claimId)) {
             suggestions.set(claimId, {
               claim_id: claimId,

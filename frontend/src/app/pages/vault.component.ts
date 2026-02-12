@@ -19,7 +19,16 @@ import { ProfileStateService } from '../services/profile-state.service';
 import { StorageService } from '../services/storage.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GSNService } from '../services/gsn.service';
+import { MetaTxService } from '../services/metaTx.service';
+import ForwarderArtifact from '../abi/Forwarder.json';
+import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';
+import { HttpClient } from '@angular/common/http';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { environment } from '../../environments/environment';
+
+const ForwarderAbi = ForwarderArtifact.abi;
+const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
+
 
 @Component({
   selector: 'app-vault',
@@ -1406,6 +1415,9 @@ export class VaultComponent implements OnInit, OnDestroy {
   
   // NEW: Inject GSN service
   private gsnService = inject(GSNService);
+  private metaTx = inject(MetaTxService);
+  private http = inject(HttpClient);
+
 
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
@@ -1634,59 +1646,54 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
-  // NEW: Gasless profile creation
-  private async createProfileGasless(cid: string) {
-    this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
-    
-    try {
-      // 1. Prepare GSN transaction via backend
-      const txData = await this.gsnService.prepareRegisterIdentity(cid);
-      
-      // 2. Send via GSN (using wallet service)
-      const txResponse = await this.wallet.sendTransactionWithFallback(txData, true);
-      
-      // 3. Show success
-      const txHash = txResponse.hash;
-      const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
-      
-      const snackBarRef = this.snackBar.open(
-        `✅ Profile created GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
-        'View',
-        {
-          duration: 10000,
-          panelClass: ['success-snackbar', 'gasless-snackbar']
+      // NEW: Gasless profile creation
+      private async createProfileGasless(address: string) {
+      this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
+
+      try {
+        // 1️⃣ Build & sign meta transaction in browser
+        const { req, signature } = await this.metaTx.buildAndSignMetaTx({
+          forwarderAddress: environment.forwarderAddress,
+          forwarderAbi: ForwarderAbi,
+          targetAddress: environment.identityRegistryAddress,
+          targetAbi: IdentityRegistryAbi,
+          functionName: "registerIdentity",
+          functionArgs: [address]
+        });
+
+        // 2️⃣ Send to backend relayer
+        const response: any = await this.http.post(
+          `${environment.backendUrl}/relay`,
+          { req, signature }
+        ).toPromise();
+
+        const txHash = response.txHash;
+        const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+
+        const snackBarRef = this.snackBar.open(
+          `✅ Profile created GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
+          'View',
+          { duration: 10000 }
+        );
+
+        snackBarRef.onAction().subscribe(() => {
+          window.open(explorerUrl, '_blank');
+        });
+
+        this.profileState.setProfileStatus(true, false, null);
+
+      } catch (error: any) {
+        console.error('Gasless profile creation failed:', error);
+
+        const fallback = confirm('Gasless creation failed. Try regular transaction?');
+        if (fallback) {
+          await this.createProfileRegular(address);
+        } else {
+          throw error;
         }
-      );
-      
-      snackBarRef.onAction().subscribe(() => {
-        window.open(explorerUrl, '_blank');
-      });
-      
-      this.snackBar.open('Gasless transaction submitted! Waiting for confirmation...', 'Close', { duration: 3000 });
-      
-      // Wait for confirmation
-      if (txResponse.wait) {
-        await txResponse.wait();
-        this.snackBar.open('✅ Gasless profile creation confirmed!', 'Close', { duration: 5000 });
-      }
-      
-      this.profileState.setProfileStatus(true, false, null);
-      
-    } catch (error: any) {
-      console.error('Gasless profile creation failed:', error);
-      
-      // Offer fallback to regular
-      const fallback = confirm('Gasless creation failed. Try with regular transaction?');
-      if (fallback) {
-        this.useGasless.set(false);
-        // Save preference
-        await this.storage.setItem('prefer_gasless', 'false');
-        await this.createProfileRegular(cid);
-      } else {
-        throw error;
       }
     }
-  }
+
 
   // EXISTING: Regular profile creation (UNCHANGED)
   private async createProfileRegular(address: string) {

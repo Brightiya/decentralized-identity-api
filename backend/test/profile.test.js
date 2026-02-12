@@ -144,9 +144,15 @@ describe("Profile Routes Integration", () => {
       .get(`/api/profile/${otherAddress}`)
       .set("Authorization", `Bearer ${validJwtToken}`);
 
-    expect(res.status).to.equal(404);
-    expect(res.body.error).to.equal("Profile not found");
-   // expect(res.body.error).to.include("No valid active consent");
+    expect(res.status).to.equal(200);
+    expect(res.body).to.have.property("did");
+    expect(res.body).to.have.property("attributes");
+    expect(res.body).to.have.property("online_links");
+    expect(res.body).to.have.property("credentials");
+
+    expect(res.body.attributes).to.deep.equal({});
+    expect(res.body.online_links).to.deep.equal({});
+    expect(res.body.credentials).to.deep.equal([]);
   });
 
   it("GET /api/profile/:address?context=profile should filter by context", async () => {
@@ -165,7 +171,7 @@ describe("Profile Routes Integration", () => {
       .get(`/api/profile/${unknownAddress}`)
       .set("Authorization", `Bearer ${validJwtToken}`);
 
-    expect(res.status).to.equal(404);
+    expect(res.status).to.equal(200);
     
     //expect(res.body.error).to.equal("Profile not found");
   });
@@ -179,8 +185,15 @@ it("GET /api/profile/:address should return 200 when no profile exists (fallback
     .get(`/api/profile/${unknown}`)
     .set("Authorization", `Bearer ${validJwtToken}`);
 
-  expect(res.status).to.equal(404);
-  expect(res.body).to.have.property("error", "Profile not found");
+  expect(res.status).to.equal(200);
+  expect(res.body).to.have.property("did");
+  expect(res.body).to.have.property("attributes");
+  expect(res.body).to.have.property("online_links");
+  expect(res.body).to.have.property("credentials");
+
+  expect(res.body.attributes).to.deep.equal({});
+  expect(res.body.online_links).to.deep.equal({});
+  expect(res.body.credentials).to.deep.equal([]);
   
 });
 

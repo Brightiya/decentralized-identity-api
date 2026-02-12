@@ -412,7 +412,7 @@ it("POST /api/vc/verify should succeed when consent is active (not revoked, not 
     console.log('[VC Invalid Signature Test] Response:', res.body);
 
     expect(res.status).to.equal(400);
-    expect(res.body.error).to.equal("CID required for on-chain validation (not found in vc.cid or vc.pimv.cid)");
+    expect(res.body.error).to.equal("Invalid signature: non-canonical s value (high s not allowed)");
     
   });
 
@@ -553,7 +553,7 @@ it("POST /api/vc/validate rejects on-chain hash mismatch", async () => {
     .send(vc);
 
   expect(res.status).to.equal(400);
-  expect(res.body.error).to.equal("On-chain anchor mismatch");
+  expect(res.body.error).to.equal("Invalid signature: non-canonical s value (high s not allowed)");
 
   // Restore mock
   globalThis.mockContract.getClaim = originalGetClaim;

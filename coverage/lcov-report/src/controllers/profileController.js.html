@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52.33% </span>
+                <span class="strong">51.4% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>56/107</span>
+                <span class='fraction'>55/107</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">54.41% </span>
+                <span class="strong">55.88% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>37/68</span>
+                <span class='fraction'>38/68</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52.33% </span>
+                <span class="strong">51.4% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>56/107</span>
+                <span class='fraction'>55/107</span>
             </div>
         
             
@@ -525,13 +525,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -541,27 +541,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
@@ -585,7 +585,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -824,8 +824,8 @@ export const getProfile = async (req, res) =&gt; {
     const contract = getContract(); // 🔑 lazy
 &nbsp;
     const cid = await contract.getProfileCID(address.toLowerCase());
-    if (!cid || cid.length === 0) {
-      return res.status(404).json({ error: "Profile not found" });
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!cid || cid.length === 0) {
+<span class="cstat-no" title="statement not covered" >      return res.status(404).json({ error: "Profile not found" });</span>
     }
 &nbsp;
     const preferred = req.headers['x-preferred-gateway'] || null;
@@ -841,7 +841,7 @@ export const getProfile = async (req, res) =&gt; {
     }
 &nbsp;
     // Prefer data from the requested context (new structure)
-    const ctxData = profile.contexts?.[context] || <span class="branch-1 cbranch-no" title="branch not covered" >{};</span>
+    const ctxData = profile.contexts?.[context] || {};
 &nbsp;
     // Build attributes — context first, then fallback to old top-level (for migration)
     let attributes = {
@@ -856,7 +856,7 @@ export const getProfile = async (req, res) =&gt; {
     };
 &nbsp;
     // Filter credentials by requested context
-    const credentials = (profile.credentials || <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>.filter(
+    const credentials = (profile.credentials || []).filter(
       c =&gt; c.context === context
     );
 &nbsp;
@@ -970,7 +970,7 @@ export const eraseProfile = <span class="fstat-no" title="function not covered" 
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-09T15:13:23.716Z
+                at 2026-02-12T09:18:07.333Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

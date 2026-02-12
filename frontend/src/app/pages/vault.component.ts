@@ -1647,7 +1647,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
       // NEW: Gasless profile creation
-      private async createProfileGasless(address: string) {
+      private async createProfileGasless(cid: string) {
       this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
 
       try {
@@ -1658,7 +1658,7 @@ export class VaultComponent implements OnInit, OnDestroy {
           targetAddress: environment.identityRegistryAddress,
           targetAbi: IdentityRegistryAbi,
           functionName: "registerIdentity",
-          functionArgs: [address]
+          functionArgs: [cid]
         });
 
         // 2️⃣ Send to backend relayer
@@ -1687,7 +1687,7 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         const fallback = confirm('Gasless creation failed. Try regular transaction?');
         if (fallback) {
-          await this.createProfileRegular(address);
+          await this.createProfileRegular(cid);
         } else {
           throw error;
         }

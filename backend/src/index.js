@@ -87,46 +87,6 @@ app.post('/api/auth/verify', verifySignature);
 
 app.use("/gsn", gsnRoutes);
 
-// Option 2: OR if you want to separate public vs protected GSN routes:
-/*
-import gsnRoutes from "./routes/gsnRoutes.js";
-
-// Create separate routers for public vs protected GSN routes
-const gsnPublicRouter = express.Router();
-const gsnProtectedRouter = express.Router();
-
-// Public GSN routes
-gsnPublicRouter.get('/config', (req, res, next) => {
-  import('./controllers/gsnController.js')
-    .then(module => module.getGSNConfig(req, res, next))
-    .catch(next);
-});
-
-gsnPublicRouter.get('/status', (req, res, next) => {
-  import('./controllers/gsnController.js')
-    .then(module => module.getGSNStatus(req, res, next))
-    .catch(next);
-});
-
-gsnPublicRouter.get('/whitelist/:address', (req, res, next) => {
-  import('./controllers/gsnController.js')
-    .then(module => module.checkGSNWhitelist(req, res, next))
-    .catch(next);
-});
-
-// Protected GSN routes (require auth)
-gsnProtectedRouter.use(authMiddleware);
-// Mount the remaining gsnRoutes (prepare-* endpoints) under protected router
-const { Router } = express;
-const gsnSubRoutes = Router();
-// You'd need to modify gsnRoutes to only have the protected routes
-// or extract them differently
-
-// Mount both
-app.use("/gsn", gsnPublicRouter);
-app.use("/gsn", gsnProtectedRouter);
-*/
-
 // ────────────────────────────────────────────────
 // Protected API Routes (JWT auth required)
 // ────────────────────────────────────────────────

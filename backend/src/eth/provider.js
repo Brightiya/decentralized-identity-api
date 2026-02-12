@@ -8,9 +8,7 @@ let provider;
  */
 export function createProvider() {
   const rpcUrl =
-    process.env.PROVIDER_URL ||
-    process.env.RPC_URL ||
-    "http://127.0.0.1:8545";
+    process.env.PROVIDER_URL;
 
   if (!rpcUrl) {
     throw new Error("❌ Missing PROVIDER_URL for Ethereum provider");

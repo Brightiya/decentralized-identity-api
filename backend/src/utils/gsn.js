@@ -1,3 +1,4 @@
+import {JsonRpcProvider } from "ethers";
 import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
@@ -14,7 +15,7 @@ const contractData = JSON.parse(
 );
 
 // --- 1️⃣ Provider ---
-const provider = new ethers.JsonRpcProvider(
+const provider = new JsonRpcProvider(
   process.env.SEPOLIA_RPC_URL
 );
 

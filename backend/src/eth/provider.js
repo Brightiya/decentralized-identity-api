@@ -1,4 +1,4 @@
-import {ethers} from "ethers";
+import { JsonRpcProvider } from "ethers";
 
 let provider;
 
@@ -14,7 +14,7 @@ export function createProvider() {
     throw new Error("❌ Missing PROVIDER_URL for Ethereum provider");
   }
 
-  const p = new ethers.JsonRpcProvider(rpcUrl, undefined, {
+  const p = new JsonRpcProvider(rpcUrl, undefined, {
     polling: false,            // 🚫 no background polling
     staticNetwork: true,       // 🚫 no network auto-detect
   });

@@ -1,5 +1,6 @@
 // backend/src/utils/contract-gsn.js
-import { ethers } from "ethers";
+import { JsonRpcProvider } from "ethers";
+import{ethers} from "ethers";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -70,7 +71,7 @@ function getRegularProvider() {
     if (!rpcUrl) {
       throw new Error("RPC URL not configured for GSN");
     }
-    _regularProvider = new ethers.JsonRpcProvider(rpcUrl);
+    _regularProvider = new JsonRpcProvider(rpcUrl);
   }
   return _regularProvider;
 }
@@ -151,7 +152,7 @@ export async function getGSNProvider() {
     }).init();
     
     
-    _gsnProvider = new ethers.BrowserProvider(relayProvider);
+    _gsnProvider = new BrowserProvider(relayProvider);
     console.log('✅ GSN provider initialized');
     return _gsnProvider;
     

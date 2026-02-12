@@ -41,7 +41,7 @@ export class MetaTxService {
     }
 
     // v6 provider
-    const provider = new BrowserProvider((window as any).ethereum);
+    const provider = new ethers.BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
     const from = await signer.getAddress();
 

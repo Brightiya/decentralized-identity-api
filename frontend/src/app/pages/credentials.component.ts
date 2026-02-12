@@ -932,7 +932,7 @@ async issueVC() {
 
           // 2️⃣ Send to backend relayer (SAME AS VAULT)
           const relayResponse: any = await this.http.post(
-            `${environment.backendUrl}/relay`,
+            `${environment.backendUrl}/gsn/relay`,
             { req, signature }
           ).toPromise();
 

@@ -1663,7 +1663,7 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         // 2️⃣ Send to backend relayer
         const response: any = await this.http.post(
-          `${environment.backendUrl}/relay`,
+          `${environment.backendUrl}/gsn/relay`,
           { req, signature }
         ).toPromise();
 

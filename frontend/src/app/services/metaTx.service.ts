@@ -61,9 +61,9 @@ export class MetaTxService {
     const req = {
       from,
       to: targetAddress,
-      value: 0n,
-      gas: 1_000_000n,
-      nonce, // bigint
+      value: "0",
+      gas: "1000000",
+      nonce: nonce.toString(), // bigint
       data
     };
 
@@ -85,9 +85,9 @@ export class MetaTxService {
           this.TYPEHASH,
           req.from,
           req.to,
-          req.value,
-          req.gas,
-          req.nonce,
+          BigInt(req.value),
+          BigInt(req.gas),
+          BigInt(req.nonce),
           ethers.keccak256(req.data)
         ]
       )

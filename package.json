@@ -19,7 +19,8 @@
   "dependencies": {
     "qrcode": "^1.5.4",
     "readable-stream": "^4.7.0",
-    "typescript": "5.4.5"
+    "typescript": "5.4.5",
+    "web3": "^4.16.0"
   },
   "resolutions": {
     "typescript": "5.4.5"

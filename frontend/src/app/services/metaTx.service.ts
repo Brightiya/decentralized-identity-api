@@ -26,7 +26,8 @@ export class MetaTxService {
     targetAddress,
     targetAbi,
     functionName,
-    functionArgs
+    functionArgs,
+    rawData
   }: {
     forwarderAddress: string;
     forwarderAbi: any[];
@@ -34,6 +35,7 @@ export class MetaTxService {
     targetAbi: any[];
     functionName: string;
     functionArgs: any[];
+    rawData?: string;
   }) {
 
     if (!(window as any).ethereum) {
@@ -55,8 +57,18 @@ export class MetaTxService {
     const nonce = await forwarder['getNonce'](from); // returns bigint in v6
 
     // v6 Interface
-    const iface = new Interface(targetAbi);
-    const data = iface.encodeFunctionData(functionName, functionArgs);
+    let data: string;
+
+    if (rawData) {
+      data = rawData;
+    } else {
+      if (!targetAbi || !functionName) {
+        throw new Error("Either rawData or (targetAbi + functionName) must be provided");
+      }
+      const iface = new Interface(targetAbi);
+      data = iface.encodeFunctionData(functionName, functionArgs ?? []);
+    }
+
 
     const req = {
       from,

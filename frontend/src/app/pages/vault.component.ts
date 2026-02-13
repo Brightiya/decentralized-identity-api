@@ -1646,28 +1646,44 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
   }
 
-      // NEW: Gasless profile creation
-      private async createProfileGasless(cid: string) {
+      
+      // NEW: Gasless profile creation (FIXED – reuses backend logic)
+    private async createProfileGasless(address: string) {
       this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
 
       try {
-        // 1️⃣ Build & sign meta transaction in browser
+        // 1️⃣ Call SAME backend endpoint as regular flow
+        //    This builds profile JSON, uploads to IPFS, and prepares registerIdentity(cid)
+        const payload = { owner: address };
+        const response = await firstValueFrom(this.api.createProfile(payload));
+
+        if (!response.unsignedTx) {
+          throw new Error("Backend did not return unsignedTx for gasless mode");
+        }
+
+        // 2️⃣ Extract encoded contract call data from backend
+        const { to, data } = response.unsignedTx;
+
+        // 3️⃣ Build & sign meta transaction using EXISTING metaTx service
         const { req, signature } = await this.metaTx.buildAndSignMetaTx({
           forwarderAddress: environment.forwarderAddress,
           forwarderAbi: ForwarderAbi,
-          targetAddress: environment.identityRegistryAddress,
-          targetAbi: IdentityRegistryAbi,
-          functionName: "registerIdentity",
-          functionArgs: [cid]
+          targetAddress: to,                  // ← use backend-provided target
+          targetAbi: IdentityRegistryAbi,     // unchanged
+          functionName: "",                   // not needed
+          functionArgs: []                    // not needed
         });
 
-        // 2️⃣ Send to backend relayer
-        const response: any = await this.http.post(
+        // ⚠ Override auto-encoded data with backend-provided encoded call
+        req.data = data;
+
+        // 4️⃣ Send to backend relayer
+        const relayResponse: any = await this.http.post(
           `${environment.backendUrl}/gsn/relay`,
           { req, signature }
         ).toPromise();
 
-        const txHash = response.txHash;
+        const txHash = relayResponse.txHash;
         const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
         const snackBarRef = this.snackBar.open(
@@ -1687,12 +1703,13 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         const fallback = confirm('Gasless creation failed. Try regular transaction?');
         if (fallback) {
-          await this.createProfileRegular(cid);
+          await this.createProfileRegular(address);
         } else {
           throw error;
         }
       }
     }
+
 
 
   // EXISTING: Regular profile creation (UNCHANGED)

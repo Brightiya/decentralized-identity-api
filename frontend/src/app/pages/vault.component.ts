@@ -1670,7 +1670,7 @@ export class VaultComponent implements OnInit, OnDestroy {
           forwarderAbi: ForwarderAbi,
           targetAddress: to,                  // ← use backend-provided target
           targetAbi: IdentityRegistryAbi,     // unchanged
-          functionName: "registerIdentity",                  
+          functionName: "",                  
           functionArgs: data                   
         });
 

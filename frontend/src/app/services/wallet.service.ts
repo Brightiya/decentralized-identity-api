@@ -105,13 +105,13 @@ export class WalletService {
     this.provider = null;
 
     try {
-      if (window.ethereum) {
+      if (!window.ethereum) {
+          throw new Error('MetaMask not detected');
+        }
+
         await this.useMetaMask();
-      } else if (this.customRpc()) {
-        await this.useHardhat(this.customRpc());
-      } else {
-        await this.useHardhat(environment.PROVIDER_URL || 'http://127.0.0.1:8545');
-      }
+        await this.ensureCorrectChain();
+
 
       if (!this.signer) throw new Error('Signer did not initialize, please refresh the browser and try again');
 

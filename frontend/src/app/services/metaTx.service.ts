@@ -87,7 +87,7 @@ export class MetaTxService {
     const domain = {
       name: "Forwarder",
       version: "1",
-      chainId: (await provider.getNetwork()).chainId,// Base Sepolia
+      chainId:  84532,// Base Sepolia
       verifyingContract: forwarderAddress
     };
 

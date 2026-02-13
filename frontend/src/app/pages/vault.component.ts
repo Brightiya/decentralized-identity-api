@@ -94,20 +94,6 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
             <code class="did">did:ethr:{{ address }}</code>
           </div>
 
-          <!-- GASLESS STATUS INDICATOR - NEW -->
-          <div class="gasless-status" *ngIf="gsnEnabled()">
-            <div class="status-indicator" [class.success]="gsnWhitelisted()" [class.warning]="!gsnWhitelisted()">
-              <mat-icon>{{ gsnWhitelisted() ? 'rocket_launch' : 'info' }}</mat-icon>
-              <span>
-                {{ gsnWhitelisted() ? '✅ Gasless mode available' : '⚠️ Gasless mode not available' }}
-              </span>
-            </div>
-            <p class="gasless-hint" *ngIf="!gsnWhitelisted()">
-              You need to be whitelisted for gasless transactions.
-              <a href="#" (click)="requestWhitelist($event)">Request whitelist</a>
-            </p>
-          </div>
-
           <div class="connection-status success">
             <mat-icon>check_circle</mat-icon>
             <span>Wallet connected successfully</span>
@@ -237,45 +223,25 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
               <strong>Powered by GSN on Base Sepolia testnet.</strong>
             </p>
 
-            <div class="gasless-toggle" *ngIf="gsnEnabled()">
-              <mat-checkbox  [checked]="useGasless()"
-                (change)="toggleGaslessPreference()"
-                [disabled]="!gsnWhitelisted()">
-                <span class="gasless-toggle-label">
-                  <mat-icon class="toggle-icon">local_gas_station</mat-icon>
-                   Use gasless transactions
-                </span>
-              </mat-checkbox>
+            
               
               <div class="gasless-status-detail" *ngIf="useGasless()">
-                <div class="gasless-benefit" *ngIf="gsnWhitelisted()">
+               
                   <mat-icon>check_circle</mat-icon>
                   <span>🎉 Your transactions will be gas-free!</span>
-                </div>
-                <div class="gasless-warning" *ngIf="!gsnWhitelisted()">
-                  <mat-icon>warning</mat-icon>
-                  <span>You need to be whitelisted for gasless transactions.</span>
-                  <a href="#" (click)="requestWhitelist($event)" class="whitelist-link">Request access</a>
-                </div>
-              </div>
-            </div>
 
-            <div class="gasless-info" *ngIf="!gsnEnabled()">
-              <div class="status-pill info">
-                <mat-icon>info</mat-icon>
-                Gasless mode not available on this server
-              </div>
-            </div>
+                </div>
+            
 
             <!-- Gasless statistics -->
-            <div class="gasless-stats" *ngIf="gsnEnabled() && gsnWhitelisted()">
+           
               <div class="stat-item">
                 <mat-icon class="stat-icon">flash_on</mat-icon>
                 <div class="stat-content">
                   <div class="stat-label">Gas Savings</div>
                   <div class="stat-value">100%</div>
                 </div>
-              </div>
+            
               <div class="stat-item">
                 <mat-icon class="stat-icon">speed</mat-icon>
                 <div class="stat-content">
@@ -400,7 +366,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
               </div>
 
               <!-- GASLESS CREATION OPTION - NEW -->
-              <div class="gasless-creation-option" *ngIf="gsnEnabled()">
+
                 <div class="creation-mode-selector">
                   <div class="mode-option" [class.active]="!useGasless()" (click)="useGasless.set(false)">
                     <mat-icon class="mode-icon">paid</mat-icon>
@@ -413,11 +379,11 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
                         <li>• Immediate confirmation</li>
                       </ul>
                     </div>
-                  </div>
+              
                   
-                  <div class="mode-option" [class.active]="useGasless() && gsnWhitelisted()" 
-                       [class.disabled]="!gsnWhitelisted()"
-                       (click)="gsnWhitelisted() && useGasless.set(true)">
+                  <div class="mode-option" [class.active]="useGasless()" 
+                       
+                       (click)="useGasless.set(true)">
                     <mat-icon class="mode-icon">rocket_launch</mat-icon>
                     <div class="mode-content">
                       <h4>Gasless</h4>
@@ -427,50 +393,32 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
                         <li>• Powered by GSN</li>
                         <li>• Sponsored by app</li>
                       </ul>
-                      <div class="mode-badge" *ngIf="gsnWhitelisted()">AVAILABLE</div>
-                      <div class="mode-badge warning" *ngIf="!gsnWhitelisted()">NEEDS WHITELIST</div>
+                  
                     </div>
                   </div>
                 </div>
 
-                <!-- Gasless specific instructions -->
-                <div class="gasless-instructions" *ngIf="useGasless()">
-                  <div class="instructions-card" [class.success]="gsnWhitelisted()" [class.warning]="!gsnWhitelisted()">
-                    <mat-icon class="instructions-icon">
-                      {{ gsnWhitelisted() ? 'check_circle' : 'warning' }}
-                    </mat-icon>
-                    <div class="instructions-content">
-                      <h4>{{ gsnWhitelisted() ? 'Ready for Gasless Creation' : 'Whitelist Required' }}</h4>
-                      <p *ngIf="gsnWhitelisted()">
-                        Your profile will be created without any gas fees. The transaction will be sponsored by the application.
-                      </p>
-                      <p *ngIf="!gsnWhitelisted()">
-                        You need to be whitelisted to use gasless transactions. 
-                        <a href="#" (click)="requestWhitelist($event)">Request access from admin</a>.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            
               </div>
 
               <!-- CREATE PROFILE BUTTON - UPDATED -->
               <button mat-flat-button 
                       color="primary" 
                       (click)="createProfile()" 
-                      [disabled]="loading() || (useGasless() && !gsnWhitelisted())"
+                      [disabled]="loading() || (useGasless())"
                       class="create-profile-btn"
                       [ngClass]="{
-                        'gasless-btn': useGasless() && gsnWhitelisted(),
-                        'regular-btn': !useGasless() || !gsnWhitelisted()
+                        'gasless-btn': useGasless(),
+                        'regular-btn': !useGasless()
                       }">
                 <mat-icon *ngIf="!loading()">
-                  {{ useGasless() && gsnWhitelisted() ? 'rocket_launch' : 'add_box' }}
+                  {{ useGasless() ? 'rocket_launch' : 'add_box' }}
                 </mat-icon>
                 <span>{{ getCreateButtonText() }}</span>
               </button>
 
               <!-- Fallback notice -->
-              <p class="fallback-notice" *ngIf="useGasless() && gsnWhitelisted()">
+              <p class="fallback-notice" *ngIf="useGasless()">
                 <small>If gasless fails, you'll be prompted to use regular mode.</small>
               </p>
             </div>
@@ -479,9 +427,6 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
           <div class="refresh-section">
             <button mat-stroked-button (click)="checkProfile()" [disabled]="loading()">
               <mat-icon>refresh</mat-icon> Refresh Status
-            </button>
-            <button mat-stroked-button (click)="checkGSNStatus(wallet.address!)" *ngIf="wallet.address" class="gsn-refresh-btn">
-              <mat-icon>update</mat-icon> Check Gasless Status
             </button>
           </div>
         </ng-template>
@@ -1413,8 +1358,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   private profileState = inject(ProfileStateService);
   private storage = inject(StorageService);
   
-  // NEW: Inject GSN service
-  private gsnService = inject(GSNService);
+ 
   private metaTx = inject(MetaTxService);
   private http = inject(HttpClient);
 
@@ -1423,9 +1367,7 @@ export class VaultComponent implements OnInit, OnDestroy {
   isErased = this.profileState.isErased;
   erasedAt = this.profileState.erasedAt;
 
-  // NEW: GSN-related signals
-  gsnEnabled = signal<boolean>(false);
-  gsnWhitelisted = signal<boolean>(false);
+ 
   useGasless = signal<boolean>(true); // Default to gasless if available
 
   private sub?: Subscription;
@@ -1493,44 +1435,13 @@ export class VaultComponent implements OnInit, OnDestroy {
           sessionStorage.removeItem('erasedDid');
           sessionStorage.removeItem('erasedAt');
         }
-        // NEW: Check GSN status when wallet connects
-        await this.checkGSNStatus(address);
         this.checkProfile();
-      } else {
-        this.profileState.reset();
-        // NEW: Reset GSN status when wallet disconnects
-        this.gsnEnabled.set(false);
-        this.gsnWhitelisted.set(false);
       }
     });
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
-  }
-
-  // NEW: Check GSN status and whitelist
-  async checkGSNStatus(address: string) {
-    try {
-      // Check if GSN is enabled on backend
-      const status = await this.gsnService.checkGSNStatus();
-      this.gsnEnabled.set(status.gsnEnabled);
-      
-      if (status.gsnEnabled && address) {
-        // Check if user is whitelisted
-        const whitelisted = await this.gsnService.checkWhitelist(address);
-        this.gsnWhitelisted.set(whitelisted);
-        
-        // Auto-enable gasless if whitelisted and user hasn't explicitly disabled it
-        if (whitelisted && this.useGasless()) {
-          await this.storage.setItem('prefer_gasless', 'true');
-        }
-      }
-    } catch (error) {
-      console.warn('GSN status check failed:', error);
-      this.gsnEnabled.set(false);
-      this.gsnWhitelisted.set(false);
-    }
   }
 
   async checkProfile() {
@@ -1574,11 +1485,6 @@ export class VaultComponent implements OnInit, OnDestroy {
       this.loading.set(true);
       await this.wallet.connect();
       await this.storage.initEncryption();
-      
-      // NEW: Check GSN status after connection
-      if (this.wallet.address) {
-        await this.checkGSNStatus(this.wallet.address);
-      }
     } catch (e: any) {
       this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
@@ -1594,18 +1500,15 @@ export class VaultComponent implements OnInit, OnDestroy {
 
   // NEW: Get create button text based on mode
   getCreateButtonText(): string {
-    if (this.loading()) {
-      return 'Creating...';
-    }
-    
-    if (this.useGasless() && this.gsnWhitelisted()) {
-      return 'Create Profile (Gasless)';
-    } else if (this.useGasless() && !this.gsnWhitelisted()) {
-      return 'Create Profile (Needs Whitelist)';
-    } else {
-      return 'Create Vault Profile';
-    }
+  if (this.loading()) {
+    return 'Creating...';
   }
+
+  return this.useGasless()
+    ? 'Create Profile (Gasless)'
+    : 'Create Vault Profile';
+}
+
 
   // ────────────────────────────────────────────────
   // UPDATED: createProfile with gasless support
@@ -1618,16 +1521,10 @@ export class VaultComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Validate gasless mode
-    if (this.useGasless() && !this.gsnWhitelisted()) {
-      this.snackBar.open('You need to be whitelisted for gasless transactions', 'Close', { duration: 5000 });
-      return;
-    }
-
     this.loading.set(true);
 
     try {
-      if (this.useGasless() && this.gsnWhitelisted()) {
+      if (this.useGasless()) {
         // NEW: GASLESS FLOW
         await this.createProfileGasless(address);
       } else {
@@ -1666,21 +1563,16 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         // 3️⃣ Build & sign meta transaction using EXISTING metaTx service
         const { req, signature } = await this.metaTx.buildAndSignMetaTx({
-          forwarderAddress: environment.forwarderAddress,
           forwarderAbi: ForwarderAbi,
           targetAddress: to,                  // ← use backend-provided target
            rawData: data                   
         });
 
-        // ⚠ Override auto-encoded data with backend-provided encoded call
-        req.data = data;
-
         // 4️⃣ Send to backend relayer
-        const relayResponse: any = await this.http.post(
-          `${environment.backendUrl}/gsn/relay`,
-          { req, signature }
-        ).toPromise();
-
+        const relayResponse: any = await firstValueFrom(
+          this.http.post(`${environment.backendUrl}/meta/relay`,
+        { request: req, signature })
+        );
         const txHash = relayResponse.txHash;
         const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
@@ -1741,38 +1633,6 @@ export class VaultComponent implements OnInit, OnDestroy {
     }
 
     this.profileState.setProfileStatus(true, false, null);
-  }
-
-  // NEW: Request whitelist for gasless transactions
-  async requestWhitelist(event: Event) {
-    event.preventDefault();
-    
-    const address = this.wallet.address;
-    if (!address) {
-      this.snackBar.open('Connect wallet first', 'Close', { duration: 3000 });
-      return;
-    }
-    
-    // Show confirmation dialog
-    const confirmed = confirm(`Request whitelist for address:\n${address}\n\nThis will notify the admin to add you to the gasless whitelist.`);
-    
-    if (!confirmed) return;
-    
-    try {
-      // You can implement an API call here to notify admin
-      // For now, we'll just show a message
-      this.snackBar.open(`Whitelist request sent for: ${address.slice(0, 6)}...${address.slice(-4)}`, 'Close', { duration: 5000 });
-      
-      // Log the request (in production, this would be an API call)
-      console.log(`Whitelist requested for: ${address}`);
-      
-      // Optionally, you could call a backend endpoint:
-      // await firstValueFrom(this.api.requestWhitelist({ address }));
-      
-    } catch (error) {
-      console.error('Whitelist request failed:', error);
-      this.snackBar.open('Failed to send whitelist request', 'Close', { duration: 5000 });
-    }
   }
 
   // ────────────────────────────────────────────────

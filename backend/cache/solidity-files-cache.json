@@ -37,82 +37,6 @@
         "IdentityRegistry"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/IdentityRegistryGSN.sol": {
-      "lastModificationDate": 1770792042435,
-      "contentHash": "a80e163ac9c668d2eaeba371323fbf33",
-      "sourceName": "contracts/IdentityRegistryGSN.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./gsn/BaseRelayRecipient.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "IdentityRegistryGSN"
-      ]
-    },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/gsn/BaseRelayRecipient.sol": {
-      "lastModificationDate": 1770473179985,
-      "contentHash": "a307954e9b0a55ecb6be1eb135d2e4c7",
-      "sourceName": "contracts/gsn/BaseRelayRecipient.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../interfaces/IRelayRecipient.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.0"
-      ],
-      "artifacts": [
-        "BaseRelayRecipient"
-      ]
-    },
     "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/interfaces/IRelayRecipient.sol": {
       "lastModificationDate": 1770472977558,
       "contentHash": "0e7d13af2ea66471071e07593bdc23ea",
@@ -149,10 +73,10 @@
         "IRelayRecipient"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/gsn/Forwarder.sol": {
-      "lastModificationDate": 1770815622666,
-      "contentHash": "4f2daca96d739c2f6a2b08735625c3d4",
-      "sourceName": "contracts/gsn/Forwarder.sol",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/metatx/ERC2771Forwarder.sol": {
+      "lastModificationDate": 1770961190914,
+      "contentHash": "27c14cf249d65ed0709be7a102d5270d",
+      "sourceName": "@openzeppelin/contracts/metatx/ERC2771Forwarder.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -178,19 +102,175 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
-        "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol"
+        "./ERC2771Context.sol",
+        "../utils/cryptography/ECDSA.sol",
+        "../utils/cryptography/EIP712.sol",
+        "../utils/Nonces.sol",
+        "../utils/Address.sol",
+        "../utils/Errors.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Forwarder"
+        "ERC2771Forwarder"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
-      "lastModificationDate": 1770811032756,
-      "contentHash": "b96e0d7a3c2b185342c7d083d765b61f",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Errors.sol": {
+      "lastModificationDate": 1770961190086,
+      "contentHash": "6b5eac2b85500c3012977849cfd633d8",
+      "sourceName": "@openzeppelin/contracts/utils/Errors.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Errors"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/metatx/ERC2771Context.sol": {
+      "lastModificationDate": 1770961190912,
+      "contentHash": "8134497881ef436b0cedeaf191f626ed",
+      "sourceName": "@openzeppelin/contracts/metatx/ERC2771Context.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../utils/Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ERC2771Context"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Address.sol": {
+      "lastModificationDate": 1770961190000,
+      "contentHash": "2a06d82f31f75087bf90231599da4f1c",
+      "sourceName": "@openzeppelin/contracts/utils/Address.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Errors.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Address"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/cryptography/EIP712.sol": {
+      "lastModificationDate": 1770961189970,
+      "contentHash": "d67dfba302ed2489324d7584625c3bde",
+      "sourceName": "@openzeppelin/contracts/utils/cryptography/EIP712.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./MessageHashUtils.sol",
+        "../ShortStrings.sol",
+        "../../interfaces/IERC5267.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "EIP712"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
+      "lastModificationDate": 1770961189968,
+      "contentHash": "81de029d56aa803972be03c5d277cb6c",
       "sourceName": "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -224,9 +304,117 @@
         "ECDSA"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/node_modules/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol": {
-      "lastModificationDate": 1770811032760,
-      "contentHash": "9e5eec59eaffa554d6cca561dcb914eb",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Nonces.sol": {
+      "lastModificationDate": 1770961190118,
+      "contentHash": "c32d108058718efb9061b88e83a83f79",
+      "sourceName": "@openzeppelin/contracts/utils/Nonces.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Nonces"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1770961190069,
+      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Context"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/interfaces/IERC5267.sol": {
+      "lastModificationDate": 1770961190879,
+      "contentHash": "6e00d2fe4bc0d5f1add753824498bb35",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC5267.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.4.16"
+      ],
+      "artifacts": [
+        "IERC5267"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol": {
+      "lastModificationDate": 1770961189985,
+      "contentHash": "260f3968eefa3bbd30520cff5384cd93",
       "sourceName": "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -262,9 +450,47 @@
         "MessageHashUtils"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
-      "lastModificationDate": 1770811032818,
-      "contentHash": "ba57ff4ddf1d9cae9d2009792795b7f6",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/ShortStrings.sol": {
+      "lastModificationDate": 1770961190153,
+      "contentHash": "c1be9487e5a64acf23b5d8028482e748",
+      "sourceName": "@openzeppelin/contracts/utils/ShortStrings.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./StorageSlot.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ShortStrings"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
+      "lastModificationDate": 1770961190161,
+      "contentHash": "d8f70caf0e0c77dc908176ed44812fb7",
       "sourceName": "@openzeppelin/contracts/utils/Strings.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -292,6 +518,7 @@
       },
       "imports": [
         "./math/Math.sol",
+        "./math/SafeCast.sol",
         "./math/SignedMath.sol"
       ],
       "versionPragmas": [
@@ -301,10 +528,10 @@
         "Strings"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
-      "lastModificationDate": 1770811032769,
-      "contentHash": "718fa8ba0ff269c92e364c1429d9de57",
-      "sourceName": "@openzeppelin/contracts/utils/math/Math.sol",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/math/SafeCast.sol": {
+      "lastModificationDate": 1770961190102,
+      "contentHash": "2adca1150f58fc6f3d1f0a0f22ee7cca",
+      "sourceName": "@openzeppelin/contracts/utils/math/SafeCast.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -334,12 +561,12 @@
         "^0.8.20"
       ],
       "artifacts": [
-        "Math"
+        "SafeCast"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
-      "lastModificationDate": 1770811032776,
-      "contentHash": "b6c6bdc7aaca4fe5b680760a72e09d3e",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
+      "lastModificationDate": 1770961190110,
+      "contentHash": "ae3528afb8bdb0a7dcfba5b115ee8074",
       "sourceName": "@openzeppelin/contracts/utils/math/SignedMath.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -365,7 +592,9 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "./SafeCast.sol"
+      ],
       "versionPragmas": [
         "^0.8.20"
       ],
@@ -373,10 +602,49 @@
         "SignedMath"
       ]
     },
-    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/gsn/WhitelistPaymaster.sol": {
-      "lastModificationDate": 1770481346155,
-      "contentHash": "ed3f51bf05d3fd13af28c129c3c71d3e",
-      "sourceName": "contracts/gsn/WhitelistPaymaster.sol",
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
+      "lastModificationDate": 1770961190095,
+      "contentHash": "5ec781e33d3a9ac91ffdc83d94420412",
+      "sourceName": "@openzeppelin/contracts/utils/math/Math.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "../Panic.sol",
+        "./SafeCast.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Math"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/Panic.sol": {
+      "lastModificationDate": 1770961190136,
+      "contentHash": "2133dc13536b4a6a98131e431fac59e1",
+      "sourceName": "@openzeppelin/contracts/utils/Panic.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -406,7 +674,119 @@
         "^0.8.20"
       ],
       "artifacts": [
-        "WhitelistPaymaster"
+        "Panic"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/node_modules/@openzeppelin/contracts/utils/StorageSlot.sol": {
+      "lastModificationDate": 1770961190158,
+      "contentHash": "e656d64c4ce918f3d13030b91c935134",
+      "sourceName": "@openzeppelin/contracts/utils/StorageSlot.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "StorageSlot"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/Forwarder.sol": {
+      "lastModificationDate": 1770996309213,
+      "contentHash": "4197eebf67a3b7dab89750136f3e329b",
+      "sourceName": "contracts/Forwarder.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/metatx/ERC2771Forwarder.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Forwarder"
+      ]
+    },
+    "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/contracts/IdentityRegistryMeta.sol": {
+      "lastModificationDate": 1770999574503,
+      "contentHash": "c84d220f29c64b23048d11061488d9b9",
+      "sourceName": "contracts/IdentityRegistryMeta.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/metatx/ERC2771Context.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "IdentityRegistryMeta"
       ]
     }
   }

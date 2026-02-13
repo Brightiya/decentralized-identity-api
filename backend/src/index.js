@@ -15,7 +15,7 @@ import gdprRoutes from "./routes/gdprRoutes.js";
 import disclosureRoutes from "./routes/disclosureRoutes.js";
 import consentRoutes from "./routes/consentRoutes.js";
 // Option 1: SIMPLE - Mount all GSN routes without auth for now (easier to test)
-import gsnRoutes from "./routes/gsnRoutes.js";
+import gsnRoutes from "./routes/meta.js";
 // Middleware
 import { authMiddleware } from "../middleware/auth.js";
 
@@ -85,7 +85,7 @@ app.post('/api/auth/verify', verifySignature);
 // ────────────────────────────────────────────────
 
 
-app.use("/gsn", gsnRoutes);
+app.use("/meta", gsnRoutes);
 
 // ────────────────────────────────────────────────
 // Protected API Routes (JWT auth required)

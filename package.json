@@ -8,6 +8,10 @@
     "backend",
     "frontend"
   ],
+  "nohoist": [
+    "**/@openzeppelin/contracts",
+    "**/@openzeppelin/contracts/**"
+  ],
   "scripts": {
     "lint": "yarn eslint .",
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest --detectOpenHandles --forceExit",

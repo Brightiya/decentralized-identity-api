@@ -1,5 +1,5 @@
 // src/app/services/metaTx.service.ts
-
+import { environment } from '../../environments/environment';
 import { Injectable } from '@angular/core';
 import {
   ethers,
@@ -16,12 +16,11 @@ export class MetaTxService {
 
   private TYPEHASH = ethers.keccak256(
     ethers.toUtf8Bytes(
-      "ForwardRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data)"
+       "ForwardRequestData(address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data)"
     )
   );
 
   async buildAndSignMetaTx({
-    forwarderAddress,
     forwarderAbi,
     targetAddress,
     targetAbi,
@@ -29,7 +28,6 @@ export class MetaTxService {
     functionArgs,
     rawData
   }: {
-    forwarderAddress: string;
     forwarderAbi: any[];
     targetAddress: string;
      // Optional when rawData is used
@@ -50,6 +48,7 @@ export class MetaTxService {
     const from = await signer.getAddress();
 
     // v6 contract
+    const forwarderAddress = environment.forwarderAddress;
     const forwarder = new Contract(
       forwarderAddress,
       forwarderAbi,
@@ -71,6 +70,7 @@ export class MetaTxService {
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 
     const req = {
       from,
@@ -78,40 +78,45 @@ export class MetaTxService {
       value: "0",
       gas: "1000000",
       nonce: nonce.toString(), // bigint
+      deadline,
       data
     };
     console.log("ForwardRequest being signed:", req);
 
     // v6 AbiCoder
-    const abiCoder = AbiCoder.defaultAbiCoder();
+    const domain = {
+      name: "Forwarder",
+      version: "1",
+      chainId: (await provider.getNetwork()).chainId,// Base Sepolia
+      verifyingContract: forwarderAddress
+    };
 
-    const hash = ethers.keccak256(
-      abiCoder.encode(
-        [
-          "bytes32",
-          "address",
-          "address",
-          "uint256",
-          "uint256",
-          "uint256",
-          "bytes32"
-        ],
-        [
-          this.TYPEHASH,
-          req.from,
-          req.to,
-          BigInt(req.value),
-          BigInt(req.gas),
-          BigInt(req.nonce),
-          ethers.keccak256(req.data)
-        ]
-      )
+   const types = {
+  ForwardRequestData: [
+    { name: "from", type: "address" },
+    { name: "to", type: "address" },
+    { name: "value", type: "uint256" },
+    { name: "gas", type: "uint256" },
+    { name: "nonce", type: "uint256" },
+    { name: "deadline", type: "uint48" },
+    { name: "data", type: "bytes" }
+  ]
+};
+
+
+    const signature = await signer.signTypedData(
+      domain,
+      types,
+      {
+        from: req.from,
+        to: req.to,
+        value: BigInt(req.value),
+        gas: BigInt(req.gas),
+        nonce: BigInt(req.nonce),
+        deadline: BigInt(req.deadline),
+        data: req.data
+      }
     );
-
-    const signature = await signer.signMessage(
-      ethers.getBytes(hash)
-    );
-
     return { req, signature };
   }
 }

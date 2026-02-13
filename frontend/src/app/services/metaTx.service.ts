@@ -32,9 +32,10 @@ export class MetaTxService {
     forwarderAddress: string;
     forwarderAbi: any[];
     targetAddress: string;
-    targetAbi: any[];
-    functionName: string;
-    functionArgs: any[];
+     // Optional when rawData is used
+    targetAbi?: any[];
+    functionName?: string;
+    functionArgs?: any[];
     rawData?: string;
   }) {
 

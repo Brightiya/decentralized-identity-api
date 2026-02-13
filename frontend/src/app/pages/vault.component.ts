@@ -405,7 +405,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
               <button mat-flat-button 
                       color="primary" 
                       (click)="createProfile()" 
-                      [disabled]="loading() || (useGasless())"
+                      [disabled]="loading()"
                       class="create-profile-btn"
                       [ngClass]="{
                         'gasless-btn': useGasless(),

@@ -38,6 +38,7 @@ export class MetaTxService {
     functionArgs?: any[];
     rawData?: string;
   }) {
+    console.log("MetaTx rawData:", rawData); 
 
     if (!(window as any).ethereum) {
       throw new Error("No wallet found");
@@ -79,6 +80,7 @@ export class MetaTxService {
       nonce: nonce.toString(), // bigint
       data
     };
+    console.log("ForwardRequest being signed:", req);
 
     // v6 AbiCoder
     const abiCoder = AbiCoder.defaultAbiCoder();

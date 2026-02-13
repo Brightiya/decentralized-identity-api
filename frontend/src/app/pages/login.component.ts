@@ -949,28 +949,16 @@ export class LoginComponent {
 
   try {
     // Step 1: Ensure wallet is connected at all
-    if (!this.wallet.address) {
+    const address = await firstValueFrom(this.wallet.address$);
+
+    if (!address) {
       throw new Error('Wallet not connected - please connect first');
     }
-
     // Step 2: Wait for signer with progressive retries + longer total time
-    let signerReady = false;
-    const maxRetries = 20; // ~10 seconds total (500ms × 20)
-    for (let i = 0; i < maxRetries; i++) {
-      if (this.wallet.signer) {
-        signerReady = true;
-        break;
-      }
-      console.log(`Waiting for signer... attempt ${i + 1}/${maxRetries}`);
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    if (!this.wallet.signer) {
+  throw new Error('Wallet not connected');
+}
 
-    if (!signerReady) {
-      console.error('Signer failed to initialize after retries');
-      throw new Error('Wallet signer not ready - please logout, reconnect wallet and sign again');
-    }
-
-    console.log('Signer ready! Proceeding with sign-in');
 
     // Step 3: Now safe to sign (MetaMask will pop up)
     await this.auth.login(role);

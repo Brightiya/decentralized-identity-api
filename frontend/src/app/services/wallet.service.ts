@@ -70,12 +70,7 @@ export class WalletService {
   readonly expectedChainName = 'Base Sepolia Testnet';
 
   constructor(private gsnService: GSNService) {
-    if (this.isBrowser) {
-      const saved = localStorage.getItem('walletAddress');
-      if (saved) {
-        this.addressSubject.next(saved);
-      }
-    }
+   
   }
 
   get address(): string | null {
@@ -99,31 +94,36 @@ export class WalletService {
   }
 
   async connect() {
-    if (!this.isBrowser) throw new Error('Wallet connection only available in browser');
+  if (!this.isBrowser) throw new Error('Wallet connection only available in browser');
 
-    this.signer = null;
-    this.provider = null;
+  this.signer = null;
+  this.provider = null;
+  this.addressSubject.next(null); // clear old state
 
-    try {
-      if (!window.ethereum) {
-          throw new Error('MetaMask not detected');
-        }
-
-        await this.useMetaMask();
-        await this.ensureCorrectChain();
-
-
-      if (!this.signer) throw new Error('Signer did not initialize, please refresh the browser and try again');
-
-      // NEW: After connect, check chain once (optional – can be skipped here if you want)
-      // await this.ensureCorrectChain(); // uncomment if you want chain check on every connect
-
-    } catch (err: any) {
-      console.error('Wallet connect failed:', err);
-      this.snackBar.open(err.message || 'Connection failed', 'Close', { duration: 8000 });
-      throw err;
+  try {
+    if (!window.ethereum) {
+      throw new Error('MetaMask not detected');
     }
+
+    // Initialize provider first
+    this.provider = new BrowserProvider(window.ethereum);
+    this.signer = await this.provider.getSigner();
+
+    await this.ensureCorrectChain(); // 🔥 verify chain BEFORE emitting address
+
+    const addr = await this.signer.getAddress();
+
+    this.addressSubject.next(addr);
+    localStorage.setItem('walletAddress', addr);
+
+    this.snackBar.open(`Connected: ${addr.slice(0,6)}...`, 'Close', { duration: 4000 });
+
+  } catch (err) {
+    this.disconnect(); // 🔥 rollback completely on failure
+    throw err;
   }
+}
+
 
   private async useMetaMask() {
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });

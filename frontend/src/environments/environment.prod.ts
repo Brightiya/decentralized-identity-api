@@ -10,6 +10,6 @@ export const environment = {
   PROVIDER_URL: 'https://sepolia.base.org', // ← use real testnet/mainnet RPC
   PRIVATE_KEY: '', // ← NEVER put real keys here! Keep empty in frontend
   forwarderAddress: "0x32D23678E8725e30e0b9ACE110A5E720101CB5A0",
-  identityRegistryAddress: "0x883EeF581d6170E0d3906904c59b95E79016BD59"
+  IDENTITY_REGISTRY_META_ADDRESS: "0x883EeF581d6170E0d3906904c59b95E79016BD59"
 
 };

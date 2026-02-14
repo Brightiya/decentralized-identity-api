@@ -913,7 +913,7 @@ async issueVC() {
           // 1️⃣ Build & sign meta-tx in browser (LIKE VAULT)
           const { req, signature } = await this.metaTx.buildAndSignMetaTx({
             forwarderAbi: ForwarderAbi,
-            targetAddress: environment.identityRegistryAddress,
+            targetAddress: environment.IDENTITY_REGISTRY_META_ADDRESS,
             targetAbi: IdentityRegistryAbi,
             functionName: "setClaim",
             functionArgs: [

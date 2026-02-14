@@ -54,7 +54,7 @@ export const getChallenge = async (req, res) => {
       statement: 'Sign in to PIMV Identity Vault',
       uri: APP_URI,
       version: '1',
-      chainId: process.env.chainId,
+      chainId: process.env.CHAIN_ID,
       nonce,
       issuedAt,
       expirationTime

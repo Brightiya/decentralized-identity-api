@@ -125,57 +125,6 @@ export class WalletService {
 }
 
 
-  private async useMetaMask() {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    if (!accounts?.length) throw new Error('No accounts returned from MetaMask');
-
-    const addr = accounts[0];
-
-    this.provider = new BrowserProvider(window.ethereum as Eip1193Provider);
-    this.signer = await this.provider.getSigner();
-
-    this.addressSubject.next(addr);
-    localStorage.setItem('walletAddress', addr);
-
-    this.snackBar.open(`MetaMask connected: ${addr.slice(0, 6)}...${addr.slice(-4)}`, 'Close', { duration: 4000 });
-  }
-
-  private async useHardhat(rpcUrl: string) {
-    try {
-      this.provider = new JsonRpcProvider(rpcUrl);
-
-      let addr: string | undefined;
-      let signer: Wallet | null = null;
-
-      if (environment.PRIVATE_KEY) {
-        signer = new Wallet(environment.PRIVATE_KEY, this.provider);
-        addr = await signer.getAddress();
-      } else {
-        const accounts = await this.provider.send('eth_accounts', []);
-        if (accounts?.length > 0) {
-          addr = accounts[0];
-          // No signer for JSON-RPC without private key
-          signer = null;
-        }
-      }
-
-      if (!addr) {
-        addr = ethers.ZeroAddress;
-        console.warn('Hardhat returned no accounts - using zero address (read-only)');
-      }
-
-      this.signer = signer;
-      this.addressSubject.next(addr);
-      localStorage.setItem('walletAddress', addr);
-
-      this.snackBar.open(`Connected to Hardhat RPC: ${rpcUrl} (${addr.slice(0, 6)}...)`, 'Close', { duration: 5000 });
-    } catch (err: any) {
-      console.error('Hardhat connection error:', err);
-      this.snackBar.open('Failed to connect to Hardhat RPC', 'Close', { duration: 5000 });
-      throw err;
-    }
-  }
-
   // NEW: Switch or add the correct chain (Base Sepolia)
   async switchToCorrectChain(): Promise<boolean> {
     if (!window.ethereum || !this.provider) return false;
@@ -239,6 +188,7 @@ export class WalletService {
     }
   }
 
+
   async signMessage(message: string): Promise<string> {
     if (!this.signer) throw new Error('No signer - connect wallet first');
     return await this.signer.signMessage(message);
@@ -255,6 +205,13 @@ export class WalletService {
     try {
       // NEW: Ensure correct chain before signing/sending
       await this.ensureCorrectChain();
+      
+      const network = await this.provider.getNetwork();
+      console.log("AFTER SWITCH - provider chainId:", Number(network.chainId));
+
+      const mmChain = await window.ethereum.request({ method: 'eth_chainId' });
+      console.log("MetaMask chainId:", parseInt(mmChain, 16));
+
 
       const tx: TransactionResponse = await this.signer.sendTransaction({
         ...unsignedTx,

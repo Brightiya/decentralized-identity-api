@@ -33,11 +33,17 @@ function normalizeRole(role) {
 // =====================================
 export const getChallenge = async (req, res) => {
   try {
-    const { address } = req.query;
+    const { address, chainId } = req.query;
 
     if (!address || !ethers.isAddress(address)) {
       return res.status(400).json({ error: 'Valid Ethereum address required' });
     }
+
+    if (!chainId) {
+      return res.status(400).json({ error: 'chainId required' });
+    }
+
+    const numericChainId = Number(chainId);
 
     const checksumAddress = ethers.getAddress(address);
     const normalizedAddress = didToAddress(address);
@@ -54,11 +60,12 @@ export const getChallenge = async (req, res) => {
       statement: 'Sign in to PIMV Identity Vault',
       uri: APP_URI,
       version: '1',
-      chainId: process.env.CHAIN_ID,
+      chainId: numericChainId, 
       nonce,
       issuedAt,
       expirationTime
     });
+
 
     await pool.query(
       `INSERT INTO nonces (nonce, address, expires_at)

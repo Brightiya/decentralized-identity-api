@@ -58,9 +58,17 @@ export class AuthService {
     this.clearSession();
 
     try {
+      // 🔥 Get real chainId from wallet provider
+      const network = await this.wallet.provider?.getNetwork();
+      if (!network) {
+        throw new Error('Wallet provider not available');
+      }
+
+      const chainId = Number(network.chainId);
+
       // 1️⃣ Get SIWE challenge
       const challengeRes = await this.http.get<{ message: string }>(
-        `${environment.backendUrl}/api/auth/challenge?address=${address}`
+        `${environment.backendUrl}/api/auth/challenge?address=${address}&chainId=${chainId}`
       ).toPromise();
 
       if (!challengeRes?.message) {

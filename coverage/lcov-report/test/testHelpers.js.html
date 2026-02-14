@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.37% </span>
+                <span class="strong">37.03% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>19/27</span>
+                <span class='fraction'>10/27</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">35.71% </span>
+                <span class="strong">7.14% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/14</span>
+                <span class='fraction'>1/14</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.07% </span>
+                <span class="strong">38.46% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>19/26</span>
+                <span class='fraction'>10/26</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -129,48 +129,48 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">79x</span>
-<span class="cline-any cline-yes">79x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -205,32 +205,32 @@ export async function getValidJwtFor(address) {
       .get('/api/auth/challenge')
       .query({ address: lowerAddress });
 &nbsp;
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (challengeRes.status !== 200) {
-<span class="cstat-no" title="statement not covered" >      throw new Error(`Challenge failed: ${challengeRes.status}`);</span>
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (challengeRes.status !== 200) {
+      throw new Error(`Challenge failed: ${challengeRes.status}`);
     }
 &nbsp;
-    const { message } = challengeRes.body;
-    const signature = await wallet.signMessage(message);
+    const { message } = <span class="cstat-no" title="statement not covered" >challengeRes.body;</span>
+    const signature = <span class="cstat-no" title="statement not covered" >await wallet.signMessage(message);</span>
 &nbsp;
-    const verifyRes = await request(app)
+    const verifyRes = <span class="cstat-no" title="statement not covered" >await request(app)</span>
       .post('/api/auth/verify')
       .send({ message, signature, requestedRole: 'USER' });
 &nbsp;
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (verifyRes.status === 200) {
-      const realToken = verifyRes.body.token;
+<span class="cstat-no" title="statement not covered" >    if (verifyRes.status === 200) {</span>
+      const realToken = <span class="cstat-no" title="statement not covered" >verifyRes.body.token;</span>
 &nbsp;
       // Your override logic (good!)
-      const decoded = jwt.decode(realToken);
-      const testPayload = {
+      const decoded = <span class="cstat-no" title="statement not covered" >jwt.decode(realToken);</span>
+      const testPayload = <span class="cstat-no" title="statement not covered" >{</span>
         ...decoded,
         ethAddress: lowerAddress,
-        role: decoded.role || <span class="branch-1 cbranch-no" title="branch not covered" >'USER',</span>
-        userId: decoded.userId || <span class="branch-1 cbranch-no" title="branch not covered" >1</span>
+        role: decoded.role || 'USER',
+        userId: decoded.userId || 1
       };
-      const testToken = jwt.sign(testPayload, process.env.JWT_SECRET || <span class="branch-1 cbranch-no" title="branch not covered" >'super-secret-dev-key-change-in-prod-please')</span>;
+      const testToken = <span class="cstat-no" title="statement not covered" >jwt.sign(testPayload, process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please');</span>
 &nbsp;
-      console.log('[TEST] Generated test token for', lowerAddress, ':', testToken.substring(0, 50) + '...');
-      return testToken;
+<span class="cstat-no" title="statement not covered" >      console.log('[TEST] Generated test token for', lowerAddress, ':', testToken.substring(0, 50) + '...');</span>
+<span class="cstat-no" title="statement not covered" >      return testToken;</span>
     }
 &nbsp;
     // If 401 → nonce race → retry
@@ -250,7 +250,7 @@ export async function getValidJwtFor(address) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-12T09:18:07.333Z
+                at 2026-02-14T07:12:29.131Z
             </div>
         <script src="../prettify.js"></script>
         <script>

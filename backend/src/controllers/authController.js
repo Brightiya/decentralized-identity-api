@@ -33,7 +33,9 @@ function normalizeRole(role) {
 // =====================================
 export const getChallenge = async (req, res) => {
   try {
-    const { address, chainId } = req.query;
+    const { address } = req.query;
+    const CHAIN_ID = Number(process.env.CHAIN_ID || 84532);
+
 
     if (!address || !ethers.isAddress(address)) {
       return res.status(400).json({ error: 'Valid Ethereum address required' });
@@ -54,7 +56,7 @@ export const getChallenge = async (req, res) => {
       statement: 'Sign in to PIMV Identity Vault',
       uri: APP_URI,
       version: '1',
-      chainId: Number(chainId),
+      chainId: CHAIN_ID,
       nonce,
       issuedAt,
       expirationTime

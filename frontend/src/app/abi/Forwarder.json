@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "Forwarder",
-  "sourceName": "contracts/gsn/Forwarder.sol",
+  "sourceName": "contracts/Forwarder.sol",
   "abi": [
     {
       "inputs": [],

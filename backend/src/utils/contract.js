@@ -6,12 +6,21 @@ import { fileURLToPath } from "url";
 import { getProvider } from "../eth/provider.js";
 
 // ────────────────────────────────────────────────
-// Load contract data synchronously
+// Load contract artifacts
 // ────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const normalPath = path.resolve(__dirname, "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/artifacts/contracts/IdentityRegistry.sol/IdentityRegistry.json");
-const metaPath = path.resolve(__dirname, "/Users/brighto.yahen/Downloads/decentralized-identity-api-main/backend/artifacts/contracts/IdentityRegistryMeta.sol/IdentityRegistryMeta.json");
+
+const normalPath = path.resolve(
+  __dirname,
+  "../../artifacts/contracts/IdentityRegistry.sol/IdentityRegistry.json"
+);
+
+const metaPath = path.resolve(
+  __dirname,
+  "../../artifacts/contracts/IdentityRegistryMeta.sol/IdentityRegistryMeta.json"
+);
+
 let normalContractData;
 let metaContractData;
 
@@ -24,16 +33,13 @@ try {
 }
 
 let _provider;
-//let _contract;
+let _contract;
 
-/**
- * Lazy provider getter — skip real creation in test mode
- */
+// ────────────────────────────────────────────────
+// Provider
+// ────────────────────────────────────────────────
 function getLazyProvider() {
-  // In test mode → mocks handle everything, no real provider needed
-  if (process.env.NODE_ENV === "test") {
-    return null; // or return a dummy object if needed
-  }
+  if (process.env.NODE_ENV === "test") return null;
 
   if (!_provider) {
     _provider = getProvider();
@@ -41,17 +47,17 @@ function getLazyProvider() {
   return _provider;
 }
 
-/**
- * Hybrid mode check
- */
+// ────────────────────────────────────────────────
+// Hybrid mode
+// ────────────────────────────────────────────────
 export function isHybridMode() {
   const hybrid = process.env.HYBRID_MODE || process.env.HYBRID_SIGNING;
   return hybrid === "true" || hybrid === "1";
 }
 
-/**
- * Lazy contract getter — fully mocked in test mode
- */
+// ────────────────────────────────────────────────
+// Contract getter (TEST SAFE)
+// ────────────────────────────────────────────────
 export function getContract(mode = "normal") {
   if (process.env.NODE_ENV === "test") {
     if (!globalThis.mockContract) {
@@ -60,55 +66,68 @@ export function getContract(mode = "normal") {
     return globalThis.mockContract;
   }
 
+  if (_contract) return _contract;
+
   const provider = getLazyProvider();
   if (!provider) {
     throw new Error("Provider not available");
   }
 
-  const data =
-    mode === "gasless"
-      ? metaContractData
-      : normalContractData;
+  const data = mode === "gasless"
+    ? metaContractData
+    : normalContractData;
 
   if (isHybridMode()) {
-    return new ethers.Contract(
+    _contract = new ethers.Contract(
       data.address,
       data.abi,
       provider
     );
+  } else {
+    const privateKey = process.env.PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error("Missing PRIVATE_KEY");
+    }
+
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    _contract = new ethers.Contract(
+      data.address,
+      data.abi,
+      signer
+    );
   }
 
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error("Missing PRIVATE_KEY");
-  }
-
-  const signer = new ethers.Wallet(privateKey, provider);
-
-  return new ethers.Contract(
-    data.address,
-    data.abi,
-    signer
-  );
+  return _contract;
 }
 
-
-/**
- * Default export for backward compatibility
- */
 export default getContract;
 
-/**
- * Prepare unsigned transaction — provider-free in hybrid mode
- */
 // ────────────────────────────────────────────────
-// Prepare unsigned transaction (gasless compatible)
+// Prepare unsigned tx (BACKWARD COMPATIBLE)
 // ────────────────────────────────────────────────
-export  async function prepareUnsignedTx(mode, methodName, ...args) {
-  const data =
-    mode === "gasless"
-      ? metaContractData
-      : normalContractData;
+export async function prepareUnsignedTx(...params) {
+  let mode = "normal";
+  let methodName;
+  let args;
+
+  // New style: (mode, methodName, ...args)
+  if (
+    params.length >= 2 &&
+    (params[0] === "gasless" || params[0] === "normal")
+  ) {
+    mode = params[0];
+    methodName = params[1];
+    args = params.slice(2);
+  } else {
+    // Old style: (methodName, ...args)
+    methodName = params[0];
+    args = params.slice(1);
+  }
+
+  const data = mode === "gasless"
+    ? metaContractData
+    : normalContractData;
 
   const iface = new ethers.Interface(data.abi);
 
@@ -121,18 +140,34 @@ export  async function prepareUnsignedTx(mode, methodName, ...args) {
   return {
     to: data.address,
     data: encoded,
-    chainId: Number(process.env.CHAIN_ID),
+    chainId: Number(process.env.CHAIN_ID || 84532),
     value: "0x0",
   };
 }
 
-
-
-// Convenience wrappers (unchanged)
-export async function prepareUnsignedSetClaim(subjectAddress, claimIdBytes32, claimHash) {
-  return prepareUnsignedTx("setClaim", subjectAddress, claimIdBytes32, claimHash);
+// ────────────────────────────────────────────────
+// Convenience wrappers (unchanged behavior)
+// ────────────────────────────────────────────────
+export async function prepareUnsignedSetClaim(
+  subjectAddress,
+  claimIdBytes32,
+  claimHash
+) {
+  return prepareUnsignedTx(
+    "setClaim",
+    subjectAddress,
+    claimIdBytes32,
+    claimHash
+  );
 }
 
-export async function prepareUnsignedSetProfileCID(subjectAddress, cid) {
-  return prepareUnsignedTx("setProfileCID", subjectAddress, cid);
+export async function prepareUnsignedSetProfileCID(
+  subjectAddress,
+  cid
+) {
+  return prepareUnsignedTx(
+    "setProfileCID",
+    subjectAddress,
+    cid
+  );
 }

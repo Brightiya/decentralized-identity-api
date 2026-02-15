@@ -52,24 +52,43 @@ jest.unstable_mockModule('../src/utils/contract.js', () => {
     isHybridMode: jest.fn(() => true),
 
     // Mock unsigned tx preparation
-    prepareUnsignedTx: jest.fn(async (methodName, ...args) => {
-      // Simulate state change as if tx were mined later
-      if (methodName === 'setProfileCID') {
-        const [addr, cid] = args;
-        profileCids.set(normalizeAddress(addr), cid);
-      }
+    prepareUnsignedTx: jest.fn(async (...params) => {
+    let methodName;
+    let args;
 
-      if (methodName === 'setClaim') {
-        const [addr, id, hash] = args;
-        claims.set(`${normalizeAddress(addr)}:${id}`, hash);
-      }
+    // Support BOTH:
+    // (methodName, ...args)
+    // (mode, methodName, ...args)
 
-      return {
-        to: mockContract.target,
-        data: '0xmockdata',
-        gasLimit: '450000',
-      };
-    }),
+    if (
+      params.length >= 2 &&
+      (params[0] === "gasless" || params[0] === "normal")
+    ) {
+      methodName = params[1];
+      args = params.slice(2);
+    } else {
+      methodName = params[0];
+      args = params.slice(1);
+    }
+
+    // Simulate state mutation as if tx were mined
+    if (methodName === "setProfileCID") {
+      const [addr, cid] = args;
+      profileCids.set(normalizeAddress(addr), cid);
+    }
+
+    if (methodName === "setClaim") {
+      const [addr, id, hash] = args;
+      claims.set(`${normalizeAddress(addr)}:${id}`, hash);
+    }
+
+    return {
+      to: mockContract.target,
+      data: "0xmockdata",
+      gasLimit: "450000",
+    };
+  }),
+
 
     // Default export AND named export must both be mocked
     getContract: jest.fn(() => mockContract),

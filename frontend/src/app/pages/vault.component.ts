@@ -1555,7 +1555,7 @@ export class VaultComponent implements OnInit, OnDestroy {
 
         const response = await firstValueFrom(
           this.http.post<any>(
-            `${environment.backendUrl}/profile`,
+            `${environment.backendUrl}/api/profile`,
             payload,
             {
               headers: {

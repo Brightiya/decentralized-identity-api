@@ -15,11 +15,6 @@ import { request } from 'http';
 })
 export class MetaTxService {
 
-  private TYPEHASH = ethers.keccak256(
-    ethers.toUtf8Bytes(
-       "ForwardRequestData(address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data)"
-    )
-  );
 
   async buildAndSignMetaTx({
     forwarderAbi,
@@ -93,7 +88,7 @@ export class MetaTxService {
     };
 
    const types = {
-  ForwardRequestData: [
+  ForwardReques: [
     { name: "from", type: "address" },
     { name: "to", type: "address" },
     { name: "value", type: "uint256" },

@@ -10,6 +10,12 @@ import {
 import { requireDidAddress as didToAddress } from "../utils/did.js";
 
 
+function getTxMode(req) {
+  const mode = req.headers['x-transaction-mode'];
+  return mode === 'gasless' ? 'gasless' : 'normal';
+}
+
+
 /* ------------------------------------------------------------------
    English labels for translatable fields
 ------------------------------------------------------------------- */
@@ -116,7 +122,13 @@ export const createOrUpdateProfile = async (req, res) => {
     // HYBRID MODE: Prepare unsigned tx only
     // ────────────────────────────────
     if (isHybridMode()) {
-      const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, cid);
+       const txMode = getTxMode(req);
+       const unsignedTx = await prepareUnsignedTx(
+          txMode,
+          'setProfileCID',
+          subjectAddress,
+          cid
+        );
       responseData = {
         ...responseData,
         message: "✅ Profile prepared - please sign & send transaction in your wallet",
@@ -128,7 +140,8 @@ export const createOrUpdateProfile = async (req, res) => {
     // NON-HYBRID MODE: Backend signs & sends
     // ────────────────────────────────
     else {
-      const contract = getContract();
+      const txMode = getTxMode(req);
+      const contract = getContract(txMode);
       const tx = await contract.setProfileCID(subjectAddress, cid);
       await tx.wait();
       responseData.txHash = tx.hash;
@@ -156,7 +169,8 @@ export const getProfile = async (req, res) => {
       return res.status(400).json({ error: "address required" });
     }
 
-    const contract = getContract(); // 🔑 lazy
+    const txMode = getTxMode(req);
+    const contract = getContract(txMode); // 🔑 lazy
 
     const cid = await contract.getProfileCID(address.toLowerCase());
     if (!cid || cid.length === 0) {
@@ -274,7 +288,14 @@ export const eraseProfile = async (req, res) => {
     // HYBRID MODE: Prepare unsigned tx
     // ────────────────────────────────
     if (isHybridMode()) {
-      const unsignedTx = await prepareUnsignedTx('setProfileCID', subjectAddress, newCid);
+      const txMode = getTxMode(req);
+      const unsignedTx = await prepareUnsignedTx(
+        txMode,
+        'setProfileCID',
+        subjectAddress,
+        newCid
+      );
+
       responseData = {
         ...responseData,
         message: "✅ Erasure prepared - please sign & send transaction in your wallet",

@@ -1544,35 +1544,49 @@ export class VaultComponent implements OnInit, OnDestroy {
   }
 
       
-      // NEW: Gasless profile creation (FIXED – reuses backend logic)
+      
+    // NEW: Gasless profile creation (FIXED – uses meta contract properly)
     private async createProfileGasless(address: string) {
       this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
 
       try {
-        // 1️⃣ Call SAME backend endpoint as regular flow
-        //    This builds profile JSON, uploads to IPFS, and prepares registerIdentity(cid)
+        // 1️⃣ Call backend WITH gasless header
         const payload = { owner: address };
-        const response = await firstValueFrom(this.api.createProfile(payload));
+
+        const response = await firstValueFrom(
+          this.http.post<any>(
+            `${environment.backendUrl}/profile`,
+            payload,
+            {
+              headers: {
+                'x-transaction-mode': 'gasless'
+              }
+            }
+          )
+        );
 
         if (!response.unsignedTx) {
           throw new Error("Backend did not return unsignedTx for gasless mode");
         }
 
-        // 2️⃣ Extract encoded contract call data from backend
+        // 2️⃣ Extract encoded contract call data
         const { to, data } = response.unsignedTx;
 
-        // 3️⃣ Build & sign meta transaction using EXISTING metaTx service
+        // 3️⃣ Build & sign meta transaction
         const { req, signature } = await this.metaTx.buildAndSignMetaTx({
           forwarderAbi: ForwarderAbi,
-          targetAddress: to,                  // ← use backend-provided target
-           rawData: data                   
+          targetAddress: to,
+          rawData: data
         });
 
-        // 4️⃣ Send to backend relayer
+        // 4️⃣ Send to relayer
         const relayResponse: any = await firstValueFrom(
-          this.http.post(`${environment.backendUrl}/meta/relay`,
-        { request: req, signature })
+          this.http.post(`${environment.backendUrl}/meta/relay`, {
+            request: req,
+            signature
+          })
         );
+
         const txHash = relayResponse.txHash;
         const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
@@ -1599,6 +1613,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         }
       }
     }
+
 
 
 

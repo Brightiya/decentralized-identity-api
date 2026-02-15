@@ -1564,7 +1564,7 @@ export class VaultComponent implements OnInit, OnDestroy {
             }
           )
         );
-
+         console.log("UnsignedTx  Response from backend: ",response.unsignedTx)
         if (!response.unsignedTx) {
           throw new Error("Backend did not return unsignedTx for gasless mode");
         }

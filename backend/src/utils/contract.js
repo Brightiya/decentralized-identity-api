@@ -77,9 +77,18 @@ export function getContract(mode = "normal") {
     ? metaContractData
     : normalContractData;
 
+  const address =
+    mode === "gasless"
+      ? process.env.IDENTITY_REGISTRY_META_ADDRESS
+      : process.env.IDENTITY_REGISTRY_ADDRESS;
+
+  if (!address) {
+    throw new Error("Contract address missing in env");
+  }
+
   if (isHybridMode()) {
     _contract = new ethers.Contract(
-      data.address,
+      address,
       data.abi,
       provider
     );
@@ -92,7 +101,7 @@ export function getContract(mode = "normal") {
     const signer = new ethers.Wallet(privateKey, provider);
 
     _contract = new ethers.Contract(
-      data.address,
+      address,
       data.abi,
       signer
     );
@@ -128,6 +137,14 @@ export async function prepareUnsignedTx(...params) {
   const data = mode === "gasless"
     ? metaContractData
     : normalContractData;
+    const address =
+    mode === "gasless"
+      ? process.env.IDENTITY_REGISTRY_META_ADDRESS
+      : process.env.IDENTITY_REGISTRY_ADDRESS;
+
+    if (!address) {
+      throw new Error("Contract address missing in env");
+    }
 
   const iface = new ethers.Interface(data.abi);
 
@@ -138,7 +155,7 @@ export async function prepareUnsignedTx(...params) {
   const encoded = iface.encodeFunctionData(methodName, args);
 
   return {
-    to: data.address,
+    to: address,
     data: encoded,
     chainId: Number(process.env.CHAIN_ID || 84532),
     value: "0x0",

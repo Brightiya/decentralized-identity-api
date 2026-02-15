@@ -28,19 +28,30 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "request and signature are required" });
     }
 
-    // Basic gas protection
-    if (BigInt(request.gas) > 1500000n) {
+    // Convert numeric fields properly
+    const fixedRequest = {
+      from: request.from,
+      to: request.to,
+      value: BigInt(request.value),
+      gas: BigInt(request.gas),
+      nonce: BigInt(request.nonce),
+      deadline: BigInt(request.deadline),
+      data: request.data
+    };
+
+    // Gas protection
+    if (fixedRequest.gas > 1500000n) {
       return res.status(400).json({ error: "Gas limit too high" });
     }
 
     // Verify signature
-    const isValid = await forwarder.verify(request, signature);
+    const isValid = await forwarder.verify(fixedRequest, signature);
     if (!isValid) {
       return res.status(400).json({ error: "Invalid signature" });
     }
 
     // Execute
-    const tx = await forwarder.execute(request, signature);
+    const tx = await forwarder.execute(fixedRequest, signature);
     const receipt = await tx.wait();
 
     return res.json({
@@ -56,4 +67,3 @@ export const relayMetaTx = async (req, res) => {
     });
   }
 };
-

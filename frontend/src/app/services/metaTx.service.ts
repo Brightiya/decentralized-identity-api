@@ -55,7 +55,7 @@ export class MetaTxService {
       provider
     );
 
-    const nonce = await forwarder['getNonce'](from); // returns bigint in v6
+    const nonce = await forwarder['nonces'](from); // returns bigint in v6
 
     // v6 Interface
     let data: string;

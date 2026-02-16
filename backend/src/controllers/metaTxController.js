@@ -8,12 +8,106 @@ const relayerWallet = new ethers.Wallet(
 );
 
 const forwarderAbi = [
-  // You only really need these two
-  "function nonces(address owner) view returns (uint256)",
-  "function verify(((address from, address to, uint256 value, uint256 gas, uint48 deadline, bytes data, bytes signature))) view returns (bool)",
-  "function execute(((address from, address to, uint256 value, uint256 gas, uint48 deadline, bytes data, bytes signature))) payable returns (bool, bytes)",
-  // Optional: if you want executeBatch later
-  // "function executeBatch(((address, address, uint256, uint256, uint48, bytes, bytes))[], address) payable returns (bool[], bytes[])"
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "nonces",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "from",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "value",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gas",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint48",
+            "name": "deadline",
+            "type": "uint48"
+          },
+          {
+            "internalType": "bytes",
+            "name": "data",
+            "type": "bytes"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct ERC2771Forwarder.ForwardRequestData",
+        "name": "request",
+        "type": "tuple"
+      }
+    ],
+    "name": "verify",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [ /* copy the exact same components array from above here */ ],
+        "internalType": "struct ERC2771Forwarder.ForwardRequestData",
+        "name": "request",
+        "type": "tuple"
+      }
+    ],
+    "name": "execute",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  }
 ];
 
 

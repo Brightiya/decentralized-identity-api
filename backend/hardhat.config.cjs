@@ -5,7 +5,7 @@ const { resolve } = require("path");
 config({ path: resolve(__dirname, ".env") });
 
 console.log("=== Hardhat config debug ===");
-console.log("SEPOLIA_RPC_URL:", process.env.SEPOLIA_RPC_URL ? "present" : "MISSING");
+console.log("BASE_SEPOLIA_RPC_URL:", process.env.BASE_SEPOLIA_RPC_URL ? "present" : "MISSING");
 console.log("PRIVATE_KEY:", process.env.PRIVATE_KEY ? "present" : "MISSING");
 
 module.exports = {
@@ -39,7 +39,7 @@ module.exports = {
     },
 
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL,
+      url: process.env.BASE_SEPOLIA_RPC_URL,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY.trim()] : [],
       chainId: 11155111,
     },

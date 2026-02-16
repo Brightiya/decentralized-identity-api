@@ -62,8 +62,7 @@ export class MetaTxService {
       value: 0n,
       gas: 1000000n,
       deadline: BigInt(deadline),
-      data,
-      signature: "0x" as `0x${string}`  // placeholder – ethers fills it
+      data
     };
 
     console.log("=== ForwardRequestData being signed (v5 style, no nonce) ===");
@@ -79,8 +78,8 @@ export class MetaTxService {
       value: "0",
       gas: "1000000",
       deadline: requestToSign.deadline.toString(),
-      data: requestToSign.data.slice(0, 20) + "...",
-      signaturePlaceholder: requestToSign.signature
+      data: requestToSign.data.slice(0, 20) + "..."
+     
     });
 
     const domain = {
@@ -97,8 +96,8 @@ export class MetaTxService {
         { name: "value",    type: "uint256" },
         { name: "gas",      type: "uint256" },
         { name: "deadline", type: "uint48"  },
-        { name: "data",     type: "bytes"   },
-        { name: "signature", type: "bytes"  }
+        { name: "data",     type: "bytes"   }
+        
       ]
     };
 

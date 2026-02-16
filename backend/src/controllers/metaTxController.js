@@ -142,6 +142,17 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Gas limit too high" });
     }
 
+    console.log("=== Verify Debug ===");
+    console.log("Full request object:", {
+    from: fixedRequest.from,
+    to: fixedRequest.to,
+    value: fixedRequest.value.toString(),
+    gas: fixedRequest.gas.toString(),
+    deadline: fixedRequest.deadline.toString(),
+    data: fixedRequest.data.slice(0, 10) + "...",
+    signature: fixedRequest.signature
+}); 
+
     // Verify signature
     const isValid = await forwarder.verify(fixedRequest);
     if (!isValid) {

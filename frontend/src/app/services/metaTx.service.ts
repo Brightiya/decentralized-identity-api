@@ -113,6 +113,26 @@ export class MetaTxService {
       requestToSign
     );
 
+    // ────────────────────────────────────────────────
+    //          ADD THE DEBUG LOGS HERE
+    // ────────────────────────────────────────────────
+    console.log("=== Signing Debug ===");
+    console.log("Domain:", JSON.stringify(domain, (k,v) => 
+      typeof v === 'bigint' ? v.toString() : v
+    ));
+    console.log("Types:", types.ForwardRequestData);
+    console.log("Value being signed:", {
+      from: requestToSign.from,
+      to: requestToSign.to,
+      value: requestToSign.value.toString(),
+      gas: requestToSign.gas.toString(),
+      deadline: requestToSign.deadline.toString(),
+      data: requestToSign.data.slice(0, 10) + "...", // truncate
+      signaturePlaceholder: requestToSign.signature
+    });
+    console.log("Signature produced:", signature);
+    // ────────────────────────────────────────────────
+
     // What we send to the backend/relayer (still no nonce)
     const requestForRelayer = {
       from,

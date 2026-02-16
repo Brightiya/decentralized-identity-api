@@ -153,6 +153,9 @@ export const relayMetaTx = async (req, res) => {
     signature: fixedRequest.signature
 }); 
 
+console.log("Backend using FORWARDER_ADDRESS:", process.env.FORWARDER_ADDRESS);
+console.log("Calling verify on:", process.env.FORWARDER_ADDRESS);
+
     // Verify signature
     const isValid = await forwarder.verify(fixedRequest);
     if (!isValid) {

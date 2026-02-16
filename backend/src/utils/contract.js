@@ -27,8 +27,10 @@ let metaContractData;
 try {
   normalContractData = JSON.parse(fs.readFileSync(normalPath, "utf8"));
   metaContractData = JSON.parse(fs.readFileSync(metaPath, "utf8"));
-} catch (err) {
-  console.error("Failed to load contract artifacts:", err);
+}catch (err) {
+  console.error("Artifact load failed:", err.message);
+  console.error("Normal path:", normalPath);
+  console.error("Meta path:", metaPath);
   process.exit(1);
 }
 

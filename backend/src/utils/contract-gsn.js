@@ -67,7 +67,7 @@ function getPaymasterABI() {
  */
 function getRegularProvider() {
   if (!_regularProvider) {
-    const rpcUrl = process.env.SEPOLIA_RPC_URL || process.env.PROVIDER_URL;
+    const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL || process.env.PROVIDER_URL;
     if (!rpcUrl) {
       throw new Error("RPC URL not configured for GSN");
     }
@@ -97,7 +97,7 @@ export function getGSNConfigForFrontend() {
     forwarderAddress: GSN_CONFIG.forwarderAddress,
     paymasterAddress: GSN_CONFIG.paymasterAddress,
     registryAddress: GSN_CONFIG.registryAddress,
-    rpcUrl: process.env.SEPOLIA_RPC_URL || process.env.PROVIDER_URL,
+    rpcUrl: process.env.BASE_SEPOLIA_RPC_URLL || process.env.PROVIDER_URL,
     domain: {
       name: process.env.APP_DOMAIN || 'IdentityRegistry',
       version: '1',

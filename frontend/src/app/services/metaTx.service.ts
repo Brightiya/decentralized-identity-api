@@ -85,7 +85,7 @@ export class MetaTxService {
     const domain = {
       name: "Forwarder",
       version: "1",
-      chainId: 84532,
+      chainId: Number((await provider.getNetwork()).chainId),
       verifyingContract: forwarderAddress,
     };
 

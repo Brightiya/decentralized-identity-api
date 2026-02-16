@@ -16,7 +16,7 @@ const contractData = JSON.parse(
 
 // --- 1️⃣ Provider ---
 const provider = new JsonRpcProvider(
-  process.env.SEPOLIA_RPC_URL
+  process.env.BASE_SEPOLIA_RPC_URL
 );
 
 // --- 2️⃣ Relayer Wallet (this pays gas) ---

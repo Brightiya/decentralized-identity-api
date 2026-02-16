@@ -6,15 +6,12 @@ import {
   BrowserProvider,
   Contract,
   Interface,
-  AbiCoder
 } from 'ethers';
-import { request } from 'http';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MetaTxService {
-
 
   async buildAndSignMetaTx({
     forwarderAbi,
@@ -26,24 +23,22 @@ export class MetaTxService {
   }: {
     forwarderAbi: any[];
     targetAddress: string;
-     // Optional when rawData is used
+    // Optional when rawData is used
     targetAbi?: any[];
     functionName?: string;
     functionArgs?: any[];
     rawData?: string;
   }) {
-    console.log("MetaTx rawData:", rawData); 
-
     if (!(window as any).ethereum) {
       throw new Error("No wallet found");
     }
 
-    // v6 provider
-    const provider = new ethers.BrowserProvider((window as any).ethereum);
+    // Provider & signer
+    const provider = new BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
     const from = await signer.getAddress();
 
-    // v6 contract
+    // Forwarder contract (just to read nonces – not needed for signing)
     const forwarderAddress = environment.forwarderAddress;
     const forwarder = new Contract(
       forwarderAddress,
@@ -51,9 +46,11 @@ export class MetaTxService {
       provider
     );
 
-    const nonce = await forwarder['nonces'](from); // returns bigint in v6
+    // We read nonce mostly for UI/debug purposes or to prevent replays client-side
+    // But **do NOT** include it in the signed typed data
+    const nonce = await forwarder['nonces'](from);
 
-    // v6 Interface
+    // Prepare calldata for the target contract
     let data: string;
 
     if (rawData) {
@@ -66,53 +63,70 @@ export class MetaTxService {
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
-    const req = {
+    // ────────────────────────────────────────────────
+    //  The struct we will sign — IMPORTANT: NO nonce here
+    // ────────────────────────────────────────────────
+    const requestToSign = {
+      from,
+      to: targetAddress,
+      value: 0n,                    // use bigint
+      gas: 1000000n,                // reasonable default – can be estimated later
+      deadline: BigInt(deadline),
+      data,
+      signature: "0x" as `0x${string}`   // placeholder — ethers will replace it
+    };
+
+    console.log("ForwardRequest being signed (without nonce):", {
+      ...requestToSign,
+      value: requestToSign.value.toString(),
+      gas: requestToSign.gas.toString(),
+      deadline: requestToSign.deadline.toString(),
+    });
+
+    // EIP-712 domain — must match exactly what the contract uses
+    const domain = {
+      name: "Forwarder",
+      version: "1",
+      chainId: Number((await provider.getNetwork()).chainId),
+      verifyingContract: forwarderAddress,
+    };
+
+    // Type definition — must match ERC2771Forwarder.sol exactly
+    const types = {
+      ForwardRequestData: [
+        { name: "from",     type: "address" },
+        { name: "to",       type: "address" },
+        { name: "value",    type: "uint256" },
+        { name: "gas",      type: "uint256" },
+        { name: "deadline", type: "uint48"  },
+        { name: "data",     type: "bytes"   },
+        { name: "signature", type: "bytes"  }
+      ]
+    };
+
+    // Sign typed data
+    const signature = await signer.signTypedData(
+      domain,
+      types,
+      requestToSign
+    );
+
+    // What we send to the backend/relayer (still no nonce)
+    const requestForRelayer = {
       from,
       to: targetAddress,
       value: "0",
       gas: "1000000",
-      nonce: nonce.toString(), // bigint
-      deadline,
+      deadline: deadline.toString(),
       data
-    };
-    console.log("ForwardRequestData being signed:", req);
-
-    // v6 AbiCoder
-    const domain = {
-      name: "Forwarder",
-      version: "1",
-      chainId: (await provider.getNetwork()).chainId,// Base Sepolia
-      verifyingContract: forwarderAddress
+      // NO nonce here
     };
 
-   const types = {
-  ForwardRequestData: [
-    { name: "from", type: "address" },
-    { name: "to", type: "address" },
-    { name: "value", type: "uint256" },
-    { name: "gas", type: "uint256" },
-    { name: "nonce", type: "uint256" },
-    { name: "deadline", type: "uint48" },
-    { name: "data", type: "bytes" }
-  ]
-};
-
-
-    const signature = await signer.signTypedData(
-      domain,
-      types,
-      {
-        from: req.from,
-        to: req.to,
-        value: BigInt(req.value),
-        gas: BigInt(req.gas),
-        nonce: BigInt(req.nonce),
-        deadline: BigInt(req.deadline),
-        data: req.data
-      }
-    );
-    return { request: req, signature };
+    return {
+      request: requestForRelayer,
+      signature
+    };
   }
 }

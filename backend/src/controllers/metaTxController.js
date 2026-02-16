@@ -8,8 +8,12 @@ const relayerWallet = new ethers.Wallet(
 );
 
 const forwarderAbi = [
-  "function verify((address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data),bytes signature) view returns (bool)",
-  "function execute((address from,address to,uint256 value,uint256 gas,uint256 nonce,uint48 deadline,bytes data),bytes signature) payable returns (bool,bytes)"
+  // You only really need these two
+  "function nonces(address owner) view returns (uint256)",
+  "function verify(((address from, address to, uint256 value, uint256 gas, uint48 deadline, bytes data, bytes signature))) view returns (bool)",
+  "function execute(((address from, address to, uint256 value, uint256 gas, uint48 deadline, bytes data, bytes signature))) payable returns (bool, bytes)",
+  // Optional: if you want executeBatch later
+  // "function executeBatch(((address, address, uint256, uint256, uint48, bytes, bytes))[], address) payable returns (bool[], bytes[])"
 ];
 
 
@@ -32,11 +36,11 @@ export const relayMetaTx = async (req, res) => {
     const fixedRequest = {
       from: request.from,
       to: request.to,
-      value: BigInt(request.value),
+      value: BigInt(request.value ?? 0),
       gas: BigInt(request.gas),
-      nonce: BigInt(request.nonce),
       deadline: BigInt(request.deadline),
-      data: request.data
+      data: request.data,
+      signature: signature
     };
 
     // Gas protection
@@ -45,13 +49,13 @@ export const relayMetaTx = async (req, res) => {
     }
 
     // Verify signature
-    const isValid = await forwarder.verify(fixedRequest, signature);
+    const isValid = await forwarder.verify(fixedRequest);
     if (!isValid) {
       return res.status(400).json({ error: "Invalid signature" });
     }
 
     // Execute
-    const tx = await forwarder.execute(fixedRequest, signature);
+    const tx = await forwarder.execute(fixedRequest, {value: fixedRequest.value});
     const receipt = await tx.wait();
 
     return res.json({

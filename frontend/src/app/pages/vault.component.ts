@@ -1573,7 +1573,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         const { to, data } = response.unsignedTx;
 
         // 3️⃣ Build & sign meta transaction
-        const { req, signature } = await this.metaTx.buildAndSignMetaTx({
+        const { request:req, signature } = await this.metaTx.buildAndSignMetaTx({
           forwarderAbi: ForwarderAbi,
           targetAddress: to,
           rawData: data

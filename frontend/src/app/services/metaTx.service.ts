@@ -39,7 +39,7 @@ export class MetaTxService {
     }
 
     // v6 provider
-    const provider = new ethers.BrowserProvider((window as any).ethereum);
+    const provider = new BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
     const from = await signer.getAddress();
 
@@ -77,7 +77,7 @@ export class MetaTxService {
       deadline,
       data
     };
-    console.log("ForwardRequest being signed:", req);
+    console.log("ForwardRequestData being signed:", req);
 
     // v6 AbiCoder
     const domain = {
@@ -88,12 +88,11 @@ export class MetaTxService {
     };
 
    const types = {
-  ForwardReques: [
+  ForwardRequestData: [
     { name: "from", type: "address" },
     { name: "to", type: "address" },
     { name: "value", type: "uint256" },
     { name: "gas", type: "uint256" },
-    { name: "nonce", type: "uint256" },
     { name: "deadline", type: "uint48" },
     { name: "data", type: "bytes" }
   ]
@@ -108,11 +107,10 @@ export class MetaTxService {
         to: req.to,
         value: BigInt(req.value),
         gas: BigInt(req.gas),
-        nonce: BigInt(req.nonce),
         deadline: BigInt(req.deadline),
         data: req.data
       }
     );
-    return { req, signature };
+    return { request:req, signature };
   }
 }

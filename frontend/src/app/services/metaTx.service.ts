@@ -119,6 +119,16 @@ export class MetaTxService {
 
     console.log("Signature produced:", signature);
 
+    // Normalize v to 27/28 (some contracts prefer one)
+    let normalizedSig = signature;
+    if (signature.endsWith("1b")) {
+      normalizedSig = signature.slice(0, -2) + "1c"; // force to 28
+    } else if (signature.endsWith("1c")) {
+      normalizedSig = signature.slice(0, -2) + "1b"; // force to 27
+    }
+
+    console.log("Normalized signature (v flipped if needed):", normalizedSig);
+
     // Optional: verify off-chain
     const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
     console.log("Off-chain recovered:", recovered);
@@ -134,6 +144,6 @@ export class MetaTxService {
       data
     };
 
-    return { request: requestForRelayer, signature };
+    return { request: requestForRelayer, signature:normalizedSig };
   }
 }

@@ -107,7 +107,8 @@ const forwarderAbi = [
     ],
     "stateMutability": "payable",
     "type": "function"
-  }
+  },
+  "function DOMAIN_SEPARATOR() view returns (bytes32)"
 ];
 
 
@@ -156,8 +157,45 @@ export const relayMetaTx = async (req, res) => {
 console.log("Backend using FORWARDER_ADDRESS:", process.env.FORWARDER_ADDRESS);
 console.log("Calling verify on:", process.env.FORWARDER_ADDRESS);
 
+
+// After fixedRequest
+
+  const digest = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ["address", "address", "uint256", "uint256", "uint48", "bytes"],
+      [fixedRequest.from, fixedRequest.to, fixedRequest.value, fixedRequest.gas, fixedRequest.deadline, fixedRequest.data]
+    )
+  );
+
+  const domainSeparator = await forwarder.DOMAIN_SEPARATOR(); // add to ABI if missing
+  const structHash = ethers.keccak256(
+    ethers.AbiCoder.defaultAbiCoder().encode(
+      ["bytes32", "address", "address", "uint256", "uint256", "uint48", "bytes"],
+      [ethers.id("ForwardRequest(address from,address to,uint256 value,uint256 gas,uint48 deadline,bytes data)"), fixedRequest.from, fixedRequest.to, fixedRequest.value, fixedRequest.gas, fixedRequest.deadline, fixedRequest.data]
+    )
+  );
+
+  const typedDataHash = ethers.keccak256(
+    ethers.concat([
+      "0x1901",
+      domainSeparator,
+      structHash
+    ])
+  );
+
+  console.log("Computed typedDataHash:", typedDataHash);
+
+  try {
+    const recovered = ethers.recoverAddress(typedDataHash, fixedRequest.signature);
+    console.log("Backend recovered signer:", recovered);
+    console.log("Expected from:", fixedRequest.from);
+    console.log("Recovered matches?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
+  } catch (recErr) {
+    console.error("Recovery failed:", recErr.message);
+  }
     // Verify signature
     const isValid = await forwarder.verify(fixedRequest);
+    console.log("Contract verify result:", isValid);
     if (!isValid) {
       return res.status(400).json({ error: "Invalid signature" });
     }

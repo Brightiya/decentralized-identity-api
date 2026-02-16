@@ -24,7 +24,7 @@ import ForwarderArtifact from '../abi/Forwarder.json';
 import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';
 import { HttpClient } from '@angular/common/http';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { environment } from '../../environments/environment';
+import { environment } from '../../environments/environment.prod';
 
 const ForwarderAbi = ForwarderArtifact.abi;
 const IdentityRegistryAbi = IdentityRegistryArtifact.abi;

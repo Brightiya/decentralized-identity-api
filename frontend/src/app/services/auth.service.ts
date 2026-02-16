@@ -3,7 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { WalletService } from './wallet.service';
-import { environment } from '../../environments/environment';
+import { environment } from '../../environments/environment.prod';
 
 export type AppRole = 'USER' | 'ADMIN' | 'VERIFIER';
 

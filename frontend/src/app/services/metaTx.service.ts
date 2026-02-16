@@ -1,5 +1,5 @@
 // src/app/services/metaTx.service.ts
-import { environment } from '../../environments/environment';
+import { environment } from '../../environments/environment.prod';
 import { Injectable } from '@angular/core';
 import {
   ethers,
@@ -36,7 +36,7 @@ export class MetaTxService {
     const signer = await provider.getSigner();
     const from = await signer.getAddress();
 
-    const forwarderAddress = environment.forwarderAddress;
+    const forwarderAddress = environment.FORWARDER_ADDRESS;
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
     // Read nonce for potential UI/replay check, but DO NOT sign it

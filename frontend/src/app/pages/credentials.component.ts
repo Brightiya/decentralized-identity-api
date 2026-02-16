@@ -8,7 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GSNService } from '../services/gsn.service';
 import { MetaTxService } from '../services/metaTx.service';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { environment } from '../../environments/environment.prod';
 import ForwarderArtifact from '../abi/Forwarder.json';
 import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';
 

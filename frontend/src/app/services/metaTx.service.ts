@@ -39,24 +39,11 @@ export class MetaTxService {
     const forwarderAddress = environment.FORWARDER_ADDRESS;
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
-    try {
-      const domainData = await forwarder['eip712Domain']();
-      console.log("===== ACTUAL ON-CHAIN EIP-712 DOMAIN (MUST MATCH FRONTEND) =====");
-      console.log("fields (hex):     ", ethers.hexlify(domainData.fields));
-      console.log("name:             ", domainData.name);
-      console.log("version:          ", domainData.version);
-      console.log("chainId:          ", domainData.chainId.toString());
-      console.log("verifyingContract:", domainData.verifyingContract);
-      console.log("salt (hex):       ", domainData.salt ? ethers.hexlify(domainData.salt) : "0x0000000000000000000000000000000000000000000000000000000000000000");
-      console.log("extensions:       ", domainData.extensions.map((x: any) => x.toString()));
-    } catch (err) {
-      console.error("Failed to read eip712Domain — check contract address / ABI", err);
-    }
-
-    // Read nonce for potential UI/replay check, but DO NOT sign it
+    // Read nonce (for UI only)
     const nonce = await forwarder['nonces'](from);
     console.log("Current nonce (not signed):", nonce.toString());
 
+    // Prepare target calldata
     let data: string;
     if (rawData) {
       data = rawData;
@@ -70,6 +57,25 @@ export class MetaTxService {
 
     const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 
+    // === CRITICAL FIX: Use dynamic domain from contract ===
+    const domainInfo = await forwarder['eip712Domain']();
+    console.log("Using on-chain domain from contract:", {
+      name: domainInfo.name,
+      version: domainInfo.version,
+      chainId: domainInfo.chainId.toString(),
+      verifyingContract: domainInfo.verifyingContract,
+      salt: domainInfo.salt ? ethers.hexlify(domainInfo.salt) : "none"
+    });
+
+    const domain = {
+      name: domainInfo.name,
+      version: domainInfo.version,
+      chainId: Number(domainInfo.chainId),
+      verifyingContract: domainInfo.verifyingContract,
+      // Include salt if present (rare, but safe)
+      ...(domainInfo.salt && !domainInfo.salt.every((b: any) => b === 0) && { salt: domainInfo.salt })
+    };
+
     const requestToSign = {
       from,
       to: targetAddress,
@@ -79,13 +85,7 @@ export class MetaTxService {
       data
     };
 
-    console.log("=== ForwardRequestData being signed (v5 style, no nonce) ===");
-    console.log("Domain:", {
-      name: "Forwarder",
-      version: "1",
-      chainId: Number((await provider.getNetwork()).chainId),
-      verifyingContract: forwarderAddress
-    });
+    console.log("=== ForwardRequestData being signed (dynamic domain) ===");
     console.log("Value being signed:", {
       from: requestToSign.from,
       to: requestToSign.to,
@@ -93,15 +93,7 @@ export class MetaTxService {
       gas: "1000000",
       deadline: requestToSign.deadline.toString(),
       data: requestToSign.data.slice(0, 20) + "..."
-     
     });
-
-    const domain = {
-      name: "Forwarder",
-      version: "1",
-      chainId: Number((await provider.getNetwork()).chainId),
-      verifyingContract: forwarderAddress,
-    };
 
     const types = {
       ForwardRequestData: [
@@ -111,7 +103,6 @@ export class MetaTxService {
         { name: "gas",      type: "uint256" },
         { name: "deadline", type: "uint48"  },
         { name: "data",     type: "bytes"   }
-        
       ]
     };
 
@@ -119,22 +110,11 @@ export class MetaTxService {
 
     console.log("Signature produced:", signature);
 
-    // Normalize v to 27/28 (some contracts prefer one)
-    let normalizedSig = signature;
-    if (signature.endsWith("1b")) {
-      normalizedSig = signature.slice(0, -2) + "1c"; // force to 28
-    } else if (signature.endsWith("1c")) {
-      normalizedSig = signature.slice(0, -2) + "1b"; // force to 27
-    }
-
-    console.log("Normalized signature (v flipped if needed):", normalizedSig);
-
-    // Optional: verify off-chain
     const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
     console.log("Off-chain recovered:", recovered);
     console.log("Matches wallet?", recovered.toLowerCase() === from.toLowerCase());
 
-    // Send to backend (no nonce)
+    // Send to backend
     const requestForRelayer = {
       from,
       to: targetAddress,
@@ -144,6 +124,6 @@ export class MetaTxService {
       data
     };
 
-    return { request: requestForRelayer, signature:normalizedSig };
+    return { request: requestForRelayer, signature };
   }
 }

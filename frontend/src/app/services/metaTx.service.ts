@@ -39,6 +39,20 @@ export class MetaTxService {
     const forwarderAddress = environment.FORWARDER_ADDRESS;
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
+    try {
+      const domainData = await forwarder['eip712Domain']();
+      console.log("===== ACTUAL ON-CHAIN EIP-712 DOMAIN (MUST MATCH FRONTEND) =====");
+      console.log("fields (hex):     ", ethers.hexlify(domainData.fields));
+      console.log("name:             ", domainData.name);
+      console.log("version:          ", domainData.version);
+      console.log("chainId:          ", domainData.chainId.toString());
+      console.log("verifyingContract:", domainData.verifyingContract);
+      console.log("salt (hex):       ", domainData.salt ? ethers.hexlify(domainData.salt) : "0x0000000000000000000000000000000000000000000000000000000000000000");
+      console.log("extensions:       ", domainData.extensions.map((x: any) => x.toString()));
+    } catch (err) {
+      console.error("Failed to read eip712Domain — check contract address / ABI", err);
+    }
+
     // Read nonce for potential UI/replay check, but DO NOT sign it
     const nonce = await forwarder['nonces'](from);
     console.log("Current nonce (not signed):", nonce.toString());

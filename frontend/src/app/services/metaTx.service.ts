@@ -23,7 +23,6 @@ export class MetaTxService {
   }: {
     forwarderAbi: any[];
     targetAddress: string;
-    // Optional when rawData is used
     targetAbi?: any[];
     functionName?: string;
     functionArgs?: any[];
@@ -33,26 +32,18 @@ export class MetaTxService {
       throw new Error("No wallet found");
     }
 
-    // Provider & signer
     const provider = new BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
     const from = await signer.getAddress();
 
-    // Forwarder contract (just to read nonces – not needed for signing)
     const forwarderAddress = environment.forwarderAddress;
-    const forwarder = new Contract(
-      forwarderAddress,
-      forwarderAbi,
-      provider
-    );
+    const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
-    // We read nonce mostly for UI/debug purposes or to prevent replays client-side
-    // But **do NOT** include it in the signed typed data
+    // Read nonce for potential UI/replay check, but DO NOT sign it
     const nonce = await forwarder['nonces'](from);
+    console.log("Current nonce (not signed):", nonce.toString());
 
-    // Prepare calldata for the target contract
     let data: string;
-
     if (rawData) {
       data = rawData;
     } else {
@@ -63,37 +54,42 @@ export class MetaTxService {
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 
-    // ────────────────────────────────────────────────
-    //  The struct we will sign — IMPORTANT: NO nonce here
-    // ────────────────────────────────────────────────
     const requestToSign = {
       from,
       to: targetAddress,
-      value: 0n,                    // use bigint
-      gas: 1000000n,                // reasonable default – can be estimated later
+      value: 0n,
+      gas: 1000000n,
       deadline: BigInt(deadline),
       data,
-      signature: "0x" as `0x${string}`   // placeholder — ethers will replace it
+      signature: "0x" as `0x${string}`  // placeholder – ethers fills it
     };
 
-    console.log("ForwardRequest being signed (without nonce):", {
-      ...requestToSign,
-      value: requestToSign.value.toString(),
-      gas: requestToSign.gas.toString(),
+    console.log("=== ForwardRequestData being signed (v5 style, no nonce) ===");
+    console.log("Domain:", {
+      name: "Forwarder",
+      version: "1",
+      chainId: Number((await provider.getNetwork()).chainId),
+      verifyingContract: forwarderAddress
+    });
+    console.log("Value being signed:", {
+      from: requestToSign.from,
+      to: requestToSign.to,
+      value: "0",
+      gas: "1000000",
       deadline: requestToSign.deadline.toString(),
+      data: requestToSign.data.slice(0, 20) + "...",
+      signaturePlaceholder: requestToSign.signature
     });
 
-    // EIP-712 domain — must match exactly what the contract uses
     const domain = {
       name: "Forwarder",
       version: "1",
-      chainId: 84532, //Number((await provider.getNetwork()).chainId),
+      chainId: 84532,
       verifyingContract: forwarderAddress,
     };
 
-    // Type definition — must match ERC2771Forwarder.sol exactly
     const types = {
       ForwardRequestData: [
         { name: "from",     type: "address" },
@@ -106,34 +102,16 @@ export class MetaTxService {
       ]
     };
 
-    // Sign typed data
-    const signature = await signer.signTypedData(
-      domain,
-      types,
-      requestToSign
-    );
+    const signature = await signer.signTypedData(domain, types, requestToSign);
 
-    // ────────────────────────────────────────────────
-    //          ADD THE DEBUG LOGS HERE
-    // ────────────────────────────────────────────────
-    console.log("=== Signing Debug ===");
-    console.log("Domain:", JSON.stringify(domain, (k,v) => 
-      typeof v === 'bigint' ? v.toString() : v
-    ));
-    console.log("Types:", types.ForwardRequestData);
-    console.log("Value being signed:", {
-      from: requestToSign.from,
-      to: requestToSign.to,
-      value: requestToSign.value.toString(),
-      gas: requestToSign.gas.toString(),
-      deadline: requestToSign.deadline.toString(),
-      data: requestToSign.data.slice(0, 10) + "...", // truncate
-      signaturePlaceholder: requestToSign.signature
-    });
     console.log("Signature produced:", signature);
-    // ────────────────────────────────────────────────
 
-    // What we send to the backend/relayer (still no nonce)
+    // Optional: verify off-chain
+    const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
+    console.log("Off-chain recovered:", recovered);
+    console.log("Matches wallet?", recovered.toLowerCase() === from.toLowerCase());
+
+    // Send to backend (no nonce)
     const requestForRelayer = {
       from,
       to: targetAddress,
@@ -141,12 +119,8 @@ export class MetaTxService {
       gas: "1000000",
       deadline: deadline.toString(),
       data
-      // NO nonce here
     };
 
-    return {
-      request: requestForRelayer,
-      signature
-    };
+    return { request: requestForRelayer, signature };
   }
 }

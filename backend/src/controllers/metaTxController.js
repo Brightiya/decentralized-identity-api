@@ -98,13 +98,17 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 
+    // Get the current nonce from the contract
+    const currentNonce = await forwarder.nonces(request.from);
+    console.log(`Current on-chain nonce for ${request.from}: ${currentNonce.toString()}`);
+
     // IMPORTANT: Create the request object in the EXACT order expected by the contract
     const fixedRequest = {
       from: request.from,
       to: request.to,
       value: BigInt(request.value || "0"),
       gas: BigInt(request.gas),
-     // nonce: BigInt(request.nonce),  // This must be included
+      nonce: currentNonce,  // This must be included
       deadline: BigInt(request.deadline),
       data: request.data,
       signature: signature,
@@ -115,7 +119,7 @@ export const relayMetaTx = async (req, res) => {
     console.log("To:", fixedRequest.to);
     console.log("Value:", fixedRequest.value.toString());
     console.log("Gas requested:", fixedRequest.gas.toString());
-    //console.log("Nonce:", fixedRequest.nonce.toString());
+    console.log("Nonce:", fixedRequest.nonce.toString());
     console.log("Deadline:", fixedRequest.deadline.toString());
     console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
     console.log("Signature prefix:", signature.slice(0, 30) + "...");

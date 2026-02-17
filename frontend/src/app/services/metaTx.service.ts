@@ -63,20 +63,15 @@ export class MetaTxService {
       name: domainInfo.name,
       version: domainInfo.version,
       chainId: domainInfo.chainId.toString(),
-      verifyingContract: domainInfo.verifyingContract,
-      salt: domainInfo.salt ? ethers.hexlify(domainInfo.salt) : "none"
+      verifyingContract: domainInfo.verifyingContract
     });
 
-    const domain: any = {
+    const domain = {
       name: domainInfo.name,
       version: domainInfo.version,
       chainId: Number(domainInfo.chainId),
       verifyingContract: domainInfo.verifyingContract
     };
-    // Only include salt if it's non-zero (prevents type error and unnecessary field)
-    if (domainInfo.salt && domainInfo.salt !== 0n) {
-      domain.salt = domainInfo.salt;
-    }
 
     const requestToSign = {
       from,

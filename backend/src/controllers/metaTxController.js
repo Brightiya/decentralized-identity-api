@@ -115,7 +115,7 @@ export const relayMetaTx = async (req, res) => {
     console.log("To:", fixedRequest.to);
     console.log("Value:", fixedRequest.value.toString());
     console.log("Gas requested:", fixedRequest.gas.toString());
-    console.log("Nonce:", fixedRequest.nonce.toString());
+    //console.log("Nonce:", fixedRequest.nonce.toString());
     console.log("Deadline:", fixedRequest.deadline.toString());
     console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
     console.log("Signature prefix:", signature.slice(0, 30) + "...");

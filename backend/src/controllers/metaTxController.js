@@ -21,6 +21,21 @@ const forwarderAbi = [
     type: "function",
   },
   {
+    inputs: [],
+    name: "eip712Domain",
+    outputs: [
+      { internalType: "bytes1", name: "fields", type: "bytes1" },
+      { internalType: "string", name: "name", type: "string" },
+      { internalType: "string", name: "version", type: "string" },
+      { internalType: "uint256", name: "chainId", type: "uint256" },
+      { internalType: "address", name: "verifyingContract", type: "address" },
+      { internalType: "bytes32", name: "salt", type: "bytes32" },
+      { internalType: "uint256[]", name: "extensions", type: "uint256[]" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
       {
         components: [
@@ -28,6 +43,7 @@ const forwarderAbi = [
           { internalType: "address", name: "to", type: "address" },
           { internalType: "uint256", name: "value", type: "uint256" },
           { internalType: "uint256", name: "gas", type: "uint256" },
+          { internalType: "uint256", name: "nonce", type: "uint256" },  // Note: uint256
           { internalType: "uint48", name: "deadline", type: "uint48" },
           { internalType: "bytes", name: "data", type: "bytes" },
           { internalType: "bytes", name: "signature", type: "bytes" },
@@ -50,6 +66,7 @@ const forwarderAbi = [
           { internalType: "address", name: "to", type: "address" },
           { internalType: "uint256", name: "value", type: "uint256" },
           { internalType: "uint256", name: "gas", type: "uint256" },
+          { internalType: "uint256", name: "nonce", type: "uint256" },
           { internalType: "uint48", name: "deadline", type: "uint48" },
           { internalType: "bytes", name: "data", type: "bytes" },
           { internalType: "bytes", name: "signature", type: "bytes" },
@@ -67,21 +84,6 @@ const forwarderAbi = [
     stateMutability: "payable",
     type: "function",
   },
-  {
-    inputs: [],
-    name: "eip712Domain",
-    outputs: [
-      { internalType: "bytes1", name: "fields", type: "bytes1" },
-      { internalType: "string", name: "name", type: "string" },
-      { internalType: "string", name: "version", type: "string" },
-      { internalType: "uint256", name: "chainId", type: "uint256" },
-      { internalType: "address", name: "verifyingContract", type: "address" },
-      { internalType: "bytes32", name: "salt", type: "bytes32" },
-      { internalType: "uint256[]", name: "extensions", type: "uint256[]" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
 ];
 
 const forwarder = new ethers.Contract(FORWARDER_ADDRESS, forwarderAbi, relayerWallet);
@@ -96,11 +98,13 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 
+    // ⚠️ IMPORTANT: Include nonce in the request
     const fixedRequest = {
       from: request.from,
       to: request.to,
       value: BigInt(request.value ?? "0"),
       gas: BigInt(request.gas),
+      nonce: BigInt(request.nonce),  // ← ADD THIS
       deadline: BigInt(request.deadline),
       data: request.data,
       signature,
@@ -117,20 +121,30 @@ export const relayMetaTx = async (req, res) => {
 
     const currentNonce = await forwarder.nonces(fixedRequest.from);
     console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce.toString()}`);
+    console.log(`Request nonce: ${fixedRequest.nonce.toString()}`);
+
+    // Verify nonce matches
+    if (fixedRequest.nonce !== currentNonce) {
+      return res.status(400).json({ 
+        error: "Nonce mismatch",
+        debug: { expected: currentNonce.toString(), got: fixedRequest.nonce.toString() }
+      });
+    }
 
     console.log("=== RELAY REQUEST ===");
     console.log("From:", fixedRequest.from);
     console.log("To:", fixedRequest.to);
     console.log("Value:", fixedRequest.value.toString());
     console.log("Gas requested:", fixedRequest.gas.toString());
+    console.log("Nonce:", fixedRequest.nonce.toString());
     console.log("Deadline:", fixedRequest.deadline.toString());
-    console.log("Data prefix:", fixedRequest.data.slice(0, 30) + "...");
-    console.log("Signature prefix:", signature.slice(0, 20) + "...");
+    console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
+    console.log("Signature prefix:", signature.slice(0, 30) + "...");
 
-    // Fetch domain on backend for debug/recovery
+    // Fetch domain on backend
     const domainInfo = await forwarder.eip712Domain();
     const [fieldsRaw, name, version, chainIdRaw, verifyingContract, saltRaw, extensions] = domainInfo;
-    const fields = BigInt(fieldsRaw); // bytes1 -> bigint
+    const fields = BigInt(fieldsRaw);
 
     const domain = {
       name,
@@ -140,19 +154,14 @@ export const relayMetaTx = async (req, res) => {
     };
 
     if (fields & 0x20n) {
-      // saltRaw is bigint → convert to hex string (ethers requires string for salt)
       const saltHex = "0x" + saltRaw.toString(16).padStart(64, "0");
       domain.salt = saltHex;
       console.log("Added salt to domain:", saltHex);
     }
 
-    if (extensions.length > 0) {
-      console.warn("Extensions present:", extensions);
-    }
-
     console.log("Backend domain:", domain);
 
-    // Debug: manual off-chain recovery (should match frontend recovered address)
+    // Manual off-chain recovery with the SAME types as signing
     const types = {
       ForwardRequestData: [
         { name: "from", type: "address" },
@@ -165,14 +174,14 @@ export const relayMetaTx = async (req, res) => {
       ],
     };
 
-    // For recovery: use strings for numeric fields to avoid any BigInt coercion issues
+    // For recovery: use the exact values that were signed
     const recoveryMessage = {
       from: fixedRequest.from,
       to: fixedRequest.to,
-      value: fixedRequest.value.toString(),       // string
-      gas: fixedRequest.gas.toString(),           // string
-      nonce: currentNonce.toString(),             // string
-      deadline: fixedRequest.deadline.toString(), // string
+      value: fixedRequest.value,  // Keep as BigInt
+      gas: fixedRequest.gas,      // Keep as BigInt
+      nonce: fixedRequest.nonce,  // Keep as BigInt
+      deadline: fixedRequest.deadline, // Keep as BigInt
       data: fixedRequest.data,
     };
 
@@ -191,6 +200,7 @@ export const relayMetaTx = async (req, res) => {
           recovered, 
           expected: fixedRequest.from, 
           nonceUsed: currentNonce.toString(),
+          requestNonce: fixedRequest.nonce.toString(),
           domainUsed: domain 
         }
       });

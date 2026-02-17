@@ -15,7 +15,7 @@ interface ForwardRequest {
   to: string;
   value: bigint;
   gas: bigint;
-  nonce:bigint;
+  nonce: bigint;
   deadline: bigint;
   data: string;
 }
@@ -25,6 +25,7 @@ interface ForwardRequestForRelayer {
   to: string;
   value: string;
   gas: string;
+  nonce: string;  // ← ADD THIS
   deadline: string;
   data: string;
 }
@@ -75,83 +76,83 @@ export class MetaTxService {
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
+    // Use uint48-compatible deadline (max value for uint48 is 2^48 - 1)
     const deadlineSeconds = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+    if (deadlineSeconds > 281474976710655) { // 2^48 - 1
+      throw new Error('Deadline exceeds uint48 max value');
+    }
 
-    // ── Fetch on-chain EIP-712 domain dynamically (strongly recommended) ──
+    // ── Fetch on-chain EIP-712 domain dynamically ──
     const domainInfo = await forwarder.getFunction('eip712Domain')();
 
-   // domainInfo is tuple: [fields (bytes1), name, version, chainId, verifyingContract, salt, extensions]
     const [fields, name, version, chainId, verifyingContract, salt, extensions] = domainInfo;
-    // Convert fields (bytes1) to bigint for bit check
     const fieldsBig = BigInt(fields);
 
     const domain: TypedDataDomain = {
       name,
       version,
-      chainId: Number(chainId), // ethers v6 signTypedData accepts number here
+      chainId: Number(chainId),
       verifyingContract,
-      // salt?: string;           // include only if your forwarder uses salt
-      // extensions?: bigint[];   // include only if present and needed
     };
 
     if (fieldsBig & 0x20n) {  // bit 5 = salt present
-      // salt is bigint → convert to hex string (ethers expects "0x...")
       domain.salt = "0x" + salt.toString(16).padStart(64, "0");
     }
 
-    if (extensions.length > 0) {
-      console.warn("Extensions present – may need handling");
-    }
-
     console.log("Final domain for signing:", domain);
-
     console.log('Using on-chain EIP-712 domain:', domain);
 
+    // ⚠️ IMPORTANT: Create request with ALL fields matching contract exactly
     const requestToSign: ForwardRequest = {
       from,
       to: targetAddress,
       value: 0n,
-      gas: 1500000n, // increased default – adjust per your typical calls or estimate
-      nonce,
+      gas: 1500000n,
+      nonce: nonce,           // ← MUST include nonce
       deadline: BigInt(deadlineSeconds),
       data,
     };
 
     console.log('ForwardRequest to sign:', {
-      ...requestToSign,
+      from: requestToSign.from,
+      to: requestToSign.to,
       value: requestToSign.value.toString(),
       gas: requestToSign.gas.toString(),
+      nonce: requestToSign.nonce.toString(),  // ← Added to logs
       deadline: requestToSign.deadline.toString(),
-      data: data.slice(0, 30) + (data.length > 30 ? '...' : ''),
+      data: data.slice(0, 50) + (data.length > 50 ? '...' : ''),
     });
 
+    // ⚠️ IMPORTANT: Types must match EXACTLY with contract's EIP-712 definition
     const types = {
       ForwardRequestData: [
         { name: 'from', type: 'address' },
         { name: 'to', type: 'address' },
         { name: 'value', type: 'uint256' },
         { name: 'gas', type: 'uint256' },
-        { name: "nonce",    type: "uint256" },
-        { name: 'deadline', type: 'uint48' },
+        { name: 'nonce', type: 'uint256' },  // ← Note: uint256, not uint48
+        { name: 'deadline', type: 'uint48' }, // ← uint48 as specified
         { name: 'data', type: 'bytes' },
-      ] as TypedDataField[],
+      ],
     };
 
+    // Sign the typed data
     const signature = await signer.signTypedData(domain, types, requestToSign);
 
     console.log('Generated signature:', signature);
 
-    // Optional: off-chain verification (very useful during dev)
+    // Optional: off-chain verification
     const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
     console.log('Recovered address:', recovered);
     console.log('Signature matches signer?', recovered.toLowerCase() === from.toLowerCase());
 
-    // Prepare payload for backend (stringify bigints)
+    // ⚠️ IMPORTANT: Include nonce in the relayer request
     const requestForRelayer: ForwardRequestForRelayer = {
       from,
       to: targetAddress,
       value: '0',
       gas: requestToSign.gas.toString(),
+      nonce: requestToSign.nonce.toString(),  // ← ADD THIS
       deadline: requestToSign.deadline.toString(),
       data,
     };

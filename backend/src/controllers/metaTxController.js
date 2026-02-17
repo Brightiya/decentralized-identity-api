@@ -120,16 +120,6 @@ export const relayMetaTx = async (req, res) => {
     console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
     console.log("Signature prefix:", signature.slice(0, 30) + "...");
 
-    // Verify nonce matches on-chain value
-    const currentNonce = await forwarder.nonces(fixedRequest.from);
-    console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce.toString()}`);
-    
-    if (fixedRequest.nonce !== currentNonce) {
-      return res.status(400).json({ 
-        error: "Nonce mismatch",
-        debug: { expected: currentNonce.toString(), got: fixedRequest.nonce.toString() }
-      });
-    }
 
     // Check deadline
     const now = BigInt(Math.floor(Date.now() / 1000));

@@ -67,7 +67,6 @@ const forwarderAbi = [
     stateMutability: "payable",
     type: "function",
   },
-  // Optional – useful for debugging domain mismatches
   {
     inputs: [],
     name: "eip712Domain",
@@ -87,7 +86,6 @@ const forwarderAbi = [
 
 const forwarder = new ethers.Contract(FORWARDER_ADDRESS, forwarderAbi, relayerWallet);
 
-// Startup log
 console.log("Backend relayer ready. Forwarder address:", FORWARDER_ADDRESS);
 
 export const relayMetaTx = async (req, res) => {
@@ -108,20 +106,17 @@ export const relayMetaTx = async (req, res) => {
       signature,
     };
 
-    // Safety guard: prevent unreasonably high gas requests
     if (fixedRequest.gas > 3000000n) {
       return res.status(400).json({ error: "Requested gas limit too high (max 3M)" });
     }
 
-    // Early check: deadline already passed?
     const now = BigInt(Math.floor(Date.now() / 1000));
     if (fixedRequest.deadline < now) {
       return res.status(400).json({ error: "Meta-tx deadline already expired" });
     }
 
-    // Debug: log current nonce on-chain (helps diagnose nonce-related reverts)
     const currentNonce = await forwarder.nonces(fixedRequest.from);
-    console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce}`);
+    console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce.toString()}`);
 
     console.log("=== RELAY REQUEST ===");
     console.log("From:", fixedRequest.from);
@@ -129,19 +124,60 @@ export const relayMetaTx = async (req, res) => {
     console.log("Value:", fixedRequest.value.toString());
     console.log("Gas requested:", fixedRequest.gas.toString());
     console.log("Deadline:", fixedRequest.deadline.toString());
+    console.log("Data prefix:", fixedRequest.data.slice(0, 30) + "...");
     console.log("Signature prefix:", signature.slice(0, 20) + "...");
+
+    // Fetch domain on backend for debug/recovery
+    const domainInfo = await forwarder.eip712Domain();
+    const [fields, name, version, chainId, verifyingContract, salt, extensions] = domainInfo;
+
+    const domain = {
+      name,
+      version,
+      chainId: Number(chainId),
+      verifyingContract,
+    };
+
+    if (fields & 0x20n) {  // salt bit
+      domain.salt = salt;  // already bytes32 / hex from ethers
+    }
+
+    console.log("Backend domain:", domain);
+
+    // Debug: manual off-chain recovery (should match frontend recovered address)
+    const types = {
+      ForwardRequestData: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "gas", type: "uint256" },
+        { name: "nonce", type: "uint256" },
+        { name: "deadline", type: "uint48" },
+        { name: "data", type: "bytes" },
+      ],
+    };
+
+    const recovered = ethers.verifyTypedData(domain, types, {
+      ...fixedRequest,
+      nonce: currentNonce,  // ← inject current nonce for recovery check
+    }, signature);
+
+    console.log("Manual off-chain recovered signer:", recovered);
+    console.log("Does it match 'from'?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
 
     const isValid = await forwarder.verify(fixedRequest);
     console.log("verify() result:", isValid);
 
     if (!isValid) {
-      return res.status(400).json({ error: "Invalid signature or request (verify failed)" });
+      return res.status(400).json({ 
+        error: "Invalid signature or request (verify failed)",
+        debug: { recovered, expected: fixedRequest.from, nonceUsed: currentNonce.toString() }
+      });
     }
 
     console.log("Executing meta-tx...");
 
-    // Use requested gas + 20–30% buffer to avoid out-of-gas (but cap it)
-    const gasLimit = (fixedRequest.gas * 130n) / 100n + 100000n; // +30% + safety margin
+    const gasLimit = (fixedRequest.gas * 130n) / 100n + 100000n;
 
     const tx = await forwarder.execute(fixedRequest, {
       value: fixedRequest.value,
@@ -153,22 +189,17 @@ export const relayMetaTx = async (req, res) => {
     const receipt = await tx.wait();
     console.log("Mined in block:", receipt.blockNumber);
 
-    // Optional: if you want the return data from the target call
-    const returnData = receipt.logs.length > 0 ? "has events" : "no logs"; // or decode if needed
-
     return res.json({
       success: true,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
-      returnData,
     });
   } catch (err) {
     console.error("Relay failed:", err);
 
     let errorMsg = err.reason || err.message || "Unknown relay error";
 
-    // Map common OZ forwarder errors to user-friendly messages
     if (errorMsg.includes("ERC2771ForwarderExpiredRequest")) {
       errorMsg = "Meta-tx deadline has expired";
     } else if (errorMsg.includes("ERC2771ForwarderInvalidSigner")) {

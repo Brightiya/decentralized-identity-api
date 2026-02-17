@@ -15,6 +15,7 @@ interface ForwardRequest {
   to: string;
   value: bigint;
   gas: bigint;
+  nonce:bigint;
   deadline: bigint;
   data: string;
 }
@@ -79,14 +80,30 @@ export class MetaTxService {
     // ── Fetch on-chain EIP-712 domain dynamically (strongly recommended) ──
     const domainInfo = await forwarder.getFunction('eip712Domain')();
 
+   // domainInfo is tuple: [fields (bytes1), name, version, chainId, verifyingContract, salt, extensions]
+    const [fields, name, version, chainId, verifyingContract, salt, extensions] = domainInfo;
+    // Convert fields (bytes1) to bigint for bit check
+    const fieldsBig = BigInt(fields);
+
     const domain: TypedDataDomain = {
-      name: domainInfo.name,
-      version: domainInfo.version,
-      chainId: Number(domainInfo.chainId), // ethers v6 signTypedData accepts number here
-      verifyingContract: domainInfo.verifyingContract,
+      name,
+      version,
+      chainId: Number(chainId), // ethers v6 signTypedData accepts number here
+      verifyingContract,
       // salt?: string;           // include only if your forwarder uses salt
       // extensions?: bigint[];   // include only if present and needed
     };
+
+    if (fieldsBig & 0x20n) {  // bit 5 = salt present
+      // salt is bigint → convert to hex string (ethers expects "0x...")
+      domain.salt = "0x" + salt.toString(16).padStart(64, "0");
+    }
+
+    if (extensions.length > 0) {
+      console.warn("Extensions present – may need handling");
+    }
+
+    console.log("Final domain for signing:", domain);
 
     console.log('Using on-chain EIP-712 domain:', domain);
 
@@ -95,6 +112,7 @@ export class MetaTxService {
       to: targetAddress,
       value: 0n,
       gas: 1500000n, // increased default – adjust per your typical calls or estimate
+      nonce,
       deadline: BigInt(deadlineSeconds),
       data,
     };
@@ -113,6 +131,7 @@ export class MetaTxService {
         { name: 'to', type: 'address' },
         { name: 'value', type: 'uint256' },
         { name: 'gas', type: 'uint256' },
+        { name: "nonce",    type: "uint256" },
         { name: 'deadline', type: 'uint48' },
         { name: 'data', type: 'bytes' },
       ] as TypedDataField[],

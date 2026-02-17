@@ -6,20 +6,39 @@ import {
   BrowserProvider,
   Contract,
   Interface,
+  TypedDataDomain,
+  TypedDataField,
 } from 'ethers';
 
+interface ForwardRequest {
+  from: string;
+  to: string;
+  value: bigint;
+  gas: bigint;
+  deadline: bigint;
+  data: string;
+}
+
+interface ForwardRequestForRelayer {
+  from: string;
+  to: string;
+  value: string;
+  gas: string;
+  deadline: string;
+  data: string;
+}
+
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class MetaTxService {
-
   async buildAndSignMetaTx({
     forwarderAbi,
     targetAddress,
     targetAbi,
     functionName,
     functionArgs,
-    rawData
+    rawData,
   }: {
     forwarderAbi: any[];
     targetAddress: string;
@@ -27,9 +46,9 @@ export class MetaTxService {
     functionName?: string;
     functionArgs?: any[];
     rawData?: string;
-  }) {
+  }): Promise<{ request: ForwardRequestForRelayer; signature: string }> {
     if (!(window as any).ethereum) {
-      throw new Error("No wallet found");
+      throw new Error('No wallet found. Please install a Web3 wallet.');
     }
 
     const provider = new BrowserProvider((window as any).ethereum);
@@ -39,86 +58,83 @@ export class MetaTxService {
     const forwarderAddress = environment.FORWARDER_ADDRESS;
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
-    // Read nonce (for UI only)
-    const nonce = await forwarder.getFunction("nonces")(from);
-    console.log("Current nonce (not signed):", nonce.toString());
+    // ── Read current nonce (UI/debug only) ──
+    const nonce = await forwarder.getFunction('nonces')(from);
+    console.log(`Current nonce for ${from}:`, nonce.toString());
 
-    // Prepare target calldata
+    // ── Prepare target calldata ──
     let data: string;
     if (rawData) {
       data = rawData;
     } else {
       if (!targetAbi || !functionName) {
-        throw new Error("Either rawData or (targetAbi + functionName) must be provided");
+        throw new Error('Either rawData or (targetAbi + functionName + functionArgs) must be provided');
       }
       const iface = new Interface(targetAbi);
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
-    const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+    const deadlineSeconds = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
-    // === CRITICAL FIX: Use dynamic domain from contract ===
-    const domainInfo = await forwarder.getFunction("eip712Domain")();
-    console.log("Using on-chain domain from contract:", {
+    // ── Fetch on-chain EIP-712 domain dynamically (strongly recommended) ──
+    const domainInfo = await forwarder.getFunction('eip712Domain')();
+
+    const domain: TypedDataDomain = {
       name: domainInfo.name,
       version: domainInfo.version,
-      chainId: domainInfo.chainId.toString(),
-      verifyingContract: domainInfo.verifyingContract
-    });
-
-    const domain = {
-      name: domainInfo.name,
-      version: domainInfo.version,
-      chainId: Number(domainInfo.chainId),
-      verifyingContract: domainInfo.verifyingContract
+      chainId: Number(domainInfo.chainId), // ethers v6 signTypedData accepts number here
+      verifyingContract: domainInfo.verifyingContract,
+      // salt?: string;           // include only if your forwarder uses salt
+      // extensions?: bigint[];   // include only if present and needed
     };
 
-    const requestToSign = {
+    console.log('Using on-chain EIP-712 domain:', domain);
+
+    const requestToSign: ForwardRequest = {
       from,
       to: targetAddress,
       value: 0n,
-      gas: 1000000n,
-      deadline: BigInt(deadline),
-      data
+      gas: 1500000n, // increased default – adjust per your typical calls or estimate
+      deadline: BigInt(deadlineSeconds),
+      data,
     };
 
-    console.log("=== ForwardRequestData being signed (dynamic domain) ===");
-    console.log("Value being signed:", {
-      from: requestToSign.from,
-      to: requestToSign.to,
-      value: "0",
-      gas: "1000000",
+    console.log('ForwardRequest to sign:', {
+      ...requestToSign,
+      value: requestToSign.value.toString(),
+      gas: requestToSign.gas.toString(),
       deadline: requestToSign.deadline.toString(),
-      data: requestToSign.data.slice(0, 20) + "..."
+      data: data.slice(0, 30) + (data.length > 30 ? '...' : ''),
     });
 
     const types = {
       ForwardRequestData: [
-        { name: "from",     type: "address" },
-        { name: "to",       type: "address" },
-        { name: "value",    type: "uint256" },
-        { name: "gas",      type: "uint256" },
-        { name: "deadline", type: "uint48"  },
-        { name: "data",     type: "bytes"   }
-      ]
+        { name: 'from', type: 'address' },
+        { name: 'to', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'gas', type: 'uint256' },
+        { name: 'deadline', type: 'uint48' },
+        { name: 'data', type: 'bytes' },
+      ] as TypedDataField[],
     };
 
     const signature = await signer.signTypedData(domain, types, requestToSign);
 
-    console.log("Signature produced:", signature);
+    console.log('Generated signature:', signature);
 
+    // Optional: off-chain verification (very useful during dev)
     const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
-    console.log("Off-chain recovered:", recovered);
-    console.log("Matches wallet?", recovered.toLowerCase() === from.toLowerCase());
+    console.log('Recovered address:', recovered);
+    console.log('Signature matches signer?', recovered.toLowerCase() === from.toLowerCase());
 
-    // Send to backend
-    const requestForRelayer = {
+    // Prepare payload for backend (stringify bigints)
+    const requestForRelayer: ForwardRequestForRelayer = {
       from,
       to: targetAddress,
-      value: "0",
-      gas: "1000000",
-      deadline: deadline.toString(),
-      data
+      value: '0',
+      gas: requestToSign.gas.toString(),
+      deadline: requestToSign.deadline.toString(),
+      data,
     };
 
     return { request: requestForRelayer, signature };

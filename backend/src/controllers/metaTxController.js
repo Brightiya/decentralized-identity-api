@@ -188,7 +188,7 @@ const domainTypes = {
   ]
 };
 
-// If salt is present, add it
+// Only add salt if it's actually in the domain object
 if (domain.salt) {
   domainTypes.EIP712Domain.push({ name: 'salt', type: 'bytes32' });
 }
@@ -196,14 +196,28 @@ if (domain.salt) {
 const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain);
 console.log("Domain separator hash:", domainSeparator);
 
-// Get the contract's domain separator
-try {
-  // Some contracts have a DOMAIN_SEPARATOR() function
-  const contractDomainSeparator = await forwarder.eip712Domain();
-  console.log("Contract domain info:", contractDomainSeparator);
-} catch (e) {
-  console.log("Could not get contract domain separator directly");
-}
+// Get the type hash
+const typeHash = ethers.id("ForwardRequestData(address,address,uint256,uint256,uint256,uint48,bytes)");
+console.log("Type hash:", typeHash);
+
+// Compute struct hash
+const structHash = ethers.TypedDataEncoder.hashStruct("ForwardRequestData", types, fixedRequest);
+console.log("Struct hash:", structHash);
+
+// Compute full digest
+const digest = ethers.keccak256(
+  ethers.concat([
+    "0x1901",
+    domainSeparator,
+    structHash
+  ])
+);
+console.log("Full digest:", digest);
+
+// Recover from digest
+const recoveredFromDigest = ethers.recoverAddress(digest, signature);
+console.log("Recovered from digest:", recoveredFromDigest);
+console.log("Matches from?", recoveredFromDigest.toLowerCase() === fixedRequest.from.toLowerCase())
 
     // Call verify on the contract
     console.log("Calling verify() on contract...");

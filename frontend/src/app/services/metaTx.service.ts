@@ -15,7 +15,7 @@ interface ForwardRequest {
   to: string;
   value: bigint;
   gas: bigint;
-  nonce: bigint;
+ // nonce: bigint;
   deadline: bigint;
   data: string;
 }
@@ -25,7 +25,7 @@ interface ForwardRequestForRelayer {
   to: string;
   value: string;
   gas: string;
-  nonce: string;
+ // nonce: string;
   deadline: string;
   data: string;
 }
@@ -110,7 +110,7 @@ async buildAndSignMetaTx({
     to: targetAddress,
     value: 0n,
     gas: 1500000n,
-    nonce: nonce,
+   // nonce: nonce,
     deadline: BigInt(deadlineSeconds),
     data,
   };
@@ -120,7 +120,7 @@ async buildAndSignMetaTx({
     to: requestToSign.to,
     value: requestToSign.value.toString(),
     gas: requestToSign.gas.toString(),
-    nonce: requestToSign.nonce.toString(),
+   // nonce: requestToSign.nonce.toString(),
     deadline: requestToSign.deadline.toString(),
     data: data.slice(0, 50) + (data.length > 50 ? '...' : ''),
   });
@@ -132,7 +132,7 @@ async buildAndSignMetaTx({
       { name: 'to', type: 'address' },
       { name: 'value', type: 'uint256' },
       { name: 'gas', type: 'uint256' },
-      { name: 'nonce', type: 'uint256' },
+    //  { name: 'nonce', type: 'uint256' },
       { name: 'deadline', type: 'uint48' },
       { name: 'data', type: 'bytes' },
     ],
@@ -154,7 +154,7 @@ async buildAndSignMetaTx({
     to: targetAddress,
     value: '0',
     gas: requestToSign.gas.toString(),
-    nonce: requestToSign.nonce.toString(),
+   // nonce: requestToSign.nonce.toString(),
     deadline: requestToSign.deadline.toString(),
     data,
   };

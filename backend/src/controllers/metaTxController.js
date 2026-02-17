@@ -104,7 +104,7 @@ export const relayMetaTx = async (req, res) => {
       to: request.to,
       value: BigInt(request.value || "0"),
       gas: BigInt(request.gas),
-      nonce: BigInt(request.nonce),  // This must be included
+     // nonce: BigInt(request.nonce),  // This must be included
       deadline: BigInt(request.deadline),
       data: request.data,
       signature: signature,
@@ -163,7 +163,7 @@ export const relayMetaTx = async (req, res) => {
         { name: "to", type: "address" },
         { name: "value", type: "uint256" },
         { name: "gas", type: "uint256" },
-        { name: "nonce", type: "uint256" },
+      //  { name: "nonce", type: "uint256" },
         { name: "deadline", type: "uint48" },
         { name: "data", type: "bytes" },
       ],
@@ -230,7 +230,7 @@ console.log("Matches from?", recoveredFromDigest.toLowerCase() === fixedRequest.
         debug: { 
           recovered, 
           expected: fixedRequest.from, 
-          nonce: fixedRequest.nonce.toString(),
+        //  nonce: fixedRequest.nonce.toString(),
           currentNonce: currentNonce.toString(),
           domainUsed: domain 
         }

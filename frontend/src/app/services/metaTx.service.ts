@@ -15,7 +15,7 @@ interface ForwardRequest {
   to: string;
   value: bigint;
   gas: bigint;
- // nonce:bigint;
+  nonce:bigint;
   deadline: bigint;
   data: string;
 }
@@ -112,7 +112,7 @@ export class MetaTxService {
       to: targetAddress,
       value: 0n,
       gas: 1500000n, // increased default – adjust per your typical calls or estimate
-     // nonce,
+      nonce,
       deadline: BigInt(deadlineSeconds),
       data,
     };
@@ -131,7 +131,7 @@ export class MetaTxService {
         { name: 'to', type: 'address' },
         { name: 'value', type: 'uint256' },
         { name: 'gas', type: 'uint256' },
-       // { name: "nonce",    type: "uint256" },
+        { name: "nonce",    type: "uint256" },
         { name: 'deadline', type: 'uint48' },
         { name: 'data', type: 'bytes' },
       ] as TypedDataField[],

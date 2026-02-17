@@ -159,7 +159,7 @@ export const relayMetaTx = async (req, res) => {
         { name: "to", type: "address" },
         { name: "value", type: "uint256" },
         { name: "gas", type: "uint256" },
-       // { name: "nonce", type: "uint256" },
+        { name: "nonce", type: "uint256" },
         { name: "deadline", type: "uint48" },
         { name: "data", type: "bytes" },
       ],
@@ -171,7 +171,7 @@ export const relayMetaTx = async (req, res) => {
       to: fixedRequest.to,
       value: fixedRequest.value.toString(),       // string
       gas: fixedRequest.gas.toString(),           // string
-    //  nonce: currentNonce.toString(),             // string
+      nonce: currentNonce.toString(),             // string
       deadline: fixedRequest.deadline.toString(), // string
       data: fixedRequest.data,
     };

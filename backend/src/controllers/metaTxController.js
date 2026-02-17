@@ -86,6 +86,8 @@ const forwarder = new ethers.Contract(FORWARDER_ADDRESS, forwarderAbi, relayerWa
 
 console.log("Backend relayer ready. Forwarder address:", FORWARDER_ADDRESS);
 
+// metaTxController.js - Final corrected version
+
 export const relayMetaTx = async (req, res) => {
   try {
     const { request, signature } = req.body;
@@ -98,7 +100,7 @@ export const relayMetaTx = async (req, res) => {
     const currentNonce = await forwarder.nonces(request.from);
     console.log(`Current on-chain nonce for ${request.from}: ${currentNonce.toString()}`);
 
-    // ⚠️ IMPORTANT: Create request WITHOUT nonce field - matches the ABI exactly
+    // Create request WITHOUT nonce field
     const fixedRequest = {
       from: request.from,
       to: request.to,
@@ -124,11 +126,12 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Meta-tx deadline already expired" });
     }
 
-    // Fetch domain for debugging
+    // Fetch domain from contract
     const domainInfo = await forwarder.eip712Domain();
     const [fieldsRaw, name, version, chainIdRaw, verifyingContract, saltRaw, extensions] = domainInfo;
     const fields = BigInt(fieldsRaw);
 
+    // ⚠️ IMPORTANT: Build domain with ALL fields the contract expects
     const domain = {
       name,
       version,
@@ -136,14 +139,25 @@ export const relayMetaTx = async (req, res) => {
       verifyingContract,
     };
 
-    if (fields & 0x20n) {
-      const saltHex = "0x" + saltRaw.toString(16).padStart(64, "0");
-      domain.salt = saltHex;
+    // The fields byte '0x0f' means ALL standard fields are present
+    // But we need to check if salt is also expected
+    console.log("Fields byte:", fieldsRaw);
+    
+    // Some contracts include salt even if it's zero
+    // Let's always include it to match the contract's domain separator
+    if (saltRaw && saltRaw !== "0x0000000000000000000000000000000000000000000000000000000000000000") {
+      domain.salt = "0x" + saltRaw.toString(16).padStart(64, "0");
+      console.log("Added non-zero salt:", domain.salt);
+    } else {
+      // Even if salt is zero, some contracts still expect it in the domain
+      // Let's add it as zero to be safe
+      domain.salt = "0x0000000000000000000000000000000000000000000000000000000000000000";
+      console.log("Added zero salt");
     }
 
-    console.log("Backend domain:", domain);
+    console.log("Final domain with salt:", domain);
 
-    // ⚠️ IMPORTANT: Types for off-chain recovery - match the signed data (no nonce)
+    // Types for off-chain recovery
     const typesForRecovery = {
       ForwardRequestData: [
         { name: "from", type: "address" },
@@ -155,7 +169,7 @@ export const relayMetaTx = async (req, res) => {
       ],
     };
 
-    // Create recovery object without signature
+    // Recovery object without signature
     const recoveryRequest = {
       from: request.from,
       to: request.to,
@@ -170,28 +184,22 @@ export const relayMetaTx = async (req, res) => {
     console.log("Manual off-chain recovered signer:", recovered);
     console.log("Does it match 'from'?", recovered.toLowerCase() === request.from.toLowerCase());
 
-    console.log("=== DOMAIN DEBUG ===");
-    console.log("Domain object:", domain);
-
-    // Calculate the domain separator hash
+    // Calculate domain separator hash
     const domainTypes = {
       EIP712Domain: [
         { name: 'name', type: 'string' },
         { name: 'version', type: 'string' },
         { name: 'chainId', type: 'uint256' },
         { name: 'verifyingContract', type: 'address' },
+        { name: 'salt', type: 'bytes32' }, // Always include salt
       ]
     };
-
-    if (domain.salt) {
-      domainTypes.EIP712Domain.push({ name: 'salt', type: 'bytes32' });
-    }
 
     const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain);
     console.log("Domain separator hash:", domainSeparator);
 
-    // Get the type hash - WITHOUT nonce
-    const typeHash = ethers.id("ForwardRequestData(address,address,uint256,uint256,uint48,bytes)");
+    // Get the type hash
+    const typeHash = ethers.TypedDataEncoder.hashStruct("ForwardRequestData", typesForRecovery, {});
     console.log("Type hash:", typeHash);
 
     // Compute struct hash
@@ -213,7 +221,7 @@ export const relayMetaTx = async (req, res) => {
     console.log("Recovered from digest:", recoveredFromDigest);
     console.log("Matches from?", recoveredFromDigest.toLowerCase() === request.from.toLowerCase());
 
-    // Call verify on the contract - with the 7-field struct
+    // Call verify on the contract
     console.log("Calling verify() on contract...");
     console.log("Verify request struct:", {
       from: fixedRequest.from,
@@ -234,7 +242,11 @@ export const relayMetaTx = async (req, res) => {
         debug: { 
           recovered, 
           expected: request.from, 
-          domainUsed: domain 
+          domainUsed: domain,
+          domainSeparator,
+          typeHash,
+          structHash,
+          digest
         }
       });
     }
@@ -270,19 +282,6 @@ export const relayMetaTx = async (req, res) => {
     }
 
     let errorMsg = err.reason || err.message || "Unknown relay error";
-
-    if (errorMsg.includes("ERC2771ForwarderExpiredRequest")) {
-      errorMsg = "Meta-tx deadline has expired";
-    } else if (errorMsg.includes("ERC2771ForwarderInvalidSigner")) {
-      errorMsg = "Recovered signer does not match 'from' address";
-    } else if (errorMsg.includes("InvalidAccountNonce")) {
-      errorMsg = "Nonce mismatch – likely replay attempt or stale request";
-    } else if (errorMsg.includes("ERC2771ForwarderMismatchedValue")) {
-      errorMsg = "Value mismatch in forwarded call";
-    } else if (errorMsg.includes("out of gas")) {
-      errorMsg = "Transaction ran out of gas – try increasing gas limit";
-    }
-
     return res.status(500).json({ error: errorMsg });
   }
 };

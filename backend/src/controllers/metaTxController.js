@@ -12,6 +12,7 @@ if (!FORWARDER_ADDRESS) {
   throw new Error("FORWARDER_ADDRESS not set in environment");
 }
 
+// ⚠️ IMPORTANT: Use the EXACT ABI from your Forwarder.json - 7 fields, no nonce!
 const forwarderAbi = [
   {
     inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -43,8 +44,7 @@ const forwarderAbi = [
           { internalType: "address", name: "to", type: "address" },
           { internalType: "uint256", name: "value", type: "uint256" },
           { internalType: "uint256", name: "gas", type: "uint256" },
-          { internalType: "uint256", name: "nonce", type: "uint256" }, // This is uint256
-          { internalType: "uint48", name: "deadline", type: "uint48" }, // This is uint48
+          { internalType: "uint48", name: "deadline", type: "uint48" },
           { internalType: "bytes", name: "data", type: "bytes" },
           { internalType: "bytes", name: "signature", type: "bytes" },
         ],
@@ -66,7 +66,6 @@ const forwarderAbi = [
           { internalType: "address", name: "to", type: "address" },
           { internalType: "uint256", name: "value", type: "uint256" },
           { internalType: "uint256", name: "gas", type: "uint256" },
-          { internalType: "uint256", name: "nonce", type: "uint256" },
           { internalType: "uint48", name: "deadline", type: "uint48" },
           { internalType: "bytes", name: "data", type: "bytes" },
           { internalType: "bytes", name: "signature", type: "bytes" },
@@ -77,10 +76,7 @@ const forwarderAbi = [
       },
     ],
     name: "execute",
-    outputs: [
-      { internalType: "bool", name: "", type: "bool" },
-      { internalType: "bytes", name: "", type: "bytes" },
-    ],
+    outputs: [],
     stateMutability: "payable",
     type: "function",
   },
@@ -98,17 +94,16 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 
-    // Get the current nonce from the contract
+    // Get the current nonce from the contract (for debugging only)
     const currentNonce = await forwarder.nonces(request.from);
     console.log(`Current on-chain nonce for ${request.from}: ${currentNonce.toString()}`);
 
-    // IMPORTANT: Create the request object in the EXACT order expected by the contract
+    // ⚠️ IMPORTANT: Create request WITHOUT nonce field - matches the ABI exactly
     const fixedRequest = {
       from: request.from,
       to: request.to,
       value: BigInt(request.value || "0"),
       gas: BigInt(request.gas),
-      nonce: currentNonce,  // This must be included
       deadline: BigInt(request.deadline),
       data: request.data,
       signature: signature,
@@ -119,11 +114,9 @@ export const relayMetaTx = async (req, res) => {
     console.log("To:", fixedRequest.to);
     console.log("Value:", fixedRequest.value.toString());
     console.log("Gas requested:", fixedRequest.gas.toString());
-    console.log("Nonce:", fixedRequest.nonce.toString());
     console.log("Deadline:", fixedRequest.deadline.toString());
     console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
     console.log("Signature prefix:", signature.slice(0, 30) + "...");
-
 
     // Check deadline
     const now = BigInt(Math.floor(Date.now() / 1000));
@@ -150,71 +143,88 @@ export const relayMetaTx = async (req, res) => {
 
     console.log("Backend domain:", domain);
 
-    // Manual off-chain recovery
-    const types = {
+    // ⚠️ IMPORTANT: Types for off-chain recovery - match the signed data (no nonce)
+    const typesForRecovery = {
       ForwardRequestData: [
         { name: "from", type: "address" },
         { name: "to", type: "address" },
         { name: "value", type: "uint256" },
         { name: "gas", type: "uint256" },
-      //  { name: "nonce", type: "uint256" },
         { name: "deadline", type: "uint48" },
         { name: "data", type: "bytes" },
       ],
     };
 
-    const recovered = ethers.verifyTypedData(domain, types, fixedRequest, signature);
+    // Create recovery object without signature
+    const recoveryRequest = {
+      from: request.from,
+      to: request.to,
+      value: BigInt(request.value || "0"),
+      gas: BigInt(request.gas),
+      deadline: BigInt(request.deadline),
+      data: request.data,
+    };
 
+    // Manual off-chain recovery
+    const recovered = ethers.verifyTypedData(domain, typesForRecovery, recoveryRequest, signature);
     console.log("Manual off-chain recovered signer:", recovered);
-    console.log("Does it match 'from'?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
+    console.log("Does it match 'from'?", recovered.toLowerCase() === request.from.toLowerCase());
 
-    // In metaTxController.js, before calling verify()
-console.log("=== DOMAIN DEBUG ===");
-console.log("Domain object:", domain);
+    console.log("=== DOMAIN DEBUG ===");
+    console.log("Domain object:", domain);
 
-// Calculate the domain separator hash
-const domainTypes = {
-  EIP712Domain: [
-    { name: 'name', type: 'string' },
-    { name: 'version', type: 'string' },
-    { name: 'chainId', type: 'uint256' },
-    { name: 'verifyingContract', type: 'address' },
-  ]
-};
+    // Calculate the domain separator hash
+    const domainTypes = {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ]
+    };
 
-// Only add salt if it's actually in the domain object
-if (domain.salt) {
-  domainTypes.EIP712Domain.push({ name: 'salt', type: 'bytes32' });
-}
+    if (domain.salt) {
+      domainTypes.EIP712Domain.push({ name: 'salt', type: 'bytes32' });
+    }
 
-const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain);
-console.log("Domain separator hash:", domainSeparator);
+    const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain);
+    console.log("Domain separator hash:", domainSeparator);
 
-// Get the type hash
-const typeHash = ethers.id("ForwardRequestData(address,address,uint256,uint256,uint256,uint48,bytes)");
-console.log("Type hash:", typeHash);
+    // Get the type hash - WITHOUT nonce
+    const typeHash = ethers.id("ForwardRequestData(address,address,uint256,uint256,uint48,bytes)");
+    console.log("Type hash:", typeHash);
 
-// Compute struct hash
-const structHash = ethers.TypedDataEncoder.hashStruct("ForwardRequestData", types, fixedRequest);
-console.log("Struct hash:", structHash);
+    // Compute struct hash
+    const structHash = ethers.TypedDataEncoder.hashStruct("ForwardRequestData", typesForRecovery, recoveryRequest);
+    console.log("Struct hash:", structHash);
 
-// Compute full digest
-const digest = ethers.keccak256(
-  ethers.concat([
-    "0x1901",
-    domainSeparator,
-    structHash
-  ])
-);
-console.log("Full digest:", digest);
+    // Compute full digest
+    const digest = ethers.keccak256(
+      ethers.concat([
+        "0x1901",
+        domainSeparator,
+        structHash
+      ])
+    );
+    console.log("Full digest:", digest);
 
-// Recover from digest
-const recoveredFromDigest = ethers.recoverAddress(digest, signature);
-console.log("Recovered from digest:", recoveredFromDigest);
-console.log("Matches from?", recoveredFromDigest.toLowerCase() === fixedRequest.from.toLowerCase())
+    // Recover from digest
+    const recoveredFromDigest = ethers.recoverAddress(digest, signature);
+    console.log("Recovered from digest:", recoveredFromDigest);
+    console.log("Matches from?", recoveredFromDigest.toLowerCase() === request.from.toLowerCase());
 
-    // Call verify on the contract
+    // Call verify on the contract - with the 7-field struct
     console.log("Calling verify() on contract...");
+    console.log("Verify request struct:", {
+      from: fixedRequest.from,
+      to: fixedRequest.to,
+      value: fixedRequest.value.toString(),
+      gas: fixedRequest.gas.toString(),
+      deadline: fixedRequest.deadline.toString(),
+      dataLength: fixedRequest.data.length,
+      signatureLength: fixedRequest.signature.length,
+    });
+    
     const isValid = await forwarder.verify(fixedRequest);
     console.log("verify() result:", isValid);
 
@@ -223,9 +233,7 @@ console.log("Matches from?", recoveredFromDigest.toLowerCase() === fixedRequest.
         error: "Invalid signature or request (verify failed)",
         debug: { 
           recovered, 
-          expected: fixedRequest.from, 
-        //  nonce: fixedRequest.nonce.toString(),
-          currentNonce: currentNonce.toString(),
+          expected: request.from, 
           domainUsed: domain 
         }
       });
@@ -254,7 +262,6 @@ console.log("Matches from?", recoveredFromDigest.toLowerCase() === fixedRequest.
   } catch (err) {
     console.error("Relay failed:", err);
     
-    // More detailed error logging
     if (err.transaction) {
       console.error("Transaction that failed:", {
         to: err.transaction.to,

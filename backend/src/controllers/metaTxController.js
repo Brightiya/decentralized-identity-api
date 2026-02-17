@@ -129,17 +129,25 @@ export const relayMetaTx = async (req, res) => {
 
     // Fetch domain on backend for debug/recovery
     const domainInfo = await forwarder.eip712Domain();
-    const [fields, name, version, chainId, verifyingContract, salt, extensions] = domainInfo;
+    const [fieldsRaw, name, version, chainIdRaw, verifyingContract, saltRaw, extensions] = domainInfo;
+    const fields = BigInt(fieldsRaw); // bytes1 -> bigint
 
     const domain = {
       name,
       version,
-      chainId: Number(chainId),
+      chainId: Number(chainIdRaw),
       verifyingContract,
     };
 
-    if (fields & 0x20n) {  // salt bit
-      domain.salt = salt;  // already bytes32 / hex from ethers
+    if (fields & 0x20n) {
+      // saltRaw is bigint → convert to hex string (ethers requires string for salt)
+      const saltHex = "0x" + saltRaw.toString(16).padStart(64, "0");
+      domain.salt = saltHex;
+      console.log("Added salt to domain:", saltHex);
+    }
+
+    if (extensions.length > 0) {
+      console.warn("Extensions present:", extensions);
     }
 
     console.log("Backend domain:", domain);
@@ -157,10 +165,18 @@ export const relayMetaTx = async (req, res) => {
       ],
     };
 
-    const recovered = ethers.verifyTypedData(domain, types, {
-      ...fixedRequest,
-      nonce: currentNonce,  // ← inject current nonce for recovery check
-    }, signature);
+    // For recovery: use strings for numeric fields to avoid any BigInt coercion issues
+    const recoveryMessage = {
+      from: fixedRequest.from,
+      to: fixedRequest.to,
+      value: fixedRequest.value.toString(),       // string
+      gas: fixedRequest.gas.toString(),           // string
+      nonce: currentNonce.toString(),             // string
+      deadline: fixedRequest.deadline.toString(), // string
+      data: fixedRequest.data,
+    };
+
+    const recovered = ethers.verifyTypedData(domain, types, recoveryMessage, signature);
 
     console.log("Manual off-chain recovered signer:", recovered);
     console.log("Does it match 'from'?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
@@ -171,7 +187,12 @@ export const relayMetaTx = async (req, res) => {
     if (!isValid) {
       return res.status(400).json({ 
         error: "Invalid signature or request (verify failed)",
-        debug: { recovered, expected: fixedRequest.from, nonceUsed: currentNonce.toString() }
+        debug: { 
+          recovered, 
+          expected: fixedRequest.from, 
+          nonceUsed: currentNonce.toString(),
+          domainUsed: domain 
+        }
       });
     }
 

@@ -40,7 +40,7 @@ export class MetaTxService {
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
     // Read nonce (for UI only)
-    const nonce = await forwarder['nonces'](from);
+    const nonce = await forwarder.getFunction("nonces")(from);
     console.log("Current nonce (not signed):", nonce.toString());
 
     // Prepare target calldata
@@ -58,7 +58,7 @@ export class MetaTxService {
     const deadline = Math.floor(Date.now() / 1000) + 3600; // 1 hour
 
     // === CRITICAL FIX: Use dynamic domain from contract ===
-    const domainInfo = await forwarder['eip712Domain']();
+    const domainInfo = await forwarder.getFunction("eip712Domain")();
     console.log("Using on-chain domain from contract:", {
       name: domainInfo.name,
       version: domainInfo.version,

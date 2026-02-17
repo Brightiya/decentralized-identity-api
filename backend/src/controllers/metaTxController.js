@@ -174,6 +174,37 @@ export const relayMetaTx = async (req, res) => {
     console.log("Manual off-chain recovered signer:", recovered);
     console.log("Does it match 'from'?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
 
+    // In metaTxController.js, before calling verify()
+console.log("=== DOMAIN DEBUG ===");
+console.log("Domain object:", domain);
+
+// Calculate the domain separator hash
+const domainTypes = {
+  EIP712Domain: [
+    { name: 'name', type: 'string' },
+    { name: 'version', type: 'string' },
+    { name: 'chainId', type: 'uint256' },
+    { name: 'verifyingContract', type: 'address' },
+  ]
+};
+
+// If salt is present, add it
+if (domain.salt) {
+  domainTypes.EIP712Domain.push({ name: 'salt', type: 'bytes32' });
+}
+
+const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain);
+console.log("Domain separator hash:", domainSeparator);
+
+// Get the contract's domain separator
+try {
+  // Some contracts have a DOMAIN_SEPARATOR() function
+  const contractDomainSeparator = await forwarder.eip712Domain();
+  console.log("Contract domain info:", contractDomainSeparator);
+} catch (e) {
+  console.log("Could not get contract domain separator directly");
+}
+
     // Call verify on the contract
     console.log("Calling verify() on contract...");
     const isValid = await forwarder.verify(fixedRequest);

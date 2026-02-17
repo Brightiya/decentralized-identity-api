@@ -911,7 +911,7 @@ async issueVC() {
         try {
 
           // 1️⃣ Build & sign meta-tx in browser (LIKE VAULT)
-          const {signature } = await this.metaTx.buildAndSignMetaTx({
+          const { request:req, signature } = await this.metaTx.buildAndSignMetaTx({
             forwarderAbi: ForwarderAbi,
             targetAddress: environment.IDENTITY_REGISTRY_META_ADDRESS,
             targetAbi: IdentityRegistryAbi,
@@ -932,7 +932,7 @@ async issueVC() {
           // 2️⃣ Send to backend relayer (SAME AS VAULT)
           const relayResponse: any = await this.http.post(
             `${environment.backendUrl}/gsn/relay`,
-            { signature }
+            { req, signature }
           ).toPromise();
 
           const txHash = relayResponse.txHash;

@@ -1573,7 +1573,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         const { to, data } = response.unsignedTx;
 
         // 3️⃣ Build & sign meta transaction
-        const { signature } = await this.metaTx.buildAndSignMetaTx({
+        const { request:req, signature } = await this.metaTx.buildAndSignMetaTx({
           forwarderAbi: ForwarderAbi,
           targetAddress: to,
           rawData: data
@@ -1582,6 +1582,7 @@ export class VaultComponent implements OnInit, OnDestroy {
         // 4️⃣ Send to relayer
         const relayResponse: any = await firstValueFrom(
           this.http.post(`${environment.backendUrl}/meta/relay`, {
+            request: req,
             signature
           })
         );

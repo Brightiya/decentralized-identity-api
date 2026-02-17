@@ -38,7 +38,7 @@ export class MetaTxService {
     functionName?: string;
     functionArgs?: any[];
     rawData?: string;
-  }): Promise<ForwardRequestForRelayer> {
+  }): Promise<{request: ForwardRequestForRelayer; signature: string }> {
     if (!(window as any).ethereum) {
       throw new Error('No wallet found.');
     }
@@ -115,7 +115,7 @@ export class MetaTxService {
     };
 
     console.log("Ready for forwarder.verify(requestForRelayer)");
-    return requestForRelayer;
+    return {request: requestForRelayer, signature};
   }
 }
 

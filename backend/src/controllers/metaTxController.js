@@ -81,9 +81,9 @@ const forwarder = new ethers.Contract(FORWARDER_ADDRESS, forwarderAbi, relayerWa
 
 export const relayMetaTx = async (req, res) => {
   try {
-    const { request } = req.body; // Expecting the full object from frontend including signature
+    const { request, signature } = req.body; // Expecting the full object from frontend including signature
 
-    if (!request || !request.signature) {
+    if (!request || !signature) {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 

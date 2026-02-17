@@ -43,8 +43,8 @@ const forwarderAbi = [
           { internalType: "address", name: "to", type: "address" },
           { internalType: "uint256", name: "value", type: "uint256" },
           { internalType: "uint256", name: "gas", type: "uint256" },
-          { internalType: "uint256", name: "nonce", type: "uint256" },  // Note: uint256
-          { internalType: "uint48", name: "deadline", type: "uint48" },
+          { internalType: "uint256", name: "nonce", type: "uint256" }, // This is uint256
+          { internalType: "uint48", name: "deadline", type: "uint48" }, // This is uint48
           { internalType: "bytes", name: "data", type: "bytes" },
           { internalType: "bytes", name: "signature", type: "bytes" },
         ],
@@ -98,38 +98,17 @@ export const relayMetaTx = async (req, res) => {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 
-    // ⚠️ IMPORTANT: Include nonce in the request
+    // IMPORTANT: Create the request object in the EXACT order expected by the contract
     const fixedRequest = {
       from: request.from,
       to: request.to,
-      value: BigInt(request.value ?? "0"),
+      value: BigInt(request.value || "0"),
       gas: BigInt(request.gas),
-      nonce: BigInt(request.nonce),  // ← ADD THIS
+      nonce: BigInt(request.nonce),  // This must be included
       deadline: BigInt(request.deadline),
       data: request.data,
-      signature,
+      signature: signature,
     };
-
-    if (fixedRequest.gas > 3000000n) {
-      return res.status(400).json({ error: "Requested gas limit too high (max 3M)" });
-    }
-
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    if (fixedRequest.deadline < now) {
-      return res.status(400).json({ error: "Meta-tx deadline already expired" });
-    }
-
-    const currentNonce = await forwarder.nonces(fixedRequest.from);
-    console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce.toString()}`);
-    console.log(`Request nonce: ${fixedRequest.nonce.toString()}`);
-
-    // Verify nonce matches
-    if (fixedRequest.nonce !== currentNonce) {
-      return res.status(400).json({ 
-        error: "Nonce mismatch",
-        debug: { expected: currentNonce.toString(), got: fixedRequest.nonce.toString() }
-      });
-    }
 
     console.log("=== RELAY REQUEST ===");
     console.log("From:", fixedRequest.from);
@@ -141,7 +120,24 @@ export const relayMetaTx = async (req, res) => {
     console.log("Data prefix:", fixedRequest.data.slice(0, 50) + "...");
     console.log("Signature prefix:", signature.slice(0, 30) + "...");
 
-    // Fetch domain on backend
+    // Verify nonce matches on-chain value
+    const currentNonce = await forwarder.nonces(fixedRequest.from);
+    console.log(`Current on-chain nonce for ${fixedRequest.from}: ${currentNonce.toString()}`);
+    
+    if (fixedRequest.nonce !== currentNonce) {
+      return res.status(400).json({ 
+        error: "Nonce mismatch",
+        debug: { expected: currentNonce.toString(), got: fixedRequest.nonce.toString() }
+      });
+    }
+
+    // Check deadline
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    if (fixedRequest.deadline < now) {
+      return res.status(400).json({ error: "Meta-tx deadline already expired" });
+    }
+
+    // Fetch domain for debugging
     const domainInfo = await forwarder.eip712Domain();
     const [fieldsRaw, name, version, chainIdRaw, verifyingContract, saltRaw, extensions] = domainInfo;
     const fields = BigInt(fieldsRaw);
@@ -156,12 +152,11 @@ export const relayMetaTx = async (req, res) => {
     if (fields & 0x20n) {
       const saltHex = "0x" + saltRaw.toString(16).padStart(64, "0");
       domain.salt = saltHex;
-      console.log("Added salt to domain:", saltHex);
     }
 
     console.log("Backend domain:", domain);
 
-    // Manual off-chain recovery with the SAME types as signing
+    // Manual off-chain recovery
     const types = {
       ForwardRequestData: [
         { name: "from", type: "address" },
@@ -174,22 +169,13 @@ export const relayMetaTx = async (req, res) => {
       ],
     };
 
-    // For recovery: use the exact values that were signed
-    const recoveryMessage = {
-      from: fixedRequest.from,
-      to: fixedRequest.to,
-      value: fixedRequest.value,  // Keep as BigInt
-      gas: fixedRequest.gas,      // Keep as BigInt
-      nonce: fixedRequest.nonce,  // Keep as BigInt
-      deadline: fixedRequest.deadline, // Keep as BigInt
-      data: fixedRequest.data,
-    };
-
-    const recovered = ethers.verifyTypedData(domain, types, recoveryMessage, signature);
+    const recovered = ethers.verifyTypedData(domain, types, fixedRequest, signature);
 
     console.log("Manual off-chain recovered signer:", recovered);
     console.log("Does it match 'from'?", recovered.toLowerCase() === fixedRequest.from.toLowerCase());
 
+    // Call verify on the contract
+    console.log("Calling verify() on contract...");
     const isValid = await forwarder.verify(fixedRequest);
     console.log("verify() result:", isValid);
 
@@ -199,15 +185,15 @@ export const relayMetaTx = async (req, res) => {
         debug: { 
           recovered, 
           expected: fixedRequest.from, 
-          nonceUsed: currentNonce.toString(),
-          requestNonce: fixedRequest.nonce.toString(),
+          nonce: fixedRequest.nonce.toString(),
+          currentNonce: currentNonce.toString(),
           domainUsed: domain 
         }
       });
     }
 
+    // Execute the transaction
     console.log("Executing meta-tx...");
-
     const gasLimit = (fixedRequest.gas * 130n) / 100n + 100000n;
 
     const tx = await forwarder.execute(fixedRequest, {
@@ -228,6 +214,14 @@ export const relayMetaTx = async (req, res) => {
     });
   } catch (err) {
     console.error("Relay failed:", err);
+    
+    // More detailed error logging
+    if (err.transaction) {
+      console.error("Transaction that failed:", {
+        to: err.transaction.to,
+        data: err.transaction.data?.slice(0, 100) + "...",
+      });
+    }
 
     let errorMsg = err.reason || err.message || "Unknown relay error";
 

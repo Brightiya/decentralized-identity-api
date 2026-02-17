@@ -25,7 +25,7 @@ interface ForwardRequestForRelayer {
   to: string;
   value: string;
   gas: string;
-  nonce: string;  // ← ADD THIS
+  nonce: string;
   deadline: string;
   data: string;
 }
@@ -60,7 +60,7 @@ export class MetaTxService {
     const forwarderAddress = environment.FORWARDER_ADDRESS;
     const forwarder = new Contract(forwarderAddress, forwarderAbi, provider);
 
-    // ── Read current nonce (UI/debug only) ──
+    // ── Read current nonce ──
     const nonce = await forwarder.getFunction('nonces')(from);
     console.log(`Current nonce for ${from}:`, nonce.toString());
 
@@ -76,9 +76,12 @@ export class MetaTxService {
       data = iface.encodeFunctionData(functionName, functionArgs ?? []);
     }
 
-    // Use uint48-compatible deadline (max value for uint48 is 2^48 - 1)
+    // IMPORTANT: Use exact uint48 format for deadline
+    // Max uint48 value is 281474976710655
     const deadlineSeconds = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-    if (deadlineSeconds > 281474976710655) { // 2^48 - 1
+    
+    // Ensure deadline fits in uint48
+    if (deadlineSeconds > 281474976710655) {
       throw new Error('Deadline exceeds uint48 max value');
     }
 
@@ -95,21 +98,20 @@ export class MetaTxService {
       verifyingContract,
     };
 
-    if (fieldsBig & 0x20n) {  // bit 5 = salt present
+    if (fieldsBig & 0x20n) {
       domain.salt = "0x" + salt.toString(16).padStart(64, "0");
     }
 
     console.log("Final domain for signing:", domain);
-    console.log('Using on-chain EIP-712 domain:', domain);
 
-    // ⚠️ IMPORTANT: Create request with ALL fields matching contract exactly
+    // Create request with ALL fields in the correct order
     const requestToSign: ForwardRequest = {
       from,
       to: targetAddress,
       value: 0n,
       gas: 1500000n,
-      nonce: nonce,           // ← MUST include nonce
-      deadline: BigInt(deadlineSeconds),
+      nonce: nonce,           // This is uint256 in the contract
+      deadline: BigInt(deadlineSeconds), // This is uint48 in the contract
       data,
     };
 
@@ -118,20 +120,21 @@ export class MetaTxService {
       to: requestToSign.to,
       value: requestToSign.value.toString(),
       gas: requestToSign.gas.toString(),
-      nonce: requestToSign.nonce.toString(),  // ← Added to logs
+      nonce: requestToSign.nonce.toString(),
       deadline: requestToSign.deadline.toString(),
       data: data.slice(0, 50) + (data.length > 50 ? '...' : ''),
     });
 
-    // ⚠️ IMPORTANT: Types must match EXACTLY with contract's EIP-712 definition
+    // IMPORTANT: The types must match EXACTLY with the contract's EIP-712 definition
+    // The contract uses uint256 for nonce, not uint48
     const types = {
       ForwardRequestData: [
         { name: 'from', type: 'address' },
         { name: 'to', type: 'address' },
         { name: 'value', type: 'uint256' },
         { name: 'gas', type: 'uint256' },
-        { name: 'nonce', type: 'uint256' },  // ← Note: uint256, not uint48
-        { name: 'deadline', type: 'uint48' }, // ← uint48 as specified
+        { name: 'nonce', type: 'uint256' },  // This is uint256 in the contract
+        { name: 'deadline', type: 'uint48' }, // This is uint48 in the contract
         { name: 'data', type: 'bytes' },
       ],
     };
@@ -141,18 +144,18 @@ export class MetaTxService {
 
     console.log('Generated signature:', signature);
 
-    // Optional: off-chain verification
+    // Off-chain verification
     const recovered = ethers.verifyTypedData(domain, types, requestToSign, signature);
     console.log('Recovered address:', recovered);
     console.log('Signature matches signer?', recovered.toLowerCase() === from.toLowerCase());
 
-    // ⚠️ IMPORTANT: Include nonce in the relayer request
+    // Prepare payload for backend
     const requestForRelayer: ForwardRequestForRelayer = {
       from,
       to: targetAddress,
       value: '0',
       gas: requestToSign.gas.toString(),
-      nonce: requestToSign.nonce.toString(),  // ← ADD THIS
+      nonce: requestToSign.nonce.toString(),
       deadline: requestToSign.deadline.toString(),
       data,
     };

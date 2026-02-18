@@ -185,7 +185,13 @@ export const issueVC = async (req, res) => {
       // Optional profile auto-update
       try {
         let profile = {};
-        const profileCID = await contract.getProfileCID(subjectAddress); // read-only OK
+        let profileCID = req.body.currentProfileCid || null;
+
+        // ✅ CRITICAL: Fallback to on-chain CID (this makes signature stable again)
+        if (!profileCID) {
+          profileCID = await contract.getProfileCID(subjectAddress);
+          console.log("[Hybrid] Fallback to on-chain profileCID:", profileCID);
+        }// read-only OK
 
         if (profileCID && profileCID.length > 0) {
           const preferred = req.headers["x-preferred-gateway"] || null;

@@ -1542,8 +1542,6 @@ export class VaultComponent implements OnInit, OnDestroy {
       this.loading.set(false);
     }
   }
-
-      
       
     // NEW: Gasless profile creation (FIXED – uses meta contract properly)
     private async createProfileGasless(address: string) {

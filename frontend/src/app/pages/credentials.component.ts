@@ -5,7 +5,6 @@ import { WalletService } from '../services/wallet.service';
 import { ApiService } from '../services/api.service';
 import { ContextService } from '../services/context.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { GSNService } from '../services/gsn.service';
 import { MetaTxService } from '../services/metaTx.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment.prod';
@@ -694,7 +693,6 @@ export class CredentialsComponent implements OnInit {
   private contextService = inject(ContextService);
   private snackBar = inject(MatSnackBar);
   private themeService = inject(ThemeService);
-  private gsn = inject(GSNService);
   private metaTx = inject(MetaTxService);
   private http = inject(HttpClient);
 
@@ -917,9 +915,9 @@ async issueVC() {
           this.http.post(`${environment.backendUrl}/meta/relay`, { request: req, signature })
         );
         console.log("Claim 1 mined:", relayResponse.txHash);
-       // 2. IMPORTANT: Wait for 2-3 seconds to let the RPC node index the new nonce
+       // 2. IMPORTANT: Wait for 6 seconds to let the RPC node index the new nonce
         this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
-        await new Promise(resolve => setTimeout(resolve, 3500));
+        await new Promise(resolve => setTimeout(resolve, 6000));
 
         if (!relayResponse.txHash) throw new Error('First relay failed');
         this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });

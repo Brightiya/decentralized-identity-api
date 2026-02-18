@@ -151,9 +151,17 @@ export const relayMetaTx = async (req, res) => {
     }
 
     // 7. Execute
+    const nonce = await relayerWallet.getNonce("pending");
+    // Get fresh fee data
+    const feeData = await provider.getFeeData();
     const tx = await forwarder.execute(fixedRequest, {
-      value: fixedRequest.value
-    });
+    value: fixedRequest.value,
+    gasLimit,
+    nonce,
+    maxFeePerGas: feeData.maxFeePerGas * 2n,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas * 2n,
+  });
+
 
     const receipt = await tx.wait();
     return res.json({ success: true, txHash: tx.hash });

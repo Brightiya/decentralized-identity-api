@@ -885,16 +885,6 @@ async issueVC() {
 
     const response = await firstValueFrom(this.api.issueVC(payload));
 
-      // ─────────────────────────────────────────────
-  // GSN MODE (Gasless setClaim)
-  // ─────────────────────────────────────────────
-    if (this.gsn.isEnabled()) {
-
-      const isAvailable = await this.gsn.isGaslessAvailable(addr);
-      if (!isAvailable) {
-        console.warn('GSN enabled but user not whitelisted');
-      } else {
-
         this.snackBar.open(
           'Preparing gasless credential anchoring...',
           'Close',
@@ -931,7 +921,7 @@ async issueVC() {
 
           // 2️⃣ Send to backend relayer (SAME AS VAULT)
           const relayResponse: any = await this.http.post(
-            `${environment.backendUrl}/gsn/relay`,
+            `${environment.backendUrl}/meta/relay`,
             { req, signature }
           ).toPromise();
 
@@ -966,10 +956,6 @@ async issueVC() {
             throw gaslessErr;
           }
         }
-      }
-    }
-
-
     // ── Backend-signed (dev) mode ────────────────────────────────
     if (!response.unsignedTx && response.txHash) {
       this.snackBar.open(`Success! Credential anchored on-chain (2 txs confirmed)`, 'Close', {

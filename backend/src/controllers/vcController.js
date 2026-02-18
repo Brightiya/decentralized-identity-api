@@ -185,7 +185,11 @@ export const issueVC = async (req, res) => {
       // Optional profile auto-update
       try {
         let profile = {};
-        const profileCID = await contract.getProfileCID(subjectAddress); // read-only OK
+        let profileCID = req.body.currentProfileCid || null;
+
+        if (!profileCID) {
+          console.warn("[Hybrid] No currentProfileCid provided, using empty profile");
+        } // read-only OK
 
         if (profileCID && profileCID.length > 0) {
           const preferred = req.headers["x-preferred-gateway"] || null;

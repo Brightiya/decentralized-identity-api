@@ -151,16 +151,14 @@ export const relayMetaTx = async (req, res) => {
     }
 
     // 7. Execute
-    const nonce = await relayerWallet.getNonce("pending");
     // Get fresh fee data
     const feeData = await provider.getFeeData();
     // Add safety buffer to requested gas
     const gasLimit = (fixedRequest.gas * 130n) / 100n + 100000n;
-    
+
     const tx = await forwarder.execute(fixedRequest, {
     value: fixedRequest.value,
     gasLimit,
-    nonce,
     maxFeePerGas: feeData.maxFeePerGas * 2n,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas * 2n,
   });

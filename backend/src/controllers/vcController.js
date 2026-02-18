@@ -217,7 +217,6 @@ export const issueVC = async (req, res) => {
         const profileUnsignedTx = await prepareUnsignedTx(
           "setProfileCID",
           subjectAddress,
-          newProfileCid,
           newProfileCid
         );
         responseData.profileUnsignedTx = profileUnsignedTx;

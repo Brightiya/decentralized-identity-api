@@ -8,6 +8,25 @@ const provider = new ethers.JsonRpcProvider(
 const relayerWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 const FORWARDER_ADDRESS = process.env.FORWARDER_ADDRESS;
 
+
+// Simple queue to ensure transactions are sent one after another
+class TxQueue {
+  constructor() {
+    this.queue = Promise.resolve();
+  }
+
+  enqueue(task) {
+    return new Promise((resolve, reject) => {
+      this.queue = this.queue.then(() => 
+        task().then(resolve).catch(reject)
+      );
+    });
+  }
+}
+
+const txQueue = new TxQueue();
+
+
 const forwarderAbi = [
   {
     inputs: [{ internalType: "address", name: "owner", type: "address" }],
@@ -81,16 +100,17 @@ const forwarder = new ethers.Contract(FORWARDER_ADDRESS, forwarderAbi, relayerWa
 
 export const relayMetaTx = async (req, res) => {
   try {
-    const { request, signature } = req.body; // Expecting the full object from frontend including signature
+    const { request, signature } = req.body;
 
     if (!request || !signature) {
       return res.status(400).json({ error: "Missing request or signature" });
     }
 
-    // 1. Get current nonce from contract
+    // 1. Fetch data required for verification
     const currentNonce = await forwarder.nonces(request.from);
+    const domainInfo = await forwarder.eip712Domain();
 
-    // 2. Format the request to match the ABI struct exactly (7 fields)
+    // 2. Format the request to match the ABI struct (ForwardRequestData)
     const fixedRequest = {
       from: request.from,
       to: request.to,
@@ -98,11 +118,10 @@ export const relayMetaTx = async (req, res) => {
       gas: BigInt(request.gas),
       deadline: BigInt(request.deadline),
       data: request.data,
-      signature: request.signature,
+      signature: signature,
     };
 
-    // 3. Build Domain
-    const domainInfo = await forwarder.eip712Domain();
+    // 3. Build Domain for recovery
     const domain = {
       name: domainInfo[1],
       version: domainInfo[2],
@@ -110,8 +129,7 @@ export const relayMetaTx = async (req, res) => {
       verifyingContract: domainInfo[4],
     };
 
-    // 4. Types for manual recovery
-    // MUST be "ForwardRequest" and MUST include "nonce" to match OZ implementation
+    // 4. Types for manual recovery (Must be "ForwardRequest" with nonce)
     const typesForRecovery = {
       ForwardRequest: [
         { name: "from", type: "address" },
@@ -124,7 +142,6 @@ export const relayMetaTx = async (req, res) => {
       ],
     };
 
-    // 5. Message for manual recovery (includes nonce)
     const recoveryMessage = {
       from: fixedRequest.from,
       to: fixedRequest.to,
@@ -135,32 +152,60 @@ export const relayMetaTx = async (req, res) => {
       data: fixedRequest.data,
     };
 
-    // Manual off-chain recovery check
-    const recovered = ethers.verifyTypedData(domain, typesForRecovery, recoveryMessage, fixedRequest.signature);
+    // 5. Off-chain & On-chain Verification
+    const recovered = ethers.verifyTypedData(domain, typesForRecovery, recoveryMessage, signature);
     
     if (recovered.toLowerCase() !== request.from.toLowerCase()) {
       return res.status(400).json({ error: "Invalid signature (Recovery failed)" });
     }
 
-    // 6. Call verify() on the contract
-    // This will now return TRUE because the signature was created with the correct TypeName and Nonce
     const isValid = await forwarder.verify(fixedRequest);
-    
     if (!isValid) {
       return res.status(400).json({ error: "On-chain verify() failed" });
     }
 
-    // 7. Execute
-    const tx = await forwarder.execute(fixedRequest, {
-    value: fixedRequest.value,
-  });
+    // 6. Enqueued Execution (Serializes transactions to prevent nonce collisions)
+    const result = await txQueue.enqueue(async () => {
+      console.log(`Processing meta-tx for ${request.from} in queue...`);
 
+      // Fetch current fee data from provider for the latest gas prices
+      const feeData = await provider.getFeeData();
 
-    const receipt = await tx.wait();
-    return res.json({ success: true, txHash: tx.hash });
+      // Execute with a gas tip (20% buffer) to prevent REPLACEMENT_UNDERPRICED
+      const tx = await forwarder.execute(fixedRequest, {
+        value: fixedRequest.value,
+        // Buffering maxFee and PriorityFee for fast inclusion
+        maxFeePerGas: (feeData.maxFeePerGas * 120n) / 100n,
+        maxPriorityFeePerGas: (feeData.maxPriorityFeePerGas * 120n) / 100n,
+      });
+
+      console.log("Transaction submitted:", tx.hash);
+      
+      const receipt = await tx.wait(); // Ensures this transaction is mined before the next one starts
+      return {
+        txHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString()
+      };
+    });
+
+    // 7. Success Response
+    return res.json({
+      success: true,
+      txHash: result.txHash,
+      blockNumber: result.blockNumber,
+      gasUsed: result.gasUsed
+    });
 
   } catch (err) {
     console.error("Relay failed:", err);
-    return res.status(500).json({ error: err.message });
+    
+    // Check for specific ethers error codes to provide better feedback
+    if (err.code === 'REPLACEMENT_UNDERPRICED') {
+      return res.status(500).json({ error: "Relayer is busy or gas price spiked. Please try again." });
+    }
+
+    return res.status(500).json({ error: err.message || "Internal relay error" });
   }
 };
+

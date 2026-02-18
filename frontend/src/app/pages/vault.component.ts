@@ -1614,9 +1614,6 @@ export class VaultComponent implements OnInit, OnDestroy {
       }
     }
 
-
-
-
   // EXISTING: Regular profile creation (UNCHANGED)
   private async createProfileRegular(address: string) {
     const payload = { owner: address };

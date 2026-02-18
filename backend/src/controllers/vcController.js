@@ -10,9 +10,6 @@ import {
   getContract,
 } from "../utils/contract.js";
 
-const isGSNMode = () => process.env.TX_MODE === "gsn";
-
-
 /* ------------------------------------------------------------------
    Helper: Get Pinata JWT for this request (user > shared)
 ------------------------------------------------------------------- */
@@ -216,11 +213,12 @@ export const issueVC = async (req, res) => {
           nftStorageKey,
         );
         const newProfileCid = profileUri.replace("ipfs://", "");
-
+        responseData.newProfileCid = newProfileCid;
         const profileUnsignedTx = await prepareUnsignedTx(
           "setProfileCID",
           subjectAddress,
           newProfileCid,
+          newProfileCid
         );
         responseData.profileUnsignedTx = profileUnsignedTx;
         responseData.message += " + profile update prepared (sign both txs)";
@@ -232,26 +230,6 @@ export const issueVC = async (req, res) => {
           profileErr.message,
         );
       }
-    }
-        // ────────────────────────────────
-    // GSN MODE (Gasless)
-    // ────────────────────────────────
-    else if (isGSNMode()) {
-      responseData.message =
-        "✅ VC issued. Please sign the gasless transaction.";
-
-        responseData.metaTx = {
-            forwarder: process.env.GSN_FORWARDER_ADDRESS,
-            to: contract.address,
-            subjectAddress,
-            claimIdBytes32,
-            claimHash,
-          };
-
-          console.log("[GSN] Prepared meta-tx payload");
-
-      // 🚨 IMPORTANT: DO NOT CALL contract.setClaim()
-      // Relaying happens via /gsn/prepare-set-claim + /gsn/relay
     }
     // ────────────────────────────────
     // DEV MODE: Backend signs and submits

@@ -931,6 +931,25 @@ async issueVC() {
             throw new Error('Relay failed — no txHash returned');
           }
 
+          // 2️⃣ Relay profile update gaslessly
+        if (response.newProfileCid) {
+          const { request: profileReq, signature: profileSig } =
+            await this.metaTx.buildAndSignMetaTx({
+              forwarderAbi: ForwarderAbi,
+              targetAddress: environment.IDENTITY_REGISTRY_META_ADDRESS,
+              targetAbi: IdentityRegistryAbi,
+              functionName: "setProfileCID",
+              functionArgs: [
+                addr,
+                response.newProfileCid 
+              ]
+            });
+
+          await this.http.post(
+            `${environment.backendUrl}/meta/relay`,
+            { request: profileReq, signature: profileSig }
+          ).toPromise();
+        }
           this.snackBar.open(
             `Credential anchored GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
             'Close',
@@ -956,6 +975,7 @@ async issueVC() {
             throw gaslessErr;
           }
         }
+
     // ── Backend-signed (dev) mode ────────────────────────────────
     if (!response.unsignedTx && response.txHash) {
       this.snackBar.open(`Success! Credential anchored on-chain (2 txs confirmed)`, 'Close', {

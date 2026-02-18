@@ -166,7 +166,7 @@ export const issueVC = async (req, res) => {
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`,
     };
 
-        // ────────────────────────────────
+    // ────────────────────────────────
     // HYBRID MODE: Prepare unsigned txs for frontend
     // ────────────────────────────────
     if (isHybridMode()) {
@@ -176,7 +176,6 @@ export const issueVC = async (req, res) => {
         claimIdBytes32,
         claimHash,
       );
-
       responseData.unsignedTx = unsignedTx;
       responseData.message =
         "✅ VC prepared - please sign & send transaction in your wallet";
@@ -186,13 +185,7 @@ export const issueVC = async (req, res) => {
       // Optional profile auto-update
       try {
         let profile = {};
-        let profileCID = req.body.currentProfileCid || null;
-
-        // ✅ CRITICAL: Fallback to on-chain CID (this makes signature stable again)
-        if (!profileCID) {
-          profileCID = await contract.getProfileCID(subjectAddress);
-          console.log("[Hybrid] Fallback to on-chain profileCID:", profileCID);
-        }
+        const profileCID = await contract.getProfileCID(subjectAddress); // read-only OK
 
         if (profileCID && profileCID.length > 0) {
           const preferred = req.headers["x-preferred-gateway"] || null;
@@ -219,18 +212,14 @@ export const issueVC = async (req, res) => {
           pinataJwt,
           nftStorageKey,
         );
-
         const newProfileCid = profileUri.replace("ipfs://", "");
         responseData.newProfileCid = newProfileCid;
-
-        // ⚠️ Keep argument structure EXACTLY as before (this matches relayer schema)
         const profileUnsignedTx = await prepareUnsignedTx(
           "setProfileCID",
           subjectAddress,
           newProfileCid,
           newProfileCid
         );
-
         responseData.profileUnsignedTx = profileUnsignedTx;
         responseData.message += " + profile update prepared (sign both txs)";
 
@@ -242,7 +231,6 @@ export const issueVC = async (req, res) => {
         );
       }
     }
-
     // ────────────────────────────────
     // DEV MODE: Backend signs and submits
     // ────────────────────────────────

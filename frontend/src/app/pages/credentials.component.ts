@@ -907,7 +907,7 @@ async issueVC() {
             targetAbi: IdentityRegistryAbi,
             functionName: "setClaim",
             functionArgs: [
-              `did:ethr:${addr}`,
+              addr,
               claimIdBytes32,
               claimHash
             ]

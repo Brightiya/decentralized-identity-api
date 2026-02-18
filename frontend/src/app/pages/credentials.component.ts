@@ -956,11 +956,11 @@ async issueVC() {
             { duration: 8000, panelClass: ['success-snackbar'] }
           );
 
-          this.result = {
-            ...response,
-            txHash,
-            gasless: true
-          };
+          //this.result = {
+            //...response,
+           // txHash,
+           // gasless: true
+          //};
 
           this.resetFormAfterSuccess();
           return;

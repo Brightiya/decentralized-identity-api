@@ -166,7 +166,7 @@ export const issueVC = async (req, res) => {
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${enrichedCid}`,
     };
 
-    // ────────────────────────────────
+        // ────────────────────────────────
     // HYBRID MODE: Prepare unsigned txs for frontend
     // ────────────────────────────────
     if (isHybridMode()) {
@@ -176,6 +176,7 @@ export const issueVC = async (req, res) => {
         claimIdBytes32,
         claimHash,
       );
+
       responseData.unsignedTx = unsignedTx;
       responseData.message =
         "✅ VC prepared - please sign & send transaction in your wallet";
@@ -185,13 +186,28 @@ export const issueVC = async (req, res) => {
       // Optional profile auto-update
       try {
         let profile = {};
-        const profileCID = await contract.getProfileCID(subjectAddress); // read-only OK
+        let profileCID = req.body.currentProfileCid || null;
 
-        if (profileCID && profileCID.length > 0) {
-          const preferred = req.headers["x-preferred-gateway"] || null;
-          profile = await fetchJSON(profileCID, 3, preferred);
+        if (!profileCID) {
+          console.warn("[Hybrid] No currentProfileCid provided, using empty profile");
         }
 
+        // ✅ SAFETY: Only fetch if explicitly provided
+        if (profileCID && typeof profileCID === "string" && profileCID.length > 0) {
+          const preferred = req.headers["x-preferred-gateway"] || null;
+
+          try {
+            profile = await fetchJSON(profileCID, 3, preferred);
+          } catch (fetchErr) {
+            console.warn(
+              "[Hybrid] Failed to fetch existing profile. Using empty profile:",
+              fetchErr.message
+            );
+            profile = {};
+          }
+        }
+
+        // ✅ PRESERVE YOUR ORIGINAL MERGE LOGIC EXACTLY
         const updatedProfile = {
           ...profile,
           credentials: [
@@ -212,14 +228,17 @@ export const issueVC = async (req, res) => {
           pinataJwt,
           nftStorageKey,
         );
+
         const newProfileCid = profileUri.replace("ipfs://", "");
         responseData.newProfileCid = newProfileCid;
+
         const profileUnsignedTx = await prepareUnsignedTx(
           "setProfileCID",
           subjectAddress,
           newProfileCid,
           newProfileCid
         );
+
         responseData.profileUnsignedTx = profileUnsignedTx;
         responseData.message += " + profile update prepared (sign both txs)";
 
@@ -231,6 +250,7 @@ export const issueVC = async (req, res) => {
         );
       }
     }
+
     // ────────────────────────────────
     // DEV MODE: Backend signs and submits
     // ────────────────────────────────

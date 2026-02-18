@@ -922,7 +922,7 @@ async issueVC() {
           // 2️⃣ Send to backend relayer (SAME AS VAULT)
           const relayResponse: any = await this.http.post(
             `${environment.backendUrl}/meta/relay`,
-            { req, signature }
+            { request:req, signature }
           ).toPromise();
 
           const txHash = relayResponse.txHash;

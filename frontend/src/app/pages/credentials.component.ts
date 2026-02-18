@@ -919,7 +919,7 @@ async issueVC() {
         console.log("Claim 1 mined:", relayResponse.txHash);
        // 2. IMPORTANT: Wait for 2-3 seconds to let the RPC node index the new nonce
         this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        await new Promise(resolve => setTimeout(resolve, 3500));
 
         if (!relayResponse.txHash) throw new Error('First relay failed');
         this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });

@@ -107,7 +107,7 @@ export const relayMetaTx = async (req, res) => {
     }
 
     // 1. Fetch data required for verification
-    const currentNonce = await forwarder.nonces(request.from);
+    const currentNonce = BigInt(await forwarder.nonces(request.from));
     const domainInfo = await forwarder.eip712Domain();
 
     // 2. Format the request to match the ABI struct (ForwardRequestData)

@@ -916,22 +916,21 @@ async issueVC() {
         const relayResponse: any = await firstValueFrom(
           this.http.post(`${environment.backendUrl}/meta/relay`, { request: req, signature })
         );
+        console.log("Claim 1 mined:", relayResponse.txHash);
+       // 2. IMPORTANT: Wait for 2-3 seconds to let the RPC node index the new nonce
+        this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
+        await new Promise(resolve => setTimeout(resolve, 2500));
+
         if (!relayResponse.txHash) throw new Error('First relay failed');
         this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });
 
-          this.snackBar.open(
-            'Submitting gasless transaction...',
-            'Close',
-            { duration: 8000 }
-          );
+        this.snackBar.open(
+          'Submitting gasless transaction...',
+          'Close',
+          { duration: 8000 }
+        );
          
-          const txHash = relayResponse.txHash;
-
-          if (!txHash) {
-            throw new Error('Relay failed — no txHash returned');
-          }
-          // This gives the RPC node time to catch up so the 'nonces()' call in the next step is correct.
-        await new Promise(resolve => setTimeout(resolve, 2000)); 
+        const txHash = relayResponse.txHash;
 
           // 3️⃣ Second Transaction: setProfileCID (Only AFTER first is confirmed)
         if (response.newProfileCid) {

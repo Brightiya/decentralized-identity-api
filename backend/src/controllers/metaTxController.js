@@ -122,13 +122,15 @@ export const relayMetaTx = async (req, res) => {
     };
 
     // 3. Build Domain for recovery
+   // domainInfo is a result object from the contract call
     const domain = {
-      name: domainInfo[1],
-      version: domainInfo[2],
-      chainId: Number(domainInfo[3]),
-      verifyingContract: domainInfo[4],
+      name: domainInfo.name,              // Should be "Forwarder"
+      version: domainInfo.version,        // Should be "1"
+      chainId: Number(domainInfo.chainId), // MUST be a number, not BigInt
+      verifyingContract: domainInfo.verifyingContract,
     };
 
+    console.log("Reconstructed Backend Domain:", domain);
     // 4. Types for manual recovery (Must be "ForwardRequest" with nonce)
     const typesForRecovery = {
       ForwardRequest: [

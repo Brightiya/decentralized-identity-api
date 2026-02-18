@@ -858,6 +858,23 @@ async issueVC() {
     return;
   }
 
+  let currentProfileCid: string | null = null;
+
+  try {
+    // Fetch current profile (lightweight — backend already reads CID anyway)
+    const profileRes = await firstValueFrom(
+      this.api.getProfile(addr, this.context)
+    );
+
+    // IMPORTANT: backend must return 'cid' in getProfile response
+    // If not yet, add it in backend (see below)
+    currentProfileCid = profileRes.cid || null;
+
+    console.log("Sending fresh currentProfileCid:", currentProfileCid);
+  } catch (e) {
+    console.warn("Could not pre-fetch current CID — backend will fallback", e);
+  }
+
   this.issuing.set(true);
   this.result = null;
 
@@ -879,9 +896,12 @@ async issueVC() {
         purpose: this.purpose.trim(),
         expiresAt: this.expiresAt || undefined,
       },
+      currentProfileCid,   // ← this is the missing piece
     };
 
     const response = await firstValueFrom(this.api.issueVC(payload));
+    console.log("Backend returned newProfileCid:", response.newProfileCid);
+    console.log("Did we send currentProfileCid? ", payload.currentProfileCid); // will be undefined
 
         this.snackBar.open(
           'Preparing gasless credential anchoring...',

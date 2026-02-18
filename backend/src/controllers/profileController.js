@@ -237,6 +237,7 @@ export const getProfile = async (req, res) => {
     return res.json({
       did: `did:ethr:${address}`,
       context,
+      cid,
       attributes,
       online_links,
       credentials,

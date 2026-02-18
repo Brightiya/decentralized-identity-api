@@ -912,26 +912,28 @@ async issueVC() {
               claimHash
             ]
           });
+          // 2️⃣ Relay and WAIT for confirmation
+        const relayResponse: any = await firstValueFrom(
+          this.http.post(`${environment.backendUrl}/meta/relay`, { request: req, signature })
+        );
+        if (!relayResponse.txHash) throw new Error('First relay failed');
+        this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });
 
           this.snackBar.open(
             'Submitting gasless transaction...',
             'Close',
             { duration: 8000 }
           );
-
-          // 2️⃣ Send to backend relayer (SAME AS VAULT)
-          const relayResponse: any = await this.http.post(
-            `${environment.backendUrl}/meta/relay`,
-            { request:req, signature }
-          ).toPromise();
-
+         
           const txHash = relayResponse.txHash;
 
           if (!txHash) {
             throw new Error('Relay failed — no txHash returned');
           }
+          // This gives the RPC node time to catch up so the 'nonces()' call in the next step is correct.
+        await new Promise(resolve => setTimeout(resolve, 2000)); 
 
-          // 2️⃣ Relay profile update gaslessly
+          // 3️⃣ Second Transaction: setProfileCID (Only AFTER first is confirmed)
         if (response.newProfileCid) {
           const { request: profileReq, signature: profileSig } =
             await this.metaTx.buildAndSignMetaTx({
@@ -945,10 +947,12 @@ async issueVC() {
               ]
             });
 
-          await this.http.post(
-            `${environment.backendUrl}/meta/relay`,
-            { request: profileReq, signature: profileSig }
-          ).toPromise();
+           await firstValueFrom(
+          this.http.post(`${environment.backendUrl}/meta/relay`, { 
+            request: profileReq, 
+            signature: profileSig 
+          })
+        );
         }
           this.snackBar.open(
             `Credential anchored GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,

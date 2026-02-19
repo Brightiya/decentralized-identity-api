@@ -938,7 +938,7 @@ async issueVC() {
        // 2. IMPORTANT: Wait for 6 seconds to let the RPC node index the new nonce
         this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
         let confirmed = false;
-        for (let attempt = 0; attempt < 15; attempt++) {  // ~75s max
+        for (let attempt = 0; attempt < 25; attempt++) {  // ~75s max
           await new Promise(r => setTimeout(r, 5000));
 
           try {

@@ -937,29 +937,7 @@ async issueVC() {
         console.log("Claim 1 mined:", relayResponse.txHash);
        // 2. IMPORTANT: Wait for 6 seconds to let the RPC node index the new nonce
         this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
-        let confirmed = false;
-        for (let attempt = 0; attempt < 25; attempt++) {  // ~75s max
-          await new Promise(r => setTimeout(r, 5000));
-
-          try {
-            // Use Basescan API or your backend /api/getTxStatus?hash=...
-            // Or simple: call getProfile or getClaim to see if state changed
-            const profileCheck = await firstValueFrom(this.api.getProfile(addr));
-            if (profileCheck) {  // if no 404
-              confirmed = true;
-              break;
-            }
-          } catch (e:any) {
-            if (e.status !== 404) console.error("Poll error:", e);
-          }
-        }
-
-if (!confirmed) {
-  this.snackBar.open('Warning: Claim tx may be delayed — profile update skipped. Refresh later.', 'Close', { duration: 12000 });
-  // Optionally skip second tx or retry whole flow
-  return;
-}
-
+        await new Promise(resolve => setTimeout(resolve, 6000));
         if (!relayResponse.txHash) throw new Error('First relay failed');
         this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });
 

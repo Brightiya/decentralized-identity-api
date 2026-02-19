@@ -94,7 +94,7 @@ export class MetaTxService {
       from,
       to: targetAddress,
       value: 0n,
-      gas: 3000000n,
+      gas: 1500000n,
       nonce: nonce, 
       deadline: BigInt(deadline),
       data,

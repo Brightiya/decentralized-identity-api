@@ -1,0 +1,153 @@
+# flyctl launch added from .gitignore
+**/node_modules
+**/npm-debug.log
+**/yarn-error.log
+**/directory.txt
+**/testCode.txt
+**/testCode2.txt
+**/testCode3.txt
+**/backend/.DS_Store
+**/registry.txt
+# Environment variables
+**/.env
+**/.env.test
+**/.DS_Store
+
+.env
+backend/.env
+frontend/.env
+node_modules
+
+
+# flyctl launch added from backend/.gitignore
+backend/**/.DS_Store
+# Environment variables
+backend/**/.env
+backend/**/.env.test
+backend/**/README-secrets.md
+
+# flyctl launch added from backend/node_modules/secp256k1/src/secp256k1/.gitignore
+backend/node_modules/secp256k1/src/secp256k1/**/bench_inv
+backend/node_modules/secp256k1/src/secp256k1/**/bench_ecdh
+backend/node_modules/secp256k1/src/secp256k1/**/bench_ecmult
+backend/node_modules/secp256k1/src/secp256k1/**/bench_sign
+backend/node_modules/secp256k1/src/secp256k1/**/bench_verify
+backend/node_modules/secp256k1/src/secp256k1/**/bench_schnorr_verify
+backend/node_modules/secp256k1/src/secp256k1/**/bench_recover
+backend/node_modules/secp256k1/src/secp256k1/**/bench_internal
+backend/node_modules/secp256k1/src/secp256k1/**/tests
+backend/node_modules/secp256k1/src/secp256k1/**/exhaustive_tests
+backend/node_modules/secp256k1/src/secp256k1/**/gen_context
+backend/node_modules/secp256k1/src/secp256k1/**/*.exe
+backend/node_modules/secp256k1/src/secp256k1/**/*.so
+backend/node_modules/secp256k1/src/secp256k1/**/*.a
+!backend/node_modules/secp256k1/src/secp256k1/**/.gitignore
+
+backend/node_modules/secp256k1/src/secp256k1/**/Makefile
+backend/node_modules/secp256k1/src/secp256k1/**/configure
+backend/node_modules/secp256k1/src/secp256k1/**/.libs
+backend/node_modules/secp256k1/src/secp256k1/**/Makefile.in
+backend/node_modules/secp256k1/src/secp256k1/**/aclocal.m4
+backend/node_modules/secp256k1/src/secp256k1/**/autom4te.cache
+backend/node_modules/secp256k1/src/secp256k1/**/config.log
+backend/node_modules/secp256k1/src/secp256k1/**/config.status
+backend/node_modules/secp256k1/src/secp256k1/**/*.tar.gz
+backend/node_modules/secp256k1/src/secp256k1/**/*.la
+backend/node_modules/secp256k1/src/secp256k1/**/libtool
+backend/node_modules/secp256k1/src/secp256k1/**/.deps
+backend/node_modules/secp256k1/src/secp256k1/**/.dirstamp
+backend/node_modules/secp256k1/src/secp256k1/**/*.lo
+backend/node_modules/secp256k1/src/secp256k1/**/*.o
+backend/node_modules/secp256k1/src/secp256k1/**/*~
+backend/node_modules/secp256k1/src/secp256k1/**/src/libsecp256k1-config.h
+backend/node_modules/secp256k1/src/secp256k1/**/src/libsecp256k1-config.h.in
+backend/node_modules/secp256k1/src/secp256k1/**/src/ecmult_static_context.h
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/config.guess
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/config.sub
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/depcomp
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/install-sh
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/ltmain.sh
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/m4/libtool.m4
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/m4/lt~obsolete.m4
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/m4/ltoptions.m4
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/m4/ltsugar.m4
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/m4/ltversion.m4
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/missing
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/compile
+backend/node_modules/secp256k1/src/secp256k1/**/build-aux/test-driver
+backend/node_modules/secp256k1/src/secp256k1/**/src/stamp-h1
+backend/node_modules/secp256k1/src/secp256k1/**/libsecp256k1.pc
+
+# flyctl launch added from frontend/.gitignore
+# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# Compiled output
+frontend/dist
+frontend/tmp
+frontend/out-tsc
+frontend/bazel-out
+
+# Node
+frontend/node_modules
+frontend/**/npm-debug.log
+frontend/**/yarn-error.log
+
+# IDEs and editors
+frontend/**/.idea
+frontend/**/.project
+frontend/**/.classpath
+frontend/**/.c9
+frontend/**/*.launch
+frontend/**/.settings
+frontend/**/*.sublime-workspace
+
+# Visual Studio Code
+frontend/**/.vscode/*
+!frontend/**/.vscode/settings.json
+!frontend/**/.vscode/tasks.json
+!frontend/**/.vscode/launch.json
+!frontend/**/.vscode/extensions.json
+frontend/**/.history/*
+
+# Miscellaneous
+frontend/.angular/cache
+frontend/**/.sass-cache
+frontend/connect.lock
+frontend/coverage
+frontend/libpeerconnection.log
+frontend/**/testem.log
+frontend/typings
+
+# System files
+frontend/**/.DS_Store
+frontend/**/Thumbs.db
+
+# Environment variables
+frontend/**/.env
+frontend/**/.env.test
+frontend/**/.DS_Store
+
+# flyctl launch added from frontend/node_modules/minipass-sized/.gitignore
+# ignore most things, include some others
+frontend/node_modules/minipass-sized/*
+frontend/node_modules/minipass-sized/.*
+
+!frontend/node_modules/minipass-sized/**/bin
+!frontend/node_modules/minipass-sized/**/lib
+!frontend/node_modules/minipass-sized/**/docs
+!frontend/node_modules/minipass-sized/**/package.json
+!frontend/node_modules/minipass-sized/**/package-lock.json
+!frontend/node_modules/minipass-sized/**/README.md
+!frontend/node_modules/minipass-sized/**/CONTRIBUTING.md
+!frontend/node_modules/minipass-sized/**/LICENSE
+!frontend/node_modules/minipass-sized/**/CHANGELOG.md
+!frontend/node_modules/minipass-sized/**/example
+!frontend/node_modules/minipass-sized/**/scripts
+!frontend/node_modules/minipass-sized/**/tap-snapshots
+!frontend/node_modules/minipass-sized/**/test
+!frontend/node_modules/minipass-sized/**/.travis.yml
+!frontend/node_modules/minipass-sized/**/.gitignore
+!frontend/node_modules/minipass-sized/**/.gitattributes
+!frontend/node_modules/minipass-sized/**/coverage-map.js
+!frontend/node_modules/minipass-sized/**/index.js
+fly.toml

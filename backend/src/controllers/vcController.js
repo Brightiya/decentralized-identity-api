@@ -185,33 +185,49 @@ export const issueVC = async (req, res) => {
       // Optional profile auto-update
       try {
         let profile = {};
-        let profileCID = req.body.currentProfileCid || null;
-
-        // ✅ CRITICAL: Fallback to on-chain CID (this makes signature stable again)
-        if (!profileCID) {
-          profileCID = await contract.getProfileCID(subjectAddress);
-          console.log("[Hybrid] Fallback to on-chain profileCID:", profileCID);
-        }// read-only OK
+        let profileCID = req.body.currentProfileCid || await contract.getProfileCID(subjectAddress);
 
         if (profileCID && profileCID.length > 0) {
           const preferred = req.headers["x-preferred-gateway"] || null;
           profile = await fetchJSON(profileCID, 3, preferred);
         }
+        // Ensure credentials array exists
+      const existingCredentials = profile.credentials || [];
 
-        const updatedProfile = {
-          ...profile,
-          credentials: [
-            ...(profile.credentials || []),
-            {
-              type: "ContextualCredential",
-              cid,
-              context,
-              claimId,
-              issuedAt: new Date().toISOString(),
+      // Remove old version of same claimId
+      const otherCredentials = existingCredentials.filter(
+            (c) => c.claimId !== claimId
+          );
+         // 2. Append the new VC to the GLOBAL profile (regardless of context)
+        // Ensure contexts object exists
+      const existingContexts = profile.contexts || {};
+      const existingCtx = existingContexts[context] || {};
+
+      const updatedProfile = {
+        ...profile,
+        contexts: {
+          ...existingContexts,
+          [context]: {
+            ...existingCtx,
+            attributes: {
+              ...(existingCtx.attributes || {}),
+              ...claim,  // ← write claim into context attributes
             },
-          ],
-          updatedAt: new Date().toISOString(),
-        };
+          },
+        },
+        credentials: [
+          ...otherCredentials,
+          {
+            type: "ContextualCredential",
+            cid,
+            context,
+            claimId,
+            claim,
+            issuedAt: new Date().toISOString(),
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      };
 
         const profileUri = await uploadJSON(
           updatedProfile,
@@ -220,18 +236,18 @@ export const issueVC = async (req, res) => {
         );
         const newProfileCid = profileUri.replace("ipfs://", "");
         responseData.newProfileCid = newProfileCid;
+        responseData.gasless = true;
         const profileUnsignedTx = await prepareUnsignedTx(
           "setProfileCID",
           subjectAddress,
           newProfileCid,
         );
         responseData.profileUnsignedTx = profileUnsignedTx;
-        responseData.message += " + profile update prepared (sign both txs)";
+        console.log("[Hybrid] Profile updated, CID:", newProfileCid);
 
-        console.log("[Hybrid] Prepared unsigned setProfileCID tx");
       } catch (profileErr) {
         console.warn(
-          "[Hybrid] Profile auto-update skipped:",
+          "Profile update failed:",
           profileErr.message,
         );
       }
@@ -261,16 +277,19 @@ export const issueVC = async (req, res) => {
           const preferred = req.headers["x-preferred-gateway"] || null;
           profile = await fetchJSON(profileCID, 3, preferred);
         }
+         const existingCredentials = profile.credentials || [];
+        const otherCredentials = existingCredentials.filter(c => c.claimId !== claimId);
 
         const updatedProfile = {
           ...profile,
           credentials: [
-            ...(profile.credentials || []),
+            ...otherCredentials,
             {
               type: "ContextualCredential",
               cid,
               context,
               claimId,
+              claim,
               issuedAt: new Date().toISOString(),
             },
           ],

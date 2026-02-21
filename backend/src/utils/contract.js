@@ -11,6 +11,7 @@ import { getProvider } from "../eth/provider.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 🔒 We still load both for safety/backward compatibility
 const normalPath = path.resolve(
   __dirname,
   "../../artifacts/contracts/IdentityRegistry.sol/IdentityRegistry.json"
@@ -27,7 +28,7 @@ let metaContractData;
 try {
   normalContractData = JSON.parse(fs.readFileSync(normalPath, "utf8"));
   metaContractData = JSON.parse(fs.readFileSync(metaPath, "utf8"));
-}catch (err) {
+} catch (err) {
   console.error("Artifact load failed:", err.message);
   console.error("Normal path:", normalPath);
   console.error("Meta path:", metaPath);
@@ -35,7 +36,7 @@ try {
 }
 
 let _provider;
-let _contract;
+const _contracts = {};
 
 // ────────────────────────────────────────────────
 // Provider
@@ -68,30 +69,29 @@ export function getContract(mode = "normal") {
     return globalThis.mockContract;
   }
 
-  if (_contract) return _contract;
+  // 🔒 IMPORTANT FIX:
+  // Always resolve to META contract internally
+  const resolvedMode = "meta";
+
+  if (_contracts[resolvedMode]) return _contracts[resolvedMode];
 
   const provider = getLazyProvider();
   if (!provider) {
     throw new Error("Provider not available");
   }
 
-  const data = mode === "gasless"
-    ? metaContractData
-    : normalContractData;
-
-  const address =
-    mode === "gasless"
-      ? process.env.IDENTITY_REGISTRY_META_ADDRESS
-      : process.env.IDENTITY_REGISTRY_ADDRESS;
+  const address = process.env.IDENTITY_REGISTRY_META_ADDRESS;
 
   if (!address) {
-    throw new Error("Contract address missing in env");
+    throw new Error("IDENTITY_REGISTRY_META_ADDRESS missing in env");
   }
 
+  const abi = metaContractData.abi;
+
   if (isHybridMode()) {
-    _contract = new ethers.Contract(
+    _contracts[resolvedMode] = new ethers.Contract(
       address,
-      data.abi,
+      abi,
       provider
     );
   } else {
@@ -102,14 +102,14 @@ export function getContract(mode = "normal") {
 
     const signer = new ethers.Wallet(privateKey, provider);
 
-    _contract = new ethers.Contract(
+    _contracts[resolvedMode] = new ethers.Contract(
       address,
-      data.abi,
+      abi,
       signer
     );
   }
 
-  return _contract;
+  return _contracts[resolvedMode];
 }
 
 export default getContract;
@@ -122,7 +122,7 @@ export async function prepareUnsignedTx(...params) {
   let methodName;
   let args;
 
-  // New style: (mode, methodName, ...args)
+  // Backward compatible parsing
   if (
     params.length >= 2 &&
     (params[0] === "gasless" || params[0] === "normal")
@@ -131,24 +131,19 @@ export async function prepareUnsignedTx(...params) {
     methodName = params[1];
     args = params.slice(2);
   } else {
-    // Old style: (methodName, ...args)
     methodName = params[0];
     args = params.slice(1);
   }
 
-  const data = mode === "gasless"
-    ? metaContractData
-    : normalContractData;
-    const address =
-    mode === "gasless"
-      ? process.env.IDENTITY_REGISTRY_META_ADDRESS
-      : process.env.IDENTITY_REGISTRY_ADDRESS;
+  // 🔒 IMPORTANT FIX:
+  // Always encode using META contract
+  const address = process.env.IDENTITY_REGISTRY_META_ADDRESS;
 
-    if (!address) {
-      throw new Error("Contract address missing in env");
-    }
+  if (!address) {
+    throw new Error("IDENTITY_REGISTRY_META_ADDRESS missing in env");
+  }
 
-  const iface = new ethers.Interface(data.abi);
+  const iface = new ethers.Interface(metaContractData.abi);
 
   if (!iface.getFunction(methodName)) {
     throw new Error(`Method '${methodName}' not found in ABI`);
@@ -165,7 +160,7 @@ export async function prepareUnsignedTx(...params) {
 }
 
 // ────────────────────────────────────────────────
-// Convenience wrappers (unchanged behavior)
+// Convenience wrappers (UNCHANGED)
 // ────────────────────────────────────────────────
 export async function prepareUnsignedSetClaim(
   subjectAddress,

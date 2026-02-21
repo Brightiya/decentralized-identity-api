@@ -27,6 +27,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatCardModule } from '@angular/material/card';
 import { ThemeService } from '../services/theme.service';
 import { firstValueFrom, take } from 'rxjs';
+import { BrowserProvider } from 'ethers';
 
 @Component({
   selector: 'app-credentials',
@@ -934,12 +935,12 @@ async issueVC() {
         const relayResponse: any = await firstValueFrom(
           this.http.post(`${environment.backendUrl}/meta/relay`, { request: req, signature })
         );
+        // 🔥 Wait for backend to confirm mining
+        if (!relayResponse.txHash) throw new Error("Relay failed");
+
+        // Wait until tx is mined
+        await this.waitForTx(relayResponse.txHash);
         console.log("Claim 1 mined:", relayResponse.txHash);
-       // 2. IMPORTANT: Wait for 6 seconds to let the RPC node index the new nonce
-        this.snackBar.open('Claim anchored. Waiting for nonce sync...', 'Close', { duration: 2000 });
-        await new Promise(resolve => setTimeout(resolve, 6000));
-        if (!relayResponse.txHash) throw new Error('First relay failed');
-        this.snackBar.open('Claim anchored. Updating profile index...', 'Close', { duration: 3000 });
 
         this.snackBar.open(
           'Submitting gasless transaction...',
@@ -1137,6 +1138,11 @@ async issueVC() {
   } finally {
     this.issuing.set(false);
   }
+}
+
+async waitForTx(txHash: string) {
+  const provider = new BrowserProvider((window as any).ethereum);
+  await provider.waitForTransaction(txHash);
 }
 
 private resetFormAfterSuccess() {

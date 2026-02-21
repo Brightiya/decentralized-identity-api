@@ -12,7 +12,7 @@ export const environment = {
 // src/environments/environment.ts (for local dev testing against live backend)
 export const environment = {
   production: false,
-  backendUrl: 'https://pimv-backend.onrender.com',
+  backendUrl: '',
   PROVIDER_URL: 'https://sepolia.base.org',
   PRIVATE_KEY: '',
  // forwarderAddress: "0x32D23678E8725e30e0b9ACE110A5E720101CB5A0", // old

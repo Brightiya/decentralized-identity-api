@@ -3,7 +3,7 @@ export const environment = {
   production: true,
   
   // Point to your live Render backend
-  backendUrl: 'https://pimv-backend.onrender.com',
+  backendUrl:  '',
   
   // Optional: you can expose these if your frontend needs them directly
   // (but usually frontend only calls /api/... endpoints)

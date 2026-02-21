@@ -220,10 +220,8 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
           <div class="setting-content">
             <p class="help-text">
               Create profiles and manage your identity without paying gas fees. 
-              <strong>Powered by GSN on Base Sepolia testnet.</strong>
+              <strong>Powered by OpenZeppelin on Base Sepolia testnet.</strong>
             </p>
-
-            
               
               <div class="gasless-status-detail" *ngIf="useGasless()">
                
@@ -489,7 +487,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
     align-items: center;
     justify-content: center;
     box-shadow: 0 10px 30px rgba(99,102,241,0.45);
-    overflow: hidden;
+    overflow: visible;
     transition: transform 0.3s ease;
   }
 
@@ -530,7 +528,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
     border-radius: 24px;
     border: 1px solid var(--card-border, #e2e8f0);
     box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-    overflow: hidden;
+    overflow: visible;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
   }
@@ -644,6 +642,10 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 }
 
 @media (max-width: 768px) {
+ .create-profile-btn {
+    width: auto;
+    min-width: 260px;
+  }
   .gateway-status {
     margin-top: 12px; /* extra breathing room on mobile */
   }
@@ -710,16 +712,17 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
   /* Settings Grid */
   .settings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 1.75rem;
     padding: 2rem;
   }
 
   .setting-card {
+    min-width: 0; /* prevents flex/grid overflow */
     background: var(--card-bg);
     border-radius: 20px;
     border: 1px solid var(--card-border);
-    overflow: hidden;
+    overflow: visible;
     transition: transform 0.3s ease;
   }
 
@@ -967,6 +970,8 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 }
 
 .gasless-status-detail {
+  flex-wrap: wrap;
+  word-break: break-word;
   margin: 1rem 0;
   padding: 1rem;
   border-radius: 12px;
@@ -974,6 +979,8 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 }
 
 .gasless-benefit {
+  flex-wrap: wrap;
+  word-break: break-word;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1163,6 +1170,8 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 
 /* Create Profile Button */
 .create-profile-btn {
+  width: 100%;
+  max-width: 100%;
   padding: 1rem 2rem;
   font-size: 1.1rem;
   font-weight: 600;
@@ -1170,27 +1179,21 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
   margin-top: 1.5rem;
 }
 
-.create-profile-btn.gasless-btn {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
-}
-
-.create-profile-btn.gasless-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(99, 102, 241, 0.5);
-}
-
-.create-profile-btn.regular-btn {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-}
 
 .fallback-notice {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+  width: 100%;
   color: var(--text-secondary);
   font-size: 0.9rem;
   text-align: center;
 }
 
+.fallback-notice small {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
 /* Refresh Section */
 .gsn-refresh-btn {
   margin-left: 1rem;
@@ -1280,11 +1283,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
   .settings-grid {
     grid-template-columns: 1fr;
   }
-  
-  .gasless-status-detail {
-    padding: 0.75rem;
-  }
-  
+
   .mode-option {
     padding: 1rem;
   }

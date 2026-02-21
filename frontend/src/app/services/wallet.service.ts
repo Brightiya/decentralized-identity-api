@@ -14,7 +14,7 @@ import {
 } from 'ethers';
 import { BehaviorSubject } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { environment } from '../../environments/environment';
+import { environment } from '../../environments/environment.prod';
 import { GSNService, GSNTransaction } from './gsn.service';
 
 declare const window: any;

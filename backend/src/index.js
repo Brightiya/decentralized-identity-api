@@ -1,8 +1,17 @@
 // backend/src/index.js
 import express from "express";
+import path from "path";
+import { fileURLToPath } from 'url'; // Required for ES Modules
 import cors from "cors";
 import "./config/env.js";
-import morgan from "morgan"; // optional: nice request logging
+import morgan from "morgan";
+
+
+// Define __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
 
 // Controllers
 import { getChallenge, verifySignature } from './controllers/authController.js';
@@ -22,7 +31,7 @@ import { authMiddleware } from "../middleware/auth.js";
 // Only import lightweight helpers — NOT the contract instance
 import { isHybridMode } from "./utils/contract.js";
 
-const app = express();
+
 
 app.disable('etag');
 
@@ -60,6 +69,11 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Match the path where Docker copies the files: /app/frontend/dist
+const frontendBuildPath = '/app/frontend/dist/angular-src';
+
+app.use(express.static(frontendBuildPath));
 
 // ────────────────────────────────────────────────
 // Public Routes (no auth required)
@@ -122,14 +136,33 @@ app.use((err, req, res, next) => {
 });
 
 // ────────────────────────────────────────────────
+// SPA FALLBACK (Must be AFTER API routes)
+// ────────────────────────────────────────────────
+app.get('*', (req, res) => {
+  // If the browser is asking for a file (like .js or .css) and it wasn't 
+  // caught by express.static above, do NOT send index.html.
+  if (req.path.includes('.')) {
+    console.log(`🚫 Missing static file: ${req.path}`);
+    return res.status(404).send('File not found');
+  }
+
+  // Otherwise, send the index for the Angular router
+  res.sendFile(path.join(frontendBuildPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).send("Frontend build not found. Check Docker paths.");
+    }
+  });
+});
+
+// ────────────────────────────────────────────────
 // Start Server
 // ────────────────────────────────────────────────
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`✅ PIMV Server running on port ${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT,'0.0.0.0', () => {
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Signing mode: ${isHybridMode() ? 'Hybrid (frontend signs)' : 'Backend (PRIVATE_KEY)'}`);
   console.log(`Auth endpoints: /api/auth/challenge, /api/auth/verify`);
   console.log(`Protected APIs: /api/vc, /api/profile, etc.`);
-  console.log(`GSN endpoints: /gsn/*`);
+  
 });

@@ -1,38 +1,35 @@
 // backend/src/utils/db.js
+// backend/src/utils/db.js
 import pg from "pg";
 
-// Use a separate test DB if NODE_ENV=test (recommended for safety)
 const connectionString = process.env.DATABASE_URL;
-const url = process.env.DATABASE_URL ?? "";
 
+// 1. Log the status instead of throwing immediately at top-level
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not set");
+  console.error("❌ DATABASE_URL is undefined. Check Fly.io secrets.");
 }
 
-if (process.env.NODE_ENV === "test" && !url.includes("_test")) {
-  throw new Error("🚨 Tests refusing to run on non-test database");
-}
-
-if (process.env.NODE_ENV !== "test" && url.includes("_test")) {
-  throw new Error("🚨 Backend refusing to run on test database");
-}
-
-
+// 2. Add SSL configuration (Required for Fly.io Postgres)
 export const pool = new pg.Pool({
   connectionString,
-  max: 20,                    // Max connections (adjust if needed)
-  idleTimeoutMillis: 30000,   // Close idle connections after 30s
-  connectionTimeoutMillis: 2000,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000, // Increased timeout for cold starts
 });
 
-pool.on("connect", () => {
-  console.log("🟢 PostgreSQL connected");
-});
-
+// 3. Move the connectivity test inside a handled block
 (async () => {
-  const result = await pool.query("SELECT current_database()");
-  console.log("🧪 Connected to database:", result.rows[0].current_database);
+  if (!connectionString) return;
+  try {
+    const result = await pool.query("SELECT current_database()");
+    console.log("🧪 Connected to database:", result.rows[0].current_database);
+  } catch (err) {
+    console.error("❌ Database connectivity test failed:", err.message);
+  }
 })();
+
+export default pool;
 
 
 pool.on("error", (err, client) => {

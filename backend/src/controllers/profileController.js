@@ -132,7 +132,8 @@ export const createOrUpdateProfile = async (req, res) => {
       responseData = {
         ...responseData,
         message: "✅ Profile prepared - please sign & send transaction in your wallet",
-        unsignedTx
+        unsignedTx,
+        newProfileCid: cid
       };
       console.log('[Hybrid] Prepared unsigned setProfileCID tx');
     } 
@@ -164,6 +165,7 @@ export const getProfile = async (req, res) => {
   try {
     const { address } = req.params;
     const context = req.query.context || "profile";
+    const subjectAddress = address.toLowerCase();
 
     if (!address) {
       return res.status(400).json({ error: "address required" });
@@ -172,7 +174,8 @@ export const getProfile = async (req, res) => {
     const txMode = getTxMode(req);
     const contract = getContract(txMode); // 🔑 lazy
 
-    const cid = await contract.getProfileCID(address.toLowerCase());
+    const cid = await contract.getProfileCID(subjectAddress);
+    // If the blockchain has no CID, it's a true 404
     if (!cid || cid.length === 0) {
       return res.status(404).json({ error: "Profile not found" });
     }
@@ -212,9 +215,16 @@ export const getProfile = async (req, res) => {
     // Resolve VCs into attributes (your existing logic — kept intact)
     for (const cred of credentials) {
       try {
+        let claim = null;
         const preferred = req.headers['x-preferred-gateway'] || null;
-        const vc = await fetchJSON(cred.cid, 3, preferred);
-        const claim = vc?.credentialSubject?.claim;
+         // 🚀 FAST PATH: Use pre-saved claim if available (fixes race condition)
+        if (cred.claim) {
+          claim = cred.claim;
+        } else {
+          // SLOW PATH: Fallback to IPFS fetch if not inlined
+          const vc = await fetchJSON(cred.cid, 2, preferred);
+          claim = vc?.credentialSubject?.claim;
+        }
 
         if (claim && typeof claim === "object") {
           // Special handling for gender

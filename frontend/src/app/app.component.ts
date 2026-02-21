@@ -472,13 +472,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
   /* Modern Footer */
   .main-footer {
-    background: rgba(30,41,59,0.04);
-    border-top: 1px solid rgba(226,232,240,0.3);
-    padding: 28px 40px;
-    flex-shrink: 0;
-    font-size: 0.92rem;
-    color: #64748b;
-  }
+  background: rgba(30,41,59,0.04);
+  border-top: 1px solid rgba(226,232,240,0.3);
+  padding: clamp(20px, 4vw, 28px) clamp(16px, 5vw, 40px);
+  flex-shrink: 0;
+  font-size: 0.92rem;
+  color: #64748b;
+  box-sizing: border-box;
+  width: 100%;
+}
 
   .sidenav-container.dark .main-footer {
     background: rgba(15,17,26,0.45);
@@ -487,12 +489,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   }
 
   .footer-container {
+    flex-direction: column;
+    padding: 24px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 20px;
-    max-width: 1400px;
+    width: 100%;
+    box-sizing: border-box;
     margin: 0 auto;
   }
 
@@ -524,9 +529,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   }
 
   .footer-links {
-    display: flex;
-    gap: 32px;
-  }
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 
   .footer-link {
     color: inherit;
@@ -581,12 +588,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       }
     }
 
-    .footer-container {
-      flex-direction: column;
-      text-align: center;
-      gap: 16px;
-      padding: 24px 16px;
-    }
 
     @media (max-width: 960px) {
       .footer-container {
@@ -603,12 +604,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         font-size: 13px;
         font-weight: 400;
       }
-    }
-
-
-    .footer-links {
-      gap: 24px;
-      justify-content: center;
     }
 
     .menu-btn {
@@ -684,8 +679,16 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       margin-left: 8px;
     }
 
+      @media (max-width: 600px) {
+    .main-footer {
+      padding: 16px;
+    }
 
-
+    .footer-links {
+      gap: 16px;
+    }
+}
+  
 `]
 })
 

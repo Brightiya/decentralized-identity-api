@@ -90,6 +90,30 @@ export class ApiService {
   }
 
   /* -------------------------------------------------
+     NEW: Issue VC with frontend-signed payload
+  -------------------------------------------------- */
+  issueSignedVC(payload: {
+    signedVc: any;              // full signed VC JSON with proof
+    context: string;
+    claimId: string;
+    currentProfileCid?: string | null;
+    consent?: { purpose: string; expiresAt?: string };
+  }): Observable<any> {
+    const headers = this.getUploadHeaders(); // Reuse your existing upload headers (nft.storage > Pinata)
+
+    return this.http.post(
+      `${this.base}/api/vc/issue-signed`,   // ← new endpoint (add in backend routes)
+      payload,
+      { headers }
+    ).pipe(
+      catchError(err => {
+        console.error('issueSignedVC error:', err);
+        return throwError(() => new Error(err.error?.error || 'Failed to process signed VC'));
+      })
+    );
+  }
+
+  /* -------------------------------------------------
      Consent endpoints - unchanged (no IPFS involved)
   -------------------------------------------------- */
   getActiveConsents(owner: string, context: string): Observable<any[]> {

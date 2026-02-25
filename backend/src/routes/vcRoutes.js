@@ -1,5 +1,5 @@
 import express from "express";
-import { issueVC, verifyVC, validateRawVC } from "../controllers/vcController.js";
+import { issueVC, verifyVC, validateRawVC,issueSignedVC } from "../controllers/vcController.js";
 import { contextMiddleware } from "../../middleware/context.js";
 import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
@@ -25,5 +25,7 @@ router.post(
  
 router.post("/verify", verifyVC);
 router.post("/validate", validateRawVC);
+router.post("/issue-signed", contextMiddleware,
+  pinataUserAuth,issueSignedVC);
 
 export default router;

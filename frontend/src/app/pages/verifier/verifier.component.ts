@@ -18,6 +18,7 @@ import { ThemeService } from '../../services/theme.service';
 import { ContextService } from '../../services/context.service';
 import { computed, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-verifier',
@@ -97,11 +98,42 @@ import { MatTooltipModule } from '@angular/material/tooltip';
             <!-- Verifier DID -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Verifier DID (your DID)</mat-label>
-              <input matInput formControlName="verifierDid" placeholder="did:ethr:0x..." />
+
+              <input matInput
+                    formControlName="verifierDid"
+                    placeholder="did:ethr:0x..."
+                    [matAutocomplete]="verifierAuto" />
+
+              <!-- Autocomplete -->
+              <mat-autocomplete #verifierAuto="matAutocomplete">
+                <mat-option
+                  *ngFor="let v of filteredVerifierSuggestions()"
+                  [value]="v">
+                  {{ v }}
+                </mat-option>
+
+                <mat-option
+                  *ngIf="filteredVerifierSuggestions().length === 0"
+                  disabled>
+                  No suggested verifiers available
+                </mat-option>
+              </mat-autocomplete>
+
+              <!-- Regex error -->
               <mat-error *ngIf="form.get('verifierDid')?.hasError('pattern')">
                 Invalid DID format. Expected:
                 <code>did:ethr:0x&lt;40 hex chars&gt;</code>
               </mat-error>
+
+              <!-- Cross-field error -->
+              <mat-error *ngIf="form.hasError('sameDid')">
+                Verifier DID must be different from Subject DID
+              </mat-error>
+
+              <!-- Helpful hint -->
+              <mat-hint>
+                You may enter your own DID or select a suggested test verifier.
+              </mat-hint>
             </mat-form-field>
 
             <!-- Context Selection -->
@@ -124,6 +156,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
               <input matInput formControlName="purpose"
                      placeholder="e.g., KYC verification, age check, address confirmation"
                      [matAutocomplete]="purposeAuto" />
+
+            <div class="loading-state" *ngIf="suggestionsLoading()">
+                    <mat-spinner diameter="40"></mat-spinner>
+                    <p>Loading your issued claims...</p>
+                  </div>   
 
               <!-- Auto-complete panel -->
           <mat-autocomplete #purposeAuto="matAutocomplete">
@@ -172,8 +209,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
                 <mat-form-field appearance="outline" class="cred-field">
                   <mat-label>Claim ID</mat-label>
                   <mat-select formControlName="claimId">
-                    <mat-option *ngFor="let id of filteredClaimIdsByContext()" [value]="id">
-                      {{ id }}
+                   <mat-option *ngFor="let item of filteredClaimIdsByContext()" 
+                      [value]="item.claimId"
+                      (onSelectionChange)="autoFillCid(item.cid, $event)">
+                      {{ item.claimId }}
                     </mat-option>
                     <mat-option *ngIf="filteredClaimIdsByContext().length === 0" disabled>
                       No claims available
@@ -527,6 +566,16 @@ styles: [`
   color: #e0f2fe;
 }
 
+ .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 0;
+    color: var(--text-secondary);
+    min-height: 240px;
+  }
+
   /* Misc */
   .muted { color: var(--text-secondary); }
 
@@ -568,6 +617,23 @@ styles: [`
    Tablet (≤ 960px)
    ========================================== */
 @media (max-width: 960px) {
+  .credential-row {
+    gap: 12px;
+    padding: 10px 12px;
+  }
+
+  .cred-field {
+    min-width: 0; /* prevents overflow */
+  }
+  .purpose-option {
+    padding: 6px 0;
+  }
+
+  .purpose-option small {
+    display: block;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
   .verifier-container {
     padding: 24px 28px 64px;
   }
@@ -602,12 +668,46 @@ styles: [`
   .connect-content h2 {
     font-size: 1.6rem;
   }
+
+  /* Improve form readability */
+.full-width {
+  margin-bottom: 16px;
+}
+
+.mat-mdc-form-field {
+  margin-bottom: 12px;
+}
+
+.mat-mdc-form-field-infix {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
 }
 
 /* ==========================================
    Phones (≤ 480px)
    ========================================== */
 @media (max-width: 480px) {
+ .elevated {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  }
+  .card {
+    padding: 16px;
+  }
+    .card > * {
+  margin-bottom: 12px;
+}
+  .purpose-option {
+    padding: 4px 0;
+  }
+
+  .purpose-text {
+    font-size: 0.95rem;
+  }
+
+  .purpose-option small {
+    font-size: 0.78rem;
+  }
   .verifier-container {
     padding: 16px 16px 48px;
   }
@@ -678,6 +778,21 @@ styles: [`
     font-size: 0.9rem;
     padding: 16px;
   }
+  .mat-mdc-form-field-hint,
+  .mat-mdc-form-field-error {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .mat-mdc-form-field-label {
+    font-size: 0.85rem;
+  }
+
+  .subtle-context-hint {
+    font-size: 0.75rem;
+    margin-top: 6px;
+    margin-bottom: 12px;
+  }
 }
 
 /* ==========================================
@@ -743,6 +858,14 @@ styles: [`
       margin-left: 8px;
     }
 
+    mat-form-field + mat-form-field {
+    margin-top: 8px;
+  }
+
+    .card mat-form-field:last-child {
+    margin-bottom: 0;
+    }
+
 `]
 })
 export class VerifierComponent {
@@ -752,6 +875,7 @@ export class VerifierComponent {
   private themeService = inject(ThemeService);
   private contextService = inject(ContextService);
   private cdr = inject(ChangeDetectorRef);
+  private snackBar = inject(MatSnackBar);
 
   form: FormGroup;
   isSubmitting = false;
@@ -769,11 +893,31 @@ export class VerifierComponent {
   // Signals
   suggestedClaims = signal<any[]>([]);
   contexts = signal<string[]>([]);
+  suggestionsLoading = signal(false);
 
   // ⭐ Recommended: dedicated signal for context (best reactivity)
   selectedContext = signal<string>('');
 
   darkMode = this.themeService.darkMode;
+
+  // Suggested verifier DIDs (Hardhat defaults or known test verifiers)
+suggestedVerifiers = signal<string[]>([
+  'did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  'did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  'did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+]);
+
+filteredVerifierSuggestions = computed(() => {
+  const input = this.form.get('verifierDid')?.value?.toLowerCase() || '';
+  const subject = this.form.get('subject')?.value?.toLowerCase() || '';
+
+  return this.suggestedVerifiers()
+    .filter(v =>
+      v.toLowerCase() !== subject &&   // never allow same as subject
+      v.toLowerCase().includes(input)
+    );
+});
+  
 
   // Helper to normalize contexts consistently (good practice)
   private normalizeContext(ctx: string): string {
@@ -845,12 +989,28 @@ isLatest(claim: any): boolean {
         !normalizedCurrent ||
         this.normalizeContext(claim.context || '') === normalizedCurrent
       )
-      .map(claim => claim.claim_id);
+      .map(claim => ({
+      claimId: claim.claim_id,
+      cid: claim.signedCid || claim.cid || ''   // ← now available
+    }));
   });
 
   get credentialsArray(): FormArray {
     return this.form.get('credentials') as FormArray;
   }
+
+  private differentDidValidator() {
+  return (group: FormGroup) => {
+    const subject = group.get('subject')?.value?.toLowerCase();
+    const verifier = group.get('verifierDid')?.value?.toLowerCase();
+
+    if (subject && verifier && subject === verifier) {
+      return { sameDid: true };
+    }
+
+    return null;
+  };
+}
 
   constructor() {
     this.form = this.fb.group({
@@ -866,7 +1026,7 @@ isLatest(claim: any): boolean {
       purpose: ['', Validators.required],
       consent: [false, Validators.requiredTrue],
       credentials: this.fb.array([])
-    });
+    }, { validators: this.differentDidValidator() });
 
     // Wallet connection → prefill subject + load suggestions
     this.wallet.address$.subscribe(addr => {
@@ -925,14 +1085,19 @@ isLatest(claim: any): boolean {
   loadSuggestions() {
     const addr = this.wallet.address;
     if (!addr) return;
-
+   this.suggestionsLoading.set(true);
     const did = `did:ethr:${addr}`;
     this.api.getSuggestableClaims(did).subscribe({
       next: (res: any) => {
         this.suggestedClaims.set(res.suggestableClaims || []);
+        this.suggestionsLoading.set(false);
         this.cdr.detectChanges();
       },
-      error: (err) => console.error('Failed to load suggestions:', err)
+        error: (err: any) => {
+      console.error('Failed to load suggestions:', err);
+      this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
+      this.suggestionsLoading.set(false);
+    }
     });
   }
 
@@ -949,6 +1114,21 @@ isLatest(claim: any): boolean {
     this.credentialsArray.removeAt(index);
   }
 
+  autoFillCid(cid: string, event: any) {
+  if (!cid || !event.isUserInput) return; // only on user select
+
+  // Find the last credential row (or current one)
+  if (this.credentialsArray.length === 0) {
+    this.addCredential();
+  }
+
+  const lastIndex = this.credentialsArray.length - 1;
+  const credGroup = this.credentialsArray.at(lastIndex) as FormGroup;
+  credGroup.patchValue({ cid });
+  console.log("Auto-filled CID for claimId", credGroup.value.claimId, ":", cid);
+  this.cdr.detectChanges();
+}
+
   async submit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -960,23 +1140,51 @@ isLatest(claim: any): boolean {
     this.error = null;
 
     const payload = {
-      subject: this.form.value.subject,
-      verifierDid: this.form.value.verifierDid,
-      purpose: this.form.value.purpose,
-      context: this.form.value.context,
-      consent: this.form.value.consent,
-      credentials: this.credentialsArray.value
-    };
+    subject: this.form.value.subject,
+    verifierDid: this.form.value.verifierDid,
+    purpose: this.form.value.purpose.trim(),           // ← ensure trim
+    context: this.form.value.context.trim().toLowerCase(), // ← normalize
+    consent: this.form.value.consent,
+    credentials: this.credentialsArray.value.map((c: { claimId: string; }) => ({
+      ...c,
+      claimId: c.claimId.trim()                        // ← trim here too
+    }))
+  };
+    console.log('[VERIFIER] Sending verification payload:', JSON.stringify(payload, null, 2));
 
     try {
       this.result = await this.api.verifyVC(payload).toPromise();
-    } catch (err: any) {
-      this.error = err.error?.error || err.message || 'Verification failed';
-      console.error('Verification error:', err);
-    } finally {
+      console.log('[VERIFIER] Success:', this.result);
+
+      if (this.result) {
+        this.snackBar.open(
+          `Success! ${Object.keys(this.result.disclosed).length} claim${Object.keys(this.result.disclosed).length === 1 ? '' : 's'} disclosed`,
+          'Close',
+          { duration: 8000, panelClass: ['success-snackbar'] }
+        );
+      }
+
+      if (this.result.denied && Object.keys(this.result.denied).length > 0) {
+        this.snackBar.open(
+          `${Object.keys(this.result.disclosed).length} disclosed, ${Object.keys(this.result.denied).length} denied`,
+          'Close',
+          { duration: 10000 }
+        );
+      }
+    }catch (err: any) {
+      console.error('[VERIFIER] Verification failed:', {
+      status: err.status,
+      error: err.error?.error,
+      denied: err.error?.denied,
+      fullResponse: err
+    });
+    this.error = err.error?.error || err.message || 'Verification failed';
+  }finally {
       this.isSubmitting = false;
     }
   }
+
+
   // Load verifier audit trail
 
   loadVerifierAuditTrail() {

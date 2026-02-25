@@ -279,6 +279,8 @@ export const getSuggestableClaimsForConsent = async (req, res) => {
                 context,
                 issued_at: cred.issuedAt || vc?.issuanceDate || new Date(0).toISOString(),
                 attributes, // ← newly added
+                cid: cred.cid,
+                signedCid: cred.cid
               });
             } catch (e) {
               console.warn(`Failed to fetch VC ${cred.cid} for suggestion:`, e.message);

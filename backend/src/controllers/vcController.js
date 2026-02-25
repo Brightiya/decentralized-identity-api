@@ -321,6 +321,120 @@ export const issueVC = async (req, res) => {
   }
 };
 
+export const issueSignedVC = async (req, res) => {
+  try {
+    const { signedVc, context, claimId, currentProfileCid } = req.body;
+
+    if (!signedVc || !context || !claimId) {
+      return res.status(400).json({ error: "Missing signedVc, context, or claimId" });
+    }
+
+    // Optional: verify frontend signature (recommended)
+    const { proof, ...unsignedVc } = signedVc;
+    // Deterministic stringify: sort keys
+    const vcString = JSON.stringify(unsignedVc, Object.keys(unsignedVc).sort());
+    const recovered = ethers.verifyMessage(vcString, proof.jws);
+    const issuerAddr = didToAddress(signedVc.issuer);
+
+    if (recovered.toLowerCase() !== issuerAddr.toLowerCase()) {
+      console.log("Frontend signature invalid:", {
+      recovered,
+      expected: issuerAddr,
+      issuerRaw: signedVc.issuer,
+      vcStringLength: vcString.length,
+      proofJwsPrefix: proof.jws.substring(0, 20) + "..."
+    });
+      return res.status(400).json({ error: "Invalid VC signature from frontend" });
+    }
+
+    // Upload signed VC (same as before)
+    const pinataJwt = getPinataJwtForRequest(req);
+    const ipfsUri = await uploadJSON(signedVc, pinataJwt, null);
+    const signedCid = ipfsUri.replace("ipfs://", "");
+
+    // Optional enriched version (if you still want it)
+    const enrichedVC = {
+      ...signedVc,
+      pimv: { ...signedVc.pimv, cid: signedCid }
+    };
+    const enrichedUri = await uploadJSON(enrichedVC, pinataJwt, null);
+    const enrichedCid = enrichedUri.replace("ipfs://", "");
+
+    // Anchor hash (same as before)
+    const claimHash = ethers.keccak256(ethers.toUtf8Bytes(signedCid));
+    const claimIdBytes32 = ethers.keccak256(ethers.toUtf8Bytes(claimId));
+    const subjectAddress = didToAddress(signedVc.credentialSubject.id);
+
+    const unsignedTx = await prepareUnsignedTx(
+      "setClaim",
+      subjectAddress,
+      claimIdBytes32,
+      claimHash
+    );
+
+    // Profile update (same logic)
+    let newProfileCid, profileUnsignedTx;
+    try {
+      let profile = currentProfileCid ? await fetchJSON(currentProfileCid, 3) : {};
+
+      const existingCredentials = profile.credentials || [];
+      const otherCredentials = existingCredentials.filter(c => c.claimId !== claimId);
+
+      const existingContexts = profile.contexts || {};
+      const existingCtx = existingContexts[context] || {};
+
+      const updatedProfile = {
+        ...profile,
+        contexts: {
+          ...existingContexts,
+          [context]: {
+            ...existingCtx,
+            attributes: {
+              ...(existingCtx.attributes || {}),
+              ...signedVc.credentialSubject.claim,   // ← use the real claim from signed VC
+            },
+          },
+        },
+        credentials: [
+          ...otherCredentials,
+          {
+            type: "ContextualCredential",
+            cid: signedCid,
+            context,
+            claimId,
+            claim: signedVc.credentialSubject.claim,  // ← store claim here too
+            issuedAt: new Date().toISOString(),
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      };
+      const profileUri = await uploadJSON(updatedProfile, pinataJwt, null);
+      newProfileCid = profileUri.replace("ipfs://", "");
+      profileUnsignedTx = await prepareUnsignedTx("setProfileCID", subjectAddress, newProfileCid);
+      console.log("[issueSignedVC] Profile prepared with claim:", signedVc.credentialSubject.claim);
+    } catch (e) {
+      console.warn("Profile update skipped:", e.message);
+    }
+
+    return res.json({
+      message: "✅ Signed VC prepared - sign tx to anchor",
+      signedCid,
+      enrichedCid,
+      claimId,
+      claimIdBytes32,
+      context,
+      claimHash,
+      unsignedTx,
+      newProfileCid,
+      profileUnsignedTx,
+      gasless: true
+    });
+  } catch (err) {
+    console.error("issueSignedVC error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /* ------------------------------------------------------------------
    2️⃣ Verify Verifiable Credentials (unchanged - read only)
 ------------------------------------------------------------------- */
@@ -372,8 +486,8 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
-      const vcString = JSON.stringify(signedVC);
-
+      const vcString = JSON.stringify(signedVC, Object.keys(signedVC).sort());
+      console.log("verifyVC - fetching VC for claimId:", claimId, "CID:", cid);
       let recovered;
       if (process.env.NODE_ENV === "test") {
         recovered = didToAddress(vc.issuer);
@@ -401,37 +515,63 @@ export const verifyVC = async (req, res) => {
         continue;
       }
 
+      console.log(`[verifyVC] Checking consent for:`, {
+      subject: subjectAddress,
+      claimId: claimId,
+      purposeSent: purpose.trim(),
+      purposeLowerTrim: purpose.trim().toLowerCase(),
+      contextSent: context,
+      verifier: verifierAddress || 'ANY (NULL allowed)'
+    });
+
       const consentRes = await pool.query(
         `
         SELECT 1
         FROM consents
         WHERE subject_did = $1
           AND claim_id = $2
-          AND purpose = $3
+          AND LOWER(TRIM(purpose)) = LOWER(TRIM($3))   -- case-insensitive + trimmed
           AND (verifier_did IS NULL OR verifier_did = $4)
           AND context = $5
           AND revoked_at IS NULL
           AND (expires_at IS NULL OR expires_at > NOW())
         LIMIT 1
         `,
-        [subjectAddress, claimId, purpose, verifierAddress, context],
+        [subjectAddress, claimId, purpose.trim(), verifierAddress, context],
       );
 
       if (consentRes.rowCount === 0) {
+        console.log(`[verifyVC] NO MATCHING CONSENT FOUND for claimId: ${claimId}`);
         denied[claimId] = "No valid consent for this purpose and context";
         continue;
       }
 
-      const field = claimId.split(".").pop();
-      const value = vc?.credentialSubject?.claim?.[field];
+      // NEW: Disclose the entire claim object
+        const claimData = vc?.credentialSubject?.claim;
 
-      if (value === undefined) {
-        denied[claimId] = "Claim not present in credential";
-        continue;
-      }
+        if (!claimData) {
+            denied[claimId] = "credentialSubject.claim is missing";
+            continue;
+          }
 
-      disclosed[claimId] = value;
+          if (typeof claimData !== 'object' || claimData === null) {
+            denied[claimId] = "credentialSubject.claim is not an object";
+            continue;
+          }
 
+          if (Object.keys(claimData).length === 0) {
+            denied[claimId] = "credentialSubject.claim is empty";
+            continue;
+          }
+
+        if (!claimData || typeof claimData !== 'object' || Object.keys(claimData).length === 0) {
+          denied[claimId] = "No claim data present in credential";
+          continue;
+        }
+
+        // Success: disclose full claim
+        disclosed[claimId] = claimData;  // ← entire object { name: "...", email: "...", ... }
+        console.log(`[verifyVC] Disclosing full claim for ${claimId}:`, claimData);
       await pool.query(
         ` 
         INSERT INTO disclosures
@@ -508,7 +648,7 @@ export const validateRawVC = async (req, res) => {
     let recovered;
     try {
       recovered = ethers.verifyMessage(
-        JSON.stringify(unsignedVC),
+        JSON.stringify(unsignedVC, Object.keys(unsignedVC).sort()),
         proof.jws,
       );
     } catch (err) {

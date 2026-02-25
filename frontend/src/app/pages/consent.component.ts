@@ -171,7 +171,10 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
             [matAutocomplete]="purposeAuto"
             required 
           />
-
+         <div class="loading-state" *ngIf="suggestionsLoading()">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p>Loading your issued claims...</p>
+          </div>
           <!-- Auto-complete panel -->
           <mat-autocomplete #purposeAuto="matAutocomplete">
           <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
@@ -224,7 +227,6 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
             Type to filter suggestions from your issued claims (newest first)
           </mat-hint>
 
-      
         </mat-form-field>
 
             <!-- Add this right after the mat-autocomplete block -->
@@ -855,6 +857,7 @@ export class ConsentComponent implements OnInit {
   attributes = signal<string[]>([]);
   selectedContext = signal<string>('');
   suggestedClaims = signal<any[]>([]);
+  suggestionsLoading = signal(false);
 
   purposeValue = '';
 
@@ -1039,20 +1042,24 @@ isLatest(claim: any): boolean {
     this.loadActiveConsents();
   }
 
-  private loadAttributesForContext() {
+  private loadAttributesForContext(): Promise<void> {
     this.loadingAttributes.set(true);
     this.attributes.set([]);
 
-    this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
-      next: (res: any) => {
-        this.attributes.set(Object.keys(res.attributes || {}));
-        this.loadingAttributes.set(false);
-      },
-      error: () => {
-        this.attributes.set([]);
-        this.loadingAttributes.set(false);
-        this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
-      }
+    return new Promise<void>((resolve, reject) => {
+      this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
+        next: (res: any) => {
+          this.attributes.set(Object.keys(res.attributes || {}));
+          this.loadingAttributes.set(false);
+          resolve();
+        },
+        error: (err) => {
+          this.attributes.set([]);
+          this.loadingAttributes.set(false);
+          this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
+          reject(err); // or resolve() if you don't want to break flow
+        }
+      });
     });
   }
 
@@ -1089,14 +1096,30 @@ isLatest(claim: any): boolean {
     });
   }
 
-  hasActiveConsent(claimId: string): boolean {
-    const ctx = this.selectedContext();
-    return this.activeConsents().some(c =>
-      c.claimId === claimId &&
-      c.context === ctx &&
-      !this.isExpired(c.expiresAt)
+  hasActiveConsent(displayOrClaimId: string): boolean {
+  const ctx = this.selectedContext()?.toLowerCase()?.trim() || '';
+  if (!ctx) return false;
+
+  return this.activeConsents().some(c => {
+    const consentClaim = (c.claimId || '').trim();
+    const consentCtx  = (c.context  || '').toLowerCase().trim();
+
+    return (
+      consentCtx === ctx &&
+      !this.isExpired(c.expiresAt) &&
+      (
+        // Exact match (if someone passes full id)
+        consentClaim === displayOrClaimId ||
+        
+        // Short name match (what the UI currently passes)
+        consentClaim.toLowerCase() === displayOrClaimId.toLowerCase() ||
+        
+        // Most common case: last part of dotted claimId
+        consentClaim.split('.').pop()?.toLowerCase() === displayOrClaimId.toLowerCase()
+      )
     );
-  }
+  });
+}
 
   toggleAttribute(attr: string) {
     if (this.hasActiveConsent(attr)) return;
@@ -1132,15 +1155,21 @@ isLatest(claim: any): boolean {
         return;
       }
 
-      for (const attr of this.selectedAttributes()) {
-        if (this.hasActiveConsent(attr)) continue;
+      for (const shortAttr of this.selectedAttributes()) {
+        const matching = this.suggestedClaims().find(c =>
+              c.attributes?.includes(shortAttr) ||
+                  c.claim_id?.split('.').pop() === shortAttr
+                );
+
+        const claimId = matching?.claim_id || shortAttr; // fallback
+        if (this.hasActiveConsent(claimId)) continue;
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
 
         await this.api.grantConsent({
           owner: addr,
-          claimId: attr,
+          claimId: claimId,
           purpose: this.purposeValue.trim(),
           context: this.selectedContext(),
           expiresAt: expiresAt.toISOString()
@@ -1149,6 +1178,9 @@ isLatest(claim: any): boolean {
 
       // 🔥 FIX: WAIT UNTIL SERVER DATA IS LOADED BEFORE UI RESETS
       await this.loadActiveConsents();
+      this.loadingAttributes.set(true);
+      // NEW: Refresh attributes so UI shows updated consent state
+      await this.loadAttributesForContext();
 
       this.selectedAttributes.set([]);
       this.purposeValue = '';
@@ -1176,21 +1208,25 @@ isLatest(claim: any): boolean {
 
   // NEW: Load suggestions when wallet is ready
   loadSuggestions() {
-    if (!this.walletAddress()) return;
+  if (!this.walletAddress()) return;
 
-    const did = `did:ethr:${this.walletAddress()}`;
-    this.api.getSuggestableClaims(did).subscribe({
-      next: (res: any) => {
-        console.log('Raw suggestable claims from backend:', res.suggestableClaims);
-        this.suggestedClaims.set(res.suggestableClaims || []);
-        this.cdr.detectChanges(); // Ensure UI updates immediately
-      },
-      error: (err: any) => {
-        console.error('Failed to load suggestions:', err);
-        this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
-      }
-    });
-  }
+  this.suggestionsLoading.set(true);
+  const did = `did:ethr:${this.walletAddress()}`;
+
+  this.api.getSuggestableClaims(did).subscribe({
+    next: (res: any) => {
+      console.log('Raw suggestable claims from backend:', res.suggestableClaims);
+      this.suggestedClaims.set(res.suggestableClaims || []);
+      this.suggestionsLoading.set(false);
+      this.cdr.detectChanges();
+    },
+    error: (err: any) => {
+      console.error('Failed to load suggestions:', err);
+      this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
+      this.suggestionsLoading.set(false);
+    }
+  });
+}
 
   confirmAndRevoke(consent: any) {
     const message = `Are you sure you want to revoke consent for attribute "${consent.claimId}"?\n\nThis action cannot be undone.`;

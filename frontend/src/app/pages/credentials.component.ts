@@ -10,7 +10,12 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment.prod';
 import ForwarderArtifact from '../abi/Forwarder.json';
 import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';
-
+import { ethers } from 'ethers';
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 const ForwarderAbi = ForwarderArtifact.abi;
 const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 
@@ -887,6 +892,104 @@ async issueVC() {
       throw new Error('Invalid JSON in claim field');
     }
 
+// ────────────────────────────────────────────────
+// NEW: Frontend signs VC with user's wallet
+// ────────────────────────────────────────────────
+let signedVc;
+try {
+  // Ensure window.ethereum exists
+  if (!(window as any).ethereum) {
+    throw new Error('No Ethereum provider found. Please install MetaMask.');
+  }
+  const provider = new ethers.BrowserProvider((window as any).ethereum);
+  await provider.send("eth_requestAccounts", []); // Ensure connected
+  const signer = await provider.getSigner();
+
+  const signerAddress = (await signer.getAddress()).toLowerCase();
+  console.log("Signer address used for VC signature:", signerAddress);
+  
+ // Deep clone everything to prevent reference loss/mutation
+  const claimObjCopy = JSON.parse(JSON.stringify(claimObj)); // force deep copy
+
+  console.log("Cloned claimObj:", claimObjCopy); // should match original
+  const vc = {
+    "@context": ["https://www.w3.org/2018/credentials/v1"],
+    type: ["VerifiableCredential"],
+    issuer: `did:ethr:${addr}`,
+    issuanceDate: new Date().toISOString(),
+    credentialSubject: {
+      id: `did:ethr:${addr}`,
+      claim: claimObjCopy
+    },
+    pimv: {
+      context: this.context,
+      claimId: this.claimId,
+      purpose: this.purpose.trim(),
+      consentRequired: true
+    }
+  };
+ 
+  console.log("Full VC before signing:", vc);
+ // ← Add these three lines
+console.log("credentialSubject at this moment:", vc.credentialSubject);
+console.log("claim inside it:", vc.credentialSubject?.claim);
+console.log("Is claim plain object?", vc.credentialSubject?.claim && Object.prototype.toString.call(vc.credentialSubject.claim) === '[object Object]');
+
+// Recursive deterministic stringify (sort all levels)
+  const vcString = JSON.stringify(vc, Object.keys(vc).sort());
+  // Find position of credentialSubject
+const start = vcString.indexOf('"credentialSubject":');
+if (start === -1) {
+  console.log("credentialSubject key not found in stringified VC!");
+} else {
+  // Extract ~200 chars after the key to see content
+  const excerpt = vcString.substring(start, start + 200);
+  console.log("credentialSubject excerpt (first ~200 chars after key):", excerpt);
+}
+
+// Also log full length + prefix/suffix for comparison
+console.log("Full vcString length:", vcString.length);
+console.log("vcString starts with:", vcString.substring(0, 150));
+console.log("vcString ends with:", vcString.substring(vcString.length - 150));
+  console.log("Canonical(top level) string being signed (first 300 chars):", vcString.substring(0, 300));
+
+  const signature = await signer.signMessage(vcString);
+
+  signedVc = {
+    ...vc,
+    proof: {
+      type: "EcdsaSecp256k1Signature2019",
+      created: new Date().toISOString(),
+      proofPurpose: "assertionMethod",
+      verificationMethod: `did:ethr:${addr}`,
+      jws: signature
+    }
+  };
+} catch (signErr: any) {
+  console.error("Frontend VC signing failed:", signErr);
+  this.snackBar.open(
+    signErr.code === 4001 ? 'VC signing rejected' : 'Failed to sign VC',
+    'Close',
+    { duration: 6000, panelClass: ['error-snackbar'] }
+  );
+  this.issuing.set(false);
+  return; // Stop here — no credential issued
+}
+
+// ────────────────────────────────────────────────
+// Existing payload — now send signedVc instead of unsigned data
+// ────────────────────────────────────────────────
+const payload = {
+  signedVc,                    // ← NEW: full signed VC
+  context: this.context,
+  claimId: this.claimId,
+  currentProfileCid,
+  consent: {
+    purpose: this.purpose.trim(),
+    expiresAt: this.expiresAt || undefined,
+  }
+};
+/** 
     const payload = {
       issuer: `did:ethr:${addr}`,
       subject: `did:ethr:${addr}`, // self-issue for now
@@ -899,10 +1002,11 @@ async issueVC() {
       },
       currentProfileCid,   // ← this is the missing piece
     };
-
-    const response = await firstValueFrom(this.api.issueVC(payload));
-    console.log("Backend returned newProfileCid:", response.newProfileCid);
-    console.log("Did we send currentProfileCid? ", payload.currentProfileCid); // will be undefined
+    */
+    const response = await firstValueFrom(this.api.issueSignedVC(payload));  // ← new endpoint name
+   // const response = await firstValueFrom(this.api.issueVC(payload));
+    //console.log("Backend returned newProfileCid:", response.newProfileCid);
+   // console.log("Did we send currentProfileCid? ", payload.currentProfileCid); // will be undefined
 
         this.snackBar.open(
           'Preparing gasless credential anchoring...',

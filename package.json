@@ -21,6 +21,8 @@
     "test:coverage": "node --experimental-vm-modules ./node_modules/.bin/jest --coverage --detectOpenHandles --forceExit"
   },
   "dependencies": {
+    "@walletconnect/ethereum-provider": "^2.23.6",
+    "ethers": "6",
     "qrcode": "^1.5.4",
     "readable-stream": "^4.7.0",
     "typescript": "5.4.5",

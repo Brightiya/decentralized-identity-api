@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatOptionModule } from '@angular/material/core';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelectModule, MatSelectChange } from '@angular/material/select';
 import { ApiService } from '../../services/api.service';
 import { WalletService } from '../../services/wallet.service';
 import { ThemeService } from '../../services/theme.service';
@@ -90,47 +90,33 @@ import { MatSnackBar } from '@angular/material/snack-bar';
               <mat-label>Subject DID</mat-label>
               <input matInput formControlName="subject" placeholder="did:ethr:0x..." />
               <mat-error *ngIf="form.get('subject')?.hasError('pattern')">
-                Invalid DID format. Expected:
-                <code>did:ethr:0x&lt;40 hex chars&gt;</code>
+                Invalid DID format. Expected: <code>did:ethr:0x&lt;40 hex chars&gt;</code>
               </mat-error>
             </mat-form-field>
 
             <!-- Verifier DID -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Verifier DID (your DID)</mat-label>
-
               <input matInput
-                    formControlName="verifierDid"
-                    placeholder="did:ethr:0x..."
-                    [matAutocomplete]="verifierAuto" />
+                     formControlName="verifierDid"
+                     placeholder="did:ethr:0x..."
+                     [matAutocomplete]="verifierAuto" />
 
-              <!-- Autocomplete -->
               <mat-autocomplete #verifierAuto="matAutocomplete">
-                <mat-option
-                  *ngFor="let v of filteredVerifierSuggestions()"
-                  [value]="v">
+                <mat-option *ngFor="let v of filteredVerifierSuggestions()" [value]="v">
                   {{ v }}
                 </mat-option>
-
-                <mat-option
-                  *ngIf="filteredVerifierSuggestions().length === 0"
-                  disabled>
+                <mat-option *ngIf="filteredVerifierSuggestions().length === 0" disabled>
                   No suggested verifiers available
                 </mat-option>
               </mat-autocomplete>
 
-              <!-- Regex error -->
               <mat-error *ngIf="form.get('verifierDid')?.hasError('pattern')">
-                Invalid DID format. Expected:
-                <code>did:ethr:0x&lt;40 hex chars&gt;</code>
+                Invalid DID format. Expected: <code>did:ethr:0x&lt;40 hex chars&gt;</code>
               </mat-error>
-
-              <!-- Cross-field error -->
               <mat-error *ngIf="form.hasError('sameDid')">
                 Verifier DID must be different from Subject DID
               </mat-error>
-
-              <!-- Helpful hint -->
               <mat-hint>
                 You may enter your own DID or select a suggested test verifier.
               </mat-hint>
@@ -157,35 +143,35 @@ import { MatSnackBar } from '@angular/material/snack-bar';
                      placeholder="e.g., KYC verification, age check, address confirmation"
                      [matAutocomplete]="purposeAuto" />
 
-            <div class="loading-state" *ngIf="suggestionsLoading()">
-                    <mat-spinner diameter="40"></mat-spinner>
-                    <p>Loading your issued claims...</p>
-                  </div>   
-
-              <!-- Auto-complete panel -->
-          <mat-autocomplete #purposeAuto="matAutocomplete">
-            <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
-              <div class="purpose-option">
-                <span class="purpose-text">{{ claim.purpose }}
-                <span class="recency-badge" *ngIf="isLatest(claim)">
-                   Latest
-                </span></span>
-                <small class="muted">
-                  Claim ID: {{ claim.claim_id }} <br> Context: {{ claim.context }}
-                  <span *ngIf="claim.issued_at" class="recency">
-                    • {{ getRelativeTime(claim.issued_at) }}
-                  </span>
-                </small>
+              <div class="loading-state" *ngIf="suggestionsLoading()">
+                <mat-spinner diameter="40"></mat-spinner>
+                <p>Loading your issued claims...</p>
               </div>
-            </mat-option>
-          </mat-autocomplete>
 
-              <!-- Improved hints -->
+              <mat-autocomplete #purposeAuto="matAutocomplete">
+                <mat-option *ngFor="let claim of filteredSuggestedPurposes()" [value]="claim.purpose">
+                  <div class="purpose-option">
+                    <span class="purpose-text">
+                      {{ claim.purpose }}
+                      <span class="recency-badge" *ngIf="isLatest(claim)">Latest</span>
+                    </span>
+                    <small class="muted">
+                      Claim ID: {{ claim.claim_id }} <br>
+                      Context: {{ claim.context }}
+                      <span *ngIf="claim.issued_at" class="recency">
+                        • {{ getRelativeTime(claim.issued_at) }}
+                      </span>
+                    </small>
+                  </div>
+                </mat-option>
+              </mat-autocomplete>
+
               <mat-hint class="subtle-context-hint" *ngIf="!form.get('context')?.value">
                 Select a context first to see relevant purpose suggestions
               </mat-hint>
 
-              <mat-hint class="subtle-context-hint warn-hint" *ngIf="form.get('context')?.value && filteredSuggestedPurposes().length === 0 && !form.get('purpose')?.value?.trim()">
+              <mat-hint class="subtle-context-hint warn-hint"
+                        *ngIf="form.get('context')?.value && filteredSuggestedPurposes().length === 0 && !form.get('purpose')?.value?.trim()">
                 No previous purposes found for <strong>{{ form.get('context')?.value | titlecase }}</strong>.<br>
                 A consented VC must be issued first in this context by the issuer.
               </mat-hint>
@@ -200,18 +186,22 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 
             <h3>Requested Credentials</h3>
 
+            <div *ngIf="credentialsArray.length === 0 && form.get('context')?.value" class="muted text-center py-4">
+              Select a claim ID to start adding credentials
+            </div>
+
             <div formArrayName="credentials">
               <div *ngFor="let cred of credentialsArray.controls; let i = index"
                    [formGroupName]="i"
                    class="credential-row">
 
-                <!-- Claim ID - now filtered dropdown -->
+                <!-- Claim ID - filtered dropdown -->
                 <mat-form-field appearance="outline" class="cred-field">
                   <mat-label>Claim ID</mat-label>
                   <mat-select formControlName="claimId">
-                   <mat-option *ngFor="let item of filteredClaimIdsByContext()" 
-                      [value]="item.claimId"
-                      (onSelectionChange)="autoFillCid(item.cid, $event)">
+                    <mat-option *ngFor="let item of filteredClaimIdsByContext()"
+                                [value]="item.claimId"
+                                (onSelectionChange)="autoFillCid(item.cid)">
                       {{ item.claimId }}
                     </mat-option>
                     <mat-option *ngIf="filteredClaimIdsByContext().length === 0" disabled>
@@ -223,6 +213,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
                   </mat-error>
                   <mat-hint *ngIf="form.get('context')?.value && filteredClaimIdsByContext().length === 0">
                     No credentials found in this context
+                  </mat-hint>
+                  <mat-hint *ngIf="cred.get('claimId')?.value">
+                    CID will auto-fill if available
                   </mat-hint>
                 </mat-form-field>
 
@@ -280,7 +273,6 @@ import { MatSnackBar } from '@angular/material/snack-bar';
       </mat-card>
 
       <!-- Verifier Audit Trail -->
-      
       <mat-card class="card elevated mt-6" *ngIf="form.get('verifierDid')?.valid">
         <mat-card-header>
           <mat-icon mat-card-avatar>policy</mat-icon>
@@ -291,66 +283,54 @@ import { MatSnackBar } from '@angular/material/snack-bar';
         </mat-card-header>
 
         <mat-card-content>
-
           <!-- Loading -->
-          <div *ngIf="auditLoading" class="muted">
-            <mat-spinner diameter="24"></mat-spinner>
-            Loading audit trail…
+          <div *ngIf="auditLoading" class="muted text-center py-6">
+            <mat-spinner diameter="40"></mat-spinner>
+            <p class="mt-2">Loading audit trail…</p>
           </div>
 
           <!-- Error -->
-          <div *ngIf="auditError" class="result error">
+          <div *ngIf="auditError" class="result error mt-4">
             {{ auditError }}
           </div>
 
           <!-- Empty -->
-          <div *ngIf="!auditLoading && verifierAudit.length === 0" class="muted">
+          <div *ngIf="!auditLoading && !auditError && verifierAudit.length === 0" class="muted text-center py-6">
             No disclosures recorded yet for this verifier DID.
           </div>
 
-          <!-- Table -->
+          <!-- Table / List -->
           <div *ngIf="verifierAudit.length > 0">
             <mat-divider class="my-3"></mat-divider>
-
-            <div *ngFor="let d of verifierAudit" class="credential-row">
+            <div *ngFor="let d of verifierAudit" class="credential-row audit-row">
               <div class="cred-field">
                 <strong>Subject:</strong><br />
-                <code>{{ d.subject_did }}</code>
+                <code>{{ d.subject_did | slice:0:12 }}…{{ d.subject_did | slice:-4 }}</code>
               </div>
-
               <div class="cred-field">
                 <strong>Claim:</strong><br />
                 {{ d.claim_id }}
               </div>
-
               <div class="cred-field">
                 <strong>Purpose:</strong><br />
                 {{ d.purpose }}
               </div>
-
               <div class="cred-field">
                 <strong>Context:</strong><br />
-                {{ d.context }}
+                {{ d.context | titlecase }}
               </div>
-
               <div class="cred-field">
                 <strong>Disclosed:</strong><br />
                 {{ getRelativeTime(d.disclosed_at) }}
               </div>
-
-              <mat-icon color="primary" matTooltip="Consent recorded">
-                verified
-              </mat-icon>
+              <mat-icon color="primary" matTooltip="Consent was recorded">verified</mat-icon>
             </div>
           </div>
-
         </mat-card-content>
       </mat-card>
-
     </ng-template>
   </div>
-
-`,
+  `,
 
 styles: [`
   :host {
@@ -476,8 +456,20 @@ styles: [`
     background: rgba(255,255,255,0.04);
   }
 
+  .audit-row { background: rgba(99,102,241,0.05); }
+  .verifier-container.dark .audit-row { background: rgba(99,102,241,0.12); }
+
+  /* Credential rows & fields */
+    .credential-row, .audit-row {
+      display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+      padding: 12px; border-radius: 12px; background: rgba(0,0,0,0.02);
+    }
+      .verifier-container.dark .credential-row, .verifier-container.dark .audit-row {
+      background: rgba(255,255,255,0.04);
+    }
   .cred-field {
     flex: 1;
+    min-width: 0;
   }
 
   .add-btn {
@@ -789,9 +781,12 @@ styles: [`
   }
 
   .subtle-context-hint {
-    font-size: 0.75rem;
-    margin-top: 6px;
-    margin-bottom: 12px;
+    font-size: 0.85rem; 
+    color: #757575; 
+    margin-top: 8px; 
+    margin-bottom: 16px; 
+    opacity: 0.8; 
+    display: block;
   }
 }
 
@@ -847,6 +842,7 @@ styles: [`
       opacity: 0.8;
       display: block;
     }
+    .warn-hint { color: #f59e0b; }
 
     /* Optional: Style for auto-complete options */
     mat-option {
@@ -882,103 +878,89 @@ export class VerifierComponent {
   result: any = null;
   error: string | null = null;
   connecting = false;
-  purposeValue = '';
 
   verifierAudit: any[] = [];
   auditLoading = false;
   auditError: string | null = null;
 
-  
-
   // Signals
   suggestedClaims = signal<any[]>([]);
   contexts = signal<string[]>([]);
   suggestionsLoading = signal(false);
-
-  // ⭐ Recommended: dedicated signal for context (best reactivity)
   selectedContext = signal<string>('');
 
   darkMode = this.themeService.darkMode;
 
-  // Suggested verifier DIDs (Hardhat defaults or known test verifiers)
-suggestedVerifiers = signal<string[]>([
-  'did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-  'did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-  'did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
-]);
+  suggestedVerifiers = signal<string[]>([
+    'did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    'did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    'did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+  ]);
 
-filteredVerifierSuggestions = computed(() => {
-  const input = this.form.get('verifierDid')?.value?.toLowerCase() || '';
-  const subject = this.form.get('subject')?.value?.toLowerCase() || '';
+  filteredVerifierSuggestions = computed(() => {
+    const input = this.form.get('verifierDid')?.value?.toLowerCase() || '';
+    const subject = this.form.get('subject')?.value?.toLowerCase() || '';
 
-  return this.suggestedVerifiers()
-    .filter(v =>
-      v.toLowerCase() !== subject &&   // never allow same as subject
-      v.toLowerCase().includes(input)
-    );
-});
-  
+    return this.suggestedVerifiers()
+      .filter(v =>
+        v.toLowerCase() !== subject &&
+        v.toLowerCase().includes(input)
+      );
+  });
 
-  // Helper to normalize contexts consistently (good practice)
   private normalizeContext(ctx: string): string {
     return ctx?.toLowerCase()?.trim()?.replace(/\s+/g, '-') || '';
   }
 
   filteredSuggestedPurposes = computed(() => {
-  const search = this.purposeValue?.toLowerCase().trim() || '';
-  const currentContext = this.selectedContext()?.toLowerCase() || '';
+    const search = this.form.get('purpose')?.value?.toLowerCase().trim() || '';
+    const currentContext = this.selectedContext()?.toLowerCase() || '';
 
-  let claims = [...this.suggestedClaims()];
+    let claims = [...this.suggestedClaims()];
 
-  // FILTER out other contexts
-  if (currentContext) {
-    claims = claims.filter(
-      claim => (claim.context || '').toLowerCase() === currentContext
+    if (currentContext) {
+      claims = claims.filter(
+        claim => (claim.context || '').toLowerCase() === currentContext
+      );
+    }
+
+    if (!search) return claims;
+
+    return claims.filter(claim =>
+      (claim.purpose || '').toLowerCase().includes(search)
     );
+  });
+
+  getRelativeTime(dateStr: string | null): string {
+    if (!dateStr) return 'recent';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 1) {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHours < 1) return 'just now';
+      return `${diffHours}h ago`;
+    }
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return 'Older';
   }
 
-  // If user hasn't typed anything just return context-filtered claims
-  if (!search) return claims;
+  isLatest(claim: any): boolean {
+    if (!claim.issued_at) return false;
 
-  // Filter by search text
-  return claims.filter(claim =>
-    (claim.purpose || '').toLowerCase().includes(search)
-  );
-});
+    const filtered = this.filteredSuggestedPurposes();
+    const allTimestamps = filtered
+      .filter(c => c.issued_at)
+      .map(c => new Date(c.issued_at).getTime());
 
+    if (allTimestamps.length === 0) return false;
 
-getRelativeTime(dateStr: string | null): string {
-  if (!dateStr) return 'recent';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 1) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours < 1) return 'just now';
-    return `${diffHours}h ago`;
+    const maxTime = Math.max(...allTimestamps);
+    return new Date(claim.issued_at).getTime() === maxTime;
   }
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  
-  // ← Here: Add "Older" for anything 30+ days old
-  return 'Older';  // or 'Older (before 2025)' or date.toLocaleDateString()
-}
-
-isLatest(claim: any): boolean {
-  if (!claim.issued_at) return false;
-
-  const filtered = this.filteredSuggestedPurposes();
-  const allTimestamps = filtered
-    .filter(c => c.issued_at)
-    .map(c => new Date(c.issued_at).getTime());
-
-  if (allTimestamps.length === 0) return false;
-
-  const maxTime = Math.max(...allTimestamps);
-  return new Date(claim.issued_at).getTime() === maxTime;
-}
 
   filteredClaimIdsByContext = computed(() => {
     const currentContext = this.selectedContext();
@@ -990,9 +972,9 @@ isLatest(claim: any): boolean {
         this.normalizeContext(claim.context || '') === normalizedCurrent
       )
       .map(claim => ({
-      claimId: claim.claim_id,
-      cid: claim.signedCid || claim.cid || ''   // ← now available
-    }));
+        claimId: claim.claim_id,
+        cid: claim.signedCid || claim.cid || ''
+      }));
   });
 
   get credentialsArray(): FormArray {
@@ -1000,35 +982,28 @@ isLatest(claim: any): boolean {
   }
 
   private differentDidValidator() {
-  return (group: FormGroup) => {
-    const subject = group.get('subject')?.value?.toLowerCase();
-    const verifier = group.get('verifierDid')?.value?.toLowerCase();
+    return (group: FormGroup) => {
+      const subject = group.get('subject')?.value?.toLowerCase();
+      const verifier = group.get('verifierDid')?.value?.toLowerCase();
 
-    if (subject && verifier && subject === verifier) {
-      return { sameDid: true };
-    }
-
-    return null;
-  };
-}
+      if (subject && verifier && subject === verifier) {
+        return { sameDid: true };
+      }
+      return null;
+    };
+  }
 
   constructor() {
     this.form = this.fb.group({
-      subject: ['', 
-        [Validators.required, Validators.pattern(ETHR_DID_REGEX)]
-
-      ],
-      verifierDid: ['', 
-        [Validators.required, Validators.pattern(ETHR_DID_REGEX)]
-
-      ],
+      subject: ['', [Validators.required, Validators.pattern(ETHR_DID_REGEX)]],
+      verifierDid: ['', [Validators.required, Validators.pattern(ETHR_DID_REGEX)]],
       context: ['', Validators.required],
       purpose: ['', Validators.required],
       consent: [false, Validators.requiredTrue],
       credentials: this.fb.array([])
     }, { validators: this.differentDidValidator() });
 
-    // Wallet connection → prefill subject + load suggestions
+    // Wallet → prefill subject + load suggestions
     this.wallet.address$.subscribe(addr => {
       if (addr) {
         this.form.patchValue({ subject: `did:ethr:${addr}` });
@@ -1036,39 +1011,40 @@ isLatest(claim: any): boolean {
       }
     });
 
-    // Load available contexts
+    // Contexts
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts.set(ctxs.sort());
     });
 
-    // ⭐ Key reactivity bridge: sync form context → selectedContext signal
+    // Context changes → sync signal + auto-add first credential row
     this.form.get('context')?.valueChanges.subscribe(value => {
       const newValue = value || '';
       this.selectedContext.set(newValue);
 
-      // Optional: normalize in form too (consistency)
       const normalized = this.normalizeContext(newValue);
       if (normalized !== newValue && normalized) {
         this.form.patchValue({ context: normalized }, { emitEvent: false });
       }
 
+      if (newValue && this.credentialsArray.length === 0) {
+        this.addCredential();
+      }
+
       this.cdr.detectChanges();
     });
 
-    // Purpose changes → trigger UI refresh if needed
-    this.form.get('purpose')?.valueChanges.subscribe(() => {
-      this.cdr.detectChanges();
-    });
+    // Purpose changes → UI refresh
+    this.form.get('purpose')?.valueChanges.subscribe(() => this.cdr.detectChanges());
 
+    // Verifier DID changes → load audit
     this.form.get('verifierDid')?.valueChanges.subscribe(did => {
-    if (did?.startsWith('did:')) {
-      this.loadVerifierAuditTrail();
-    } else {
-      this.verifierAudit = [];
-    }
-    this.cdr.detectChanges();
-  });
-
+      if (did?.startsWith('did:')) {
+        this.loadVerifierAuditTrail();
+      } else {
+        this.verifierAudit = [];
+      }
+      this.cdr.detectChanges();
+    });
   }
 
   async connectWallet() {
@@ -1076,7 +1052,7 @@ isLatest(claim: any): boolean {
     try {
       await this.wallet.connect();
     } catch (e: any) {
-      alert(e.message || 'Wallet connection failed');
+      this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
     } finally {
       this.connecting = false;
     }
@@ -1085,7 +1061,7 @@ isLatest(claim: any): boolean {
   loadSuggestions() {
     const addr = this.wallet.address;
     if (!addr) return;
-   this.suggestionsLoading.set(true);
+    this.suggestionsLoading.set(true);
     const did = `did:ethr:${addr}`;
     this.api.getSuggestableClaims(did).subscribe({
       next: (res: any) => {
@@ -1093,11 +1069,11 @@ isLatest(claim: any): boolean {
         this.suggestionsLoading.set(false);
         this.cdr.detectChanges();
       },
-        error: (err: any) => {
-      console.error('Failed to load suggestions:', err);
-      this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
-      this.suggestionsLoading.set(false);
-    }
+      error: (err: any) => {
+        console.error('Failed to load suggestions:', err);
+        this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
+        this.suggestionsLoading.set(false);
+      }
     });
   }
 
@@ -1108,26 +1084,26 @@ isLatest(claim: any): boolean {
         cid: ['', Validators.required]
       })
     );
+    this.cdr.detectChanges();
   }
 
   removeCredential(index: number) {
     this.credentialsArray.removeAt(index);
+    this.cdr.detectChanges();
   }
 
-  autoFillCid(cid: string, event: any) {
-  if (!cid || !event.isUserInput) return; // only on user select
+  autoFillCid(cid: string) {
+    if (!cid) return;
 
-  // Find the last credential row (or current one)
-  if (this.credentialsArray.length === 0) {
-    this.addCredential();
+    if (this.credentialsArray.length === 0) {
+      this.addCredential();
+    }
+
+    const lastIndex = this.credentialsArray.length - 1;
+    const credGroup = this.credentialsArray.at(lastIndex) as FormGroup;
+    credGroup.patchValue({ cid }, { emitEvent: false });
+    this.cdr.detectChanges();
   }
-
-  const lastIndex = this.credentialsArray.length - 1;
-  const credGroup = this.credentialsArray.at(lastIndex) as FormGroup;
-  credGroup.patchValue({ cid });
-  console.log("Auto-filled CID for claimId", credGroup.value.claimId, ":", cid);
-  this.cdr.detectChanges();
-}
 
   async submit() {
     if (this.form.invalid) {
@@ -1140,16 +1116,17 @@ isLatest(claim: any): boolean {
     this.error = null;
 
     const payload = {
-    subject: this.form.value.subject,
-    verifierDid: this.form.value.verifierDid,
-    purpose: this.form.value.purpose.trim(),           // ← ensure trim
-    context: this.form.value.context.trim().toLowerCase(), // ← normalize
-    consent: this.form.value.consent,
-    credentials: this.credentialsArray.value.map((c: { claimId: string; }) => ({
-      ...c,
-      claimId: c.claimId.trim()                        // ← trim here too
-    }))
-  };
+      subject: this.form.value.subject?.trim(),
+      verifierDid: this.form.value.verifierDid?.trim(),
+      purpose: this.form.value.purpose?.trim(),
+      context: this.normalizeContext(this.form.value.context),
+      consent: this.form.value.consent,
+      credentials: this.credentialsArray.value.map((c: any) => ({
+        claimId: c.claimId?.trim(),
+        cid: c.cid?.trim()
+      }))
+    };
+
     console.log('[VERIFIER] Sending verification payload:', JSON.stringify(payload, null, 2));
 
     try {
@@ -1158,55 +1135,52 @@ isLatest(claim: any): boolean {
 
       if (this.result) {
         this.snackBar.open(
-          `Success! ${Object.keys(this.result.disclosed).length} claim${Object.keys(this.result.disclosed).length === 1 ? '' : 's'} disclosed`,
+          `Success! ${Object.keys(this.result.disclosed || {}).length} claim${Object.keys(this.result.disclosed || {}).length === 1 ? '' : 's'} disclosed`,
           'Close',
           { duration: 8000, panelClass: ['success-snackbar'] }
         );
       }
 
-      if (this.result.denied && Object.keys(this.result.denied).length > 0) {
+      if (this.result?.denied && Object.keys(this.result.denied).length > 0) {
         this.snackBar.open(
-          `${Object.keys(this.result.disclosed).length} disclosed, ${Object.keys(this.result.denied).length} denied`,
+          `${Object.keys(this.result.disclosed || {}).length} disclosed, ${Object.keys(this.result.denied).length} denied`,
           'Close',
           { duration: 10000 }
         );
       }
-    }catch (err: any) {
-      console.error('[VERIFIER] Verification failed:', {
-      status: err.status,
-      error: err.error?.error,
-      denied: err.error?.denied,
-      fullResponse: err
-    });
-    this.error = err.error?.error || err.message || 'Verification failed';
-  }finally {
+    } catch (err: any) {
+      console.error('[VERIFIER] Verification failed:', err);
+      this.error = err.error?.error || err.message || 'Verification failed';
+      this.snackBar.open(this.error || 'Verification failed', 'Close', { duration: 6000, panelClass: ['error-snackbar'] });
+    } finally {
       this.isSubmitting = false;
     }
   }
 
-
-  // Load verifier audit trail
-
   loadVerifierAuditTrail() {
-  const verifierDid = this.form.get('verifierDid')?.value;
-  if (!verifierDid) return;
+    const verifierDid = this.form.get('verifierDid')?.value?.trim();
+    if (!verifierDid) return;
 
-  this.auditLoading = true;
-  this.auditError = null;
+    this.auditLoading = true;
+    this.auditError = null;
 
-  this.api.getDisclosuresByVerifier(verifierDid).subscribe({
-    next: (res: any) => {
-      this.verifierAudit = res.disclosures || [];
-      this.auditLoading = false;
-      this.cdr.detectChanges();
-    },
-    error: err => {
-      console.error('Verifier audit error:', err);
-      this.auditError = 'Failed to load verifier audit trail';
-      this.auditLoading = false;
-    }
-  });
+    this.api.getDisclosuresByVerifier(verifierDid).subscribe({
+      next: (res: any) => {
+        this.verifierAudit = res.disclosures || [];
+        this.auditLoading = false;
+        if (this.verifierAudit.length === 0) {
+          this.snackBar.open('No disclosure history found for this verifier', 'Close', { duration: 4000 });
+        }
+        this.cdr.detectChanges();
+      },
+      error: err => {
+        console.error('Verifier audit error:', err);
+        this.auditError = 'Failed to load verifier audit trail';
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
 }
-}
-export const ETHR_DID_REGEX =
-  /^did:ethr:0x[a-fA-F0-9]{40}$/;
+
+export const ETHR_DID_REGEX = /^did:ethr:0x[a-fA-F0-9]{40}$/;

@@ -865,6 +865,7 @@ export class ConsentComponent implements OnInit {
   explicitConsent = signal<boolean>(false);
   activeConsents = signal<any[]>([]);
   result = signal<any>(null);
+  claimIdsCoveringAttr = signal<Record<string, string[]>>({});
   
   filteredSuggestedPurposes = computed(() => {
   const search = this.purposeValue?.toLowerCase().trim() || '';
@@ -1042,24 +1043,20 @@ isLatest(claim: any): boolean {
     this.loadActiveConsents();
   }
 
-  private loadAttributesForContext(): Promise<void> {
+  private loadAttributesForContext() {
     this.loadingAttributes.set(true);
     this.attributes.set([]);
 
-    return new Promise<void>((resolve, reject) => {
-      this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
-        next: (res: any) => {
-          this.attributes.set(Object.keys(res.attributes || {}));
-          this.loadingAttributes.set(false);
-          resolve();
-        },
-        error: (err) => {
-          this.attributes.set([]);
-          this.loadingAttributes.set(false);
-          this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
-          reject(err); // or resolve() if you don't want to break flow
-        }
-      });
+    this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
+      next: (res: any) => {
+        this.attributes.set(Object.keys(res.attributes || {}));
+        this.loadingAttributes.set(false);
+      },
+      error: () => {
+        this.attributes.set([]);
+        this.loadingAttributes.set(false);
+        this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
+      }
     });
   }
 
@@ -1096,27 +1093,28 @@ isLatest(claim: any): boolean {
     });
   }
 
-  hasActiveConsent(displayOrClaimId: string): boolean {
-  const ctx = this.selectedContext()?.toLowerCase()?.trim() || '';
-  if (!ctx) return false;
+  hasActiveConsent(shortAttr: string): boolean {
+  const attrLower = shortAttr.toLowerCase().trim();
+  const ctxLower = this.selectedContext()?.toLowerCase()?.trim() || '';
+  if (!ctxLower) return false;
 
-  return this.activeConsents().some(c => {
-    const consentClaim = (c.claimId || '').trim();
-    const consentCtx  = (c.context  || '').toLowerCase().trim();
+  // 1. Get all claimIds known to cover this attribute
+  const possibleClaimIds = this.claimIdsCoveringAttr()[attrLower] || [];
 
-    return (
-      consentCtx === ctx &&
-      !this.isExpired(c.expiresAt) &&
-      (
-        // Exact match (if someone passes full id)
-        consentClaim === displayOrClaimId ||
-        
-        // Short name match (what the UI currently passes)
-        consentClaim.toLowerCase() === displayOrClaimId.toLowerCase() ||
-        
-        // Most common case: last part of dotted claimId
-        consentClaim.split('.').pop()?.toLowerCase() === displayOrClaimId.toLowerCase()
-      )
+  // 2. Also allow the short name itself (in case user granted with short name)
+  if (!possibleClaimIds.includes(shortAttr)) {
+    possibleClaimIds.push(shortAttr);
+  }
+
+  // 3. Check if ANY of those claimIds has an active (non-expired, same context) consent
+  return this.activeConsents().some(consent => {
+    if ((consent.context || '').toLowerCase().trim() !== ctxLower) return false;
+    if (this.isExpired(consent.expiresAt)) return false;
+
+    const consentClaimLower = (consent.claimId || '').toLowerCase().trim();
+
+    return possibleClaimIds.some(id => 
+      consentClaimLower === id.toLowerCase().trim()
     );
   });
 }
@@ -1162,6 +1160,12 @@ isLatest(claim: any): boolean {
                 );
 
         const claimId = matching?.claim_id || shortAttr; // fallback
+
+        console.log(`Granting for attr "${shortAttr}" → using claimId:`, claimId, {
+        foundMatchingSuggestion: !!matching,
+        suggestionAttributes: matching?.attributes,
+        suggestionClaimId: matching?.claim_id
+      });
         if (this.hasActiveConsent(claimId)) continue;
 
         const expiresAt = new Date();
@@ -1178,9 +1182,6 @@ isLatest(claim: any): boolean {
 
       // 🔥 FIX: WAIT UNTIL SERVER DATA IS LOADED BEFORE UI RESETS
       await this.loadActiveConsents();
-      this.loadingAttributes.set(true);
-      // NEW: Refresh attributes so UI shows updated consent state
-      await this.loadAttributesForContext();
 
       this.selectedAttributes.set([]);
       this.purposeValue = '';
@@ -1217,6 +1218,21 @@ isLatest(claim: any): boolean {
     next: (res: any) => {
       console.log('Raw suggestable claims from backend:', res.suggestableClaims);
       this.suggestedClaims.set(res.suggestableClaims || []);
+
+      // Build reverse mapping: short attr → list of claim_ids that cover it
+      const coverage: Record<string, string[]> = {};
+      res.suggestableClaims?.forEach((claim: any) => {
+        const cid = claim.claim_id;
+        if (!cid) return;
+        (claim.attributes || []).forEach((attr: string) => {
+          const short = attr.trim().toLowerCase();
+          if (!coverage[short]) coverage[short] = [];
+          if (!coverage[short].includes(cid)) coverage[short].push(cid);
+        });
+      });
+
+      this.claimIdsCoveringAttr.set(coverage);
+
       this.suggestionsLoading.set(false);
       this.cdr.detectChanges();
     },

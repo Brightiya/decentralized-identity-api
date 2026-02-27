@@ -102,7 +102,7 @@ export class WalletService {
 
   try {
     if (!window.ethereum) {
-      throw new Error('MetaMask not detected');
+      throw new Error('MetaMask not detected, please install MetaMask to use this application');
     }
 
     // Initialize provider first

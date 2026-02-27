@@ -335,3 +335,24 @@ html, body {
     margin-bottom: 16px;
   }
 }
+.html-snackbar {
+  max-width: 600px !important;           // Wider for long text + links
+  white-space: pre-wrap !important;
+  line-height: 1.6 !important;
+  padding: 20px !important;
+
+  .mat-mdc-snack-bar-label {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;   // Prevent overflow
+  }
+
+  a {
+    color: #6366f1 !important;           // Your theme accent color
+    text-decoration: underline !important;
+    font-weight: 500 !important;
+  }
+
+  a:hover {
+    color: #a78bfa !important;
+  }
+}

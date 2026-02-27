@@ -27,11 +27,13 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
 import { ViewChild } from '@angular/core';
 import { MatSidenav } from '@angular/material/sidenav';
-
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { WalletService } from './services/wallet.service';
 import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { SafariInstallDialogComponent } from './pages/safari-install-dialog.component';
 
 @Component({
   selector: 'app-root',
@@ -49,7 +51,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatSlideToggleModule,
     MatMenuModule,
     MatBadgeModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule,
+    MatDialogModule
   ],
   template: `
     <mat-sidenav-container 
@@ -699,6 +703,8 @@ export class AppComponent implements OnInit {
   private titleService = inject(Title);
   private cdr = inject(ChangeDetectorRef);
   private themeService = inject(ThemeService);
+  private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   wallet = inject(WalletService);
   auth = inject(AuthService);
@@ -786,13 +792,52 @@ export class AppComponent implements OnInit {
   }
 
   async connectWallet() {
-    try {
-      await this.wallet.connect();
-      this.cdr.detectChanges();
-    } catch (e: any) {
-      alert(e.message || 'Wallet connection failed');
+  try {
+    await this.wallet.connect();
+    this.cdr.detectChanges();
+  } catch (err: any) {
+    console.error('Wallet connection failed:', err);
+
+    let message = err.message || 'Failed to connect wallet. Please try again.';
+    let buttonText = 'Close';
+    let installUrl = 'https://metamask.io/download/';
+
+    // Detect MetaMask-specific errors
+    if (
+      message.includes('MetaMask not detected') ||
+      message.includes('MetaMask is required') ||
+      message.includes('window.ethereum')
+    ) {
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+      if (isSafari) {
+        this.showSafariInstallDialog();
+      } else {
+        message = 'MetaMask is required to connect your wallet.';
+        buttonText = 'Install MetaMask';
+        installUrl = 'https://metamask.io/download/';
+      }
+
+      // Show snackbar with HTML content
+      const snack = this.snackBar.open(
+        message,
+        buttonText,
+        {
+          duration: 20000,
+          horizontalPosition: 'center',
+          verticalPosition: 'top',
+          panelClass: ['html-snackbar']  // ← Custom class for HTML rendering
+        }
+      );
+
+      snack.onAction().subscribe(() => {
+        window.open(installUrl, '_blank', 'noopener,noreferrer');
+      });
+    } else {
+      this.snackBar.open(message, 'Close', { duration: 8000 });
     }
   }
+}
 
   logout() {
     this.auth.logout();
@@ -823,4 +868,16 @@ export class AppComponent implements OnInit {
     if (!this.isBrowser) return false;
     return window.innerWidth <= 960; // breakpoint for mobile/tablet
   }
+
+  private showSafariInstallDialog() {
+  this.dialog.open(SafariInstallDialogComponent, {
+    width: '480px',
+    maxWidth: '90vw',
+    data: {
+      appStoreUrl: 'https://apps.apple.com/us/app/metamask-crypto-wallet/id1438144202',
+      metamaskDownloadUrl: 'https://metamask.io/download/'
+    }
+  });
 }
+}
+

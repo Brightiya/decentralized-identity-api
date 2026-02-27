@@ -171,7 +171,7 @@ describe("Verifiable Credentials Routes", () => {
 
     expect(res.status).to.equal(200);
     expect(res.body).to.have.property("disclosed");
-    expect(res.body.disclosed["identity.email"]).to.equal("subject@example.com");
+    expect(res.body.disclosed["identity.email"]).to.deep.equal({"email": "subject@example.com"});
     expect(res.body.denied || {}).to.be.empty;
   });
 
@@ -334,7 +334,7 @@ it("POST /api/vc/verify should succeed when consent is active (not revoked, not 
 
   expect(verifyRes.status).to.equal(200);
   expect(verifyRes.body.disclosed).to.have.property("identity.email");
-  expect(verifyRes.body.disclosed["identity.email"]).to.equal("subject@example.com");
+  expect(verifyRes.body.disclosed["identity.email"]).to.deep.equal({"email": "subject@example.com"});
   expect(verifyRes.body.denied || {}).to.be.empty;
 });
 

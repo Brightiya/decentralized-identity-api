@@ -1,5 +1,6 @@
 // backend/src/controllers/profileController.js
 import { uploadJSON, fetchJSON, unpinCID } from "../utils/pinata.js";
+import { pool } from "../utils/db.js";
 
 import {
   isHybridMode,
@@ -261,19 +262,19 @@ export const getProfile = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------
-   GDPR ART.17 — RIGHT TO ERASURE
+   GDPR ART.17 — RIGHT TO ERASURE (with audit logging)
 ------------------------------------------------------------------- */
 export const eraseProfile = async (req, res) => {
   try {
-    const { did } = req.body; // ← Matches ApiService payload { did: string }
+    const { did } = req.body;
     if (!did) {
       return res.status(400).json({ error: "did required" });
     }
 
     const subjectAddress = didToAddress(did);
-    const contract = getContract(); // 🔑 lazy, mock-safe
+    const contract = getContract(); // lazy, mock-safe
 
-    const oldCid = await contract.getProfileCID(subjectAddress); // read-only OK
+    const oldCid = await contract.getProfileCID(subjectAddress);
     if (oldCid && oldCid.length > 0) {
       await unpinCID(oldCid).catch(() => {}); // best-effort
     }
@@ -295,6 +296,8 @@ export const eraseProfile = async (req, res) => {
       newCid
     };
 
+    let txHash;
+
     // ────────────────────────────────
     // HYBRID MODE: Prepare unsigned tx
     // ────────────────────────────────
@@ -315,19 +318,52 @@ export const eraseProfile = async (req, res) => {
       console.log('[Hybrid] Prepared unsigned setProfileCID (erase) tx');
     } 
     // ────────────────────────────────
-    // DEV MODE: Backend signs
+    // DEV MODE: Backend signs and submits
     // ────────────────────────────────
     else {
       const tx = await contract.setProfileCID(subjectAddress, newCid);
       await tx.wait();
-      responseData.txHash = tx.hash;
+      txHash = tx.hash;
+      responseData.txHash = txHash;
       responseData.message = "✅ Profile erased on-chain (backend signed)";
       console.log('[Dev] Backend signed & submitted setProfileCID (erase) tx');
     }
 
+    // ────────────────────────────────────────────────
+    // NEW: Log erasure in disclosures table (GDPR audit trail)
+    // ────────────────────────────────────────────────
+    try {
+      await pool.query(
+        `
+        INSERT INTO disclosures (
+          subject_did,
+          verifier_did,
+          claim_id,
+          purpose,
+          consent,
+          context,
+          disclosed_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        `,
+        [
+          subjectAddress,
+          "SYSTEM:GDPR",                    // special verifier identifier
+          "GDPR_ERASURE",                   // claim_id marker
+          "Right to Erasure (Article 17)",  // purpose
+          true,                             // consent (user confirmed)
+          "compliance"                      // context for audit
+        ]
+      );
+      console.log(`[GDPR] Erasure logged to disclosures for ${subjectAddress}`);
+    } catch (logErr) {
+      console.error(`[GDPR] Failed to log erasure to disclosures:`, logErr.message);
+      // Do NOT fail the whole request — logging is best-effort
+    }
+
     return res.json(responseData);
+
   } catch (err) {
     console.error("❌ eraseProfile error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message || "Internal server error during erasure" });
   }
 };

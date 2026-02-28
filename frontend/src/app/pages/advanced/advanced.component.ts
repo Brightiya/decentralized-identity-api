@@ -774,6 +774,11 @@ export class AdvancedComponent {  // ← renamed class to match typical naming
       next: (r) => {
         this.result = r;
         this.verifying = false;
+        // Optional: log if url missing
+        if (!r.url && !r.gatewayUrl) {
+          console.warn('Backend did not return VC URL — using signedCid fallback');
+          this.result.url = r.signedCid ? `https://gateway.pinata.cloud/ipfs/${r.signedCid}` : null;
+        }
       },
       error: (e) => {
         this.result = e.error || { error: 'Validation failed', details: e.message };

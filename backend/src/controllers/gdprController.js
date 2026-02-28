@@ -2,7 +2,7 @@
 import { ethers } from "ethers";
 import { fetchJSON, uploadJSON, unpinCID } from "../utils/pinata.js";
 import { pool } from "../utils/db.js";
-import { didToAddress } from "../utils/did.js";
+import { requireDidAddress as didToAddress } from "../utils/did.js";
 import { getContract } from "../utils/contract.js"; // ← use this
 
 /**

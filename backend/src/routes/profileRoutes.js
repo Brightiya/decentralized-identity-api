@@ -15,7 +15,7 @@ export default router;
 */
 
 import express from "express";
-import { getProfile, createOrUpdateProfile } from "../controllers/profileController.js";
+import { getProfile, createOrUpdateProfile, eraseProfile } from "../controllers/profileController.js";
 import { contextMiddleware } from "../../middleware/context.js";
 import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
@@ -32,6 +32,9 @@ router.get(
   contextMiddleware,
   getProfile
 );
+
+// Enforced erasure (GDPR Art.17)
+router.delete("/erase", contextMiddleware, eraseProfile);
 
 export default router;
  

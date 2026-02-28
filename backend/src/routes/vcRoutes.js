@@ -1,5 +1,5 @@
 import express from "express";
-import { issueVC, verifyVC, validateRawVC,issueSignedVC } from "../controllers/vcController.js";
+import { verifyVC, validateRawVC,issueSignedVC } from "../controllers/vcController.js";
 import { contextMiddleware } from "../../middleware/context.js";
 import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
@@ -11,12 +11,14 @@ const router = express.Router();
  * - Context-aware disclosure
  * - GDPR consent metadata
  */
+/** 
 router.post(
   "/issue",
   contextMiddleware,
   pinataUserAuth,
   issueVC
 );
+*/
 
 
  // Verify a Verifiable Credential

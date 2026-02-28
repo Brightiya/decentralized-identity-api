@@ -205,7 +205,7 @@ getDisclosuresByVerifier(verifierDid: string): Observable<any> {
 
 // FIXED: Changed payload type to { did: string } to match your component usage
   eraseProfile(payload: { did: string }): Observable<any> {
-    return this.http.delete(`${this.base}/api/gdpr/erase`, { body: payload });
+    return this.http.delete(`${this.base}/api/profile/erase`, { body: payload });
   }
 
   // Add these methods to your existing ApiService in api.service.ts

@@ -318,10 +318,12 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
             <div class="status-content">
               <h3>Identity Permanently Erased</h3>
               <p class="muted">
-                Exercised Right to be Forgotten on {{ erasedAt() | date:'mediumDate' }}
+                Exercised Right to be Forgotten per GDPR Art. 17 on {{ erasedAt() | date:'mediumDate' }}
               </p>
               <p class="muted small">
                 Cryptographically proven on-chain — no data recoverable.
+                This makes your data inaccessible to verifiers and third parties.
+                You can still view your personal copy of past credentials and consents for your records.
               </p>
             </div>
           </div>
@@ -1643,43 +1645,102 @@ export class VaultComponent implements OnInit, OnDestroy {
 
     this.profileState.setProfileStatus(true, false, null);
   }
-
+/**
   // ────────────────────────────────────────────────
-  // Hybrid signing for eraseProfile (UNCHANGED)
+  // FIXED: eraseProfile with FULL gasless support
   // ────────────────────────────────────────────────
-
   async eraseProfile() {
-    const address = this.wallet.address;
-    if (!address || this.isErased()) return;
+  const address = this.wallet.address;
+  if (!address || this.isErased()) return;
 
-    if (!confirm('This action is permanent (GDPR Right to be Forgotten). Continue?')) return;
+  if (!confirm('This action is permanent (GDPR Right to be Forgotten). Continue?')) return;
 
-    this.loading.set(true);
+  this.loading.set(true);
 
-    try {
-      const payload = { did: `did:ethr:${address}` };
-      const response = await firstValueFrom(this.api.eraseProfile(payload));
+  try {
+    const payload = { did: `did:ethr:${address}` };
+    const response = await firstValueFrom(this.api.eraseProfile(payload));
 
-      if (response.unsignedTx) {
-        // Hybrid mode
+    let txHash: string;
+
+    if (response.unsignedTx) {
+      // Hybrid / gasless path
+      if (this.useGasless()) {
+        this.snackBar.open('Signing gasless erasure transaction...', 'Close', { duration: 8000 });
+
+        const { request, signature } = await this.metaTx.buildAndSignMetaTx({
+          forwarderAbi: ForwarderAbi,
+          targetAddress: response.unsignedTx.to,
+          rawData: response.unsignedTx.data
+        });
+
+        const relayResponse: any = await firstValueFrom(
+          this.http.post(`${environment.backendUrl}/meta/relay`, { request, signature })
+        );
+
+        if (!relayResponse.txHash) {
+          throw new Error('Gasless relay failed - no txHash returned');
+        }
+
+        txHash = relayResponse.txHash;
+      } else {
         this.snackBar.open('Please sign the erasure transaction in your wallet...', 'Close', { duration: 8000 });
 
-        const { hash: txHash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
-
-        this.snackBar.open(`Identity erased permanently! Tx: ${txHash.slice(0, 10)}...`, 'Close', { duration: 6000 });
-      } else if (response.txHash) {
-        // Dev mode
-        this.snackBar.open('Identity erased successfully!', 'Close', { duration: 4000 });
+        const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        txHash = txResponse.hash;
       }
 
-      this.profileState.setProfileStatus(false, true, new Date().toISOString());
-    } catch (err: any) {
-      console.error('Erase profile failed:', err);
-      this.snackBar.open(err.message || 'Failed to erase identity', 'Close', { duration: 5000 });
-    } finally {
-      this.loading.set(false);
+      if (!this.wallet.provider) {
+        throw new Error('Wallet provider not available — please reconnect wallet');
+      }
+
+      // CRITICAL: Wait for mining BEFORE marking as erased or disconnecting
+      this.snackBar.open('Transaction sent — waiting for on-chain confirmation...', 'Close', { duration: 15000 });
+
+      await this.wallet.provider.waitForTransaction(txHash, 1, 120000); // 2 minutes timeout
+
+      const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+
+      const snackBarRef = this.snackBar.open(
+        `Identity erased permanently! Tx confirmed: ${txHash.slice(0, 10)}...`,
+        'View on Explorer',
+        { duration: 15000, panelClass: ['success-snackbar'] }
+      );
+
+      snackBarRef.onAction().subscribe(() => window.open(explorerUrl, '_blank'));
+    } else if (response.txHash) {
+      // Backend-signed (dev mode) — already confirmed
+      txHash = response.txHash;
+      this.snackBar.open('Identity erased successfully! (backend signed)', 'Close', { duration: 6000 });
+    } else {
+      throw new Error('Unexpected response format from erasure endpoint');
     }
+
+    // Only now: mark erased + save state + disconnect
+    this.profileState.setProfileStatus(false, true, new Date().toISOString());
+
+    sessionStorage.setItem('erasedDid', `did:ethr:${address}`);
+    sessionStorage.setItem('erasedAt', new Date().toISOString());
+
+    // Disconnect wallet LAST (after all state updates)
+    this.wallet.disconnect();
+
+    // Optional: redirect after short delay so user sees success message
+    setTimeout(() => {
+      // this.router.navigate(['/']); // uncomment if you have router
+    }, 3000);
+
+  } catch (err: any) {
+    console.error('Erase profile failed:', err);
+    this.snackBar.open(err.message || 'Failed to erase identity — tx may still be pending', 'Close', {
+      duration: 10000,
+      panelClass: ['error-snackbar']
+    });
+  } finally {
+    this.loading.set(false);
   }
+}
+  */
 
   // ────────────────────────────────────────────────
   // Pinata JWT, Custom Gateway, nft.storage methods (UNCHANGED)

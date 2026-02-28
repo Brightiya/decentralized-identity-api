@@ -14,6 +14,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ThemeService } from '../services/theme.service';
+import { firstValueFrom } from 'rxjs/internal/firstValueFrom';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import ForwarderArtifact from '../abi/Forwarder.json';        
+import { MetaTxService } from '../services/metaTx.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment.prod';
+
+const ForwarderAbi = ForwarderArtifact.abi;
 
 @Component({
   selector: 'app-gdpr',
@@ -26,7 +34,8 @@ import { ThemeService } from '../services/theme.service';
     MatCheckboxModule,
     MatCardModule,
     MatProgressSpinnerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   template: `
   <div class="gdpr-container" [class.dark]="darkMode()">
@@ -68,6 +77,7 @@ import { ThemeService } from '../services/theme.service';
           </p>
           <button mat-raised-button color="primary" (click)="connect()" [disabled]="connecting">
             <mat-icon *ngIf="!connecting">wallet</mat-icon>
+            <mat-spinner diameter="20" *ngIf="connecting"></mat-spinner>
             <span>{{ connecting ? 'Connecting...' : 'Connect Wallet' }}</span>
           </button>
         </ng-template>
@@ -75,7 +85,7 @@ import { ThemeService } from '../services/theme.service';
     </mat-card>
 
     <!-- Erasure Request Form -->
-    <mat-card class="card elevated warning-card" appearance="outlined" *ngIf="wallet.address">
+    <mat-card class="card elevated warning-card" appearance="outlined" *ngIf="wallet.address && !result && !error">
       <mat-card-header>
         <mat-icon class="header-icon" color="warn" mat-card-avatar>warning_amber</mat-icon>
         <mat-card-title>Irreversible Erasure Request</mat-card-title>
@@ -97,7 +107,7 @@ import { ThemeService } from '../services/theme.service';
           </div>
         </div>
 
-        <mat-checkbox [(ngModel)]="confirmed" color="warn" class="confirmation-checkbox">
+        <mat-checkbox [(ngModel)]="confirmed" color="warn" class="confirmation-checkbox" [disabled]="loading">
           <strong>I fully understand the consequences</strong> and request permanent erasure of my decentralized identity profile.
         </mat-checkbox>
 
@@ -112,6 +122,15 @@ import { ThemeService } from '../services/theme.service';
             <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
             <span>{{ loading ? 'Processing Erasure...' : 'Erase My Profile' }}</span>
           </button>
+        </div>
+
+        <!-- NEW: Progress message during long confirmation wait -->
+        <div *ngIf="loading && result === null && error === null" class="progress-notice mt-4">
+          <mat-spinner diameter="32" class="inline-spinner"></mat-spinner>
+          <p>
+            Transaction submitted. Waiting for blockchain confirmation...<br />
+            This may take 10–60 seconds. Do not close the page.
+          </p>
         </div>
       </mat-card-content>
     </mat-card>
@@ -128,9 +147,16 @@ import { ThemeService } from '../services/theme.service';
           Your identity profile has been permanently erased and replaced with a GDPR-compliant tombstone.
         </p>
         <p class="small muted">
-          Transaction details:
+          Transaction hash: <code>{{ result.txHash?.slice(0,10) }}...{{ result.txHash?.slice(-6) }}</code><br />
+          You can view it on <a href="https://sepolia.basescan.org/tx/{{ result.txHash }}" target="_blank">Basescan</a>.
         </p>
         <pre class="result-pre">{{ result | json }}</pre>
+
+        <div class="post-success mt-4">
+          <p class="muted">
+            You have been disconnected for security. Reconnect your wallet to continue using the app.
+          </p>
+        </div>
       </mat-card-content>
     </mat-card>
 
@@ -143,7 +169,9 @@ import { ThemeService } from '../services/theme.service';
 
       <mat-card-content>
         <p>{{ error }}</p>
-        <p class="small muted">Please try again or contact support if the issue persists.</p>
+        <p class="small muted">
+          The transaction may still be pending — check Basescan or try again.
+        </p>
       </mat-card-content>
     </mat-card>
   </div>
@@ -499,6 +527,30 @@ styles: [`
   }
 }
 
+.progress-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(99, 102, 241, 0.08);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.inline-spinner {
+  margin: 0 auto;
+}
+
+.post-success {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  text-align: center;
+}
+
 `]
 })
 
@@ -511,6 +563,10 @@ export class GdprComponent {
   result: any = null;
   error: string | null = null;
   private themeService = inject(ThemeService);
+  private snackBar = inject(MatSnackBar);
+  private metaTx = inject(MetaTxService);          // ← NEW
+  private http = inject(HttpClient);
+  useGasless = true; // default true — can make signal later
   darkMode = this.themeService.darkMode;   // readonly signal
 
   constructor(
@@ -538,40 +594,102 @@ export class GdprComponent {
     setTimeout(() => this.copied = false, 2000);
   }
 
-  erase() {
+  async erase() {
     if (!this.wallet.address || !this.confirmed) return;
 
     this.loading = true;
     this.result = null;
     this.error = null;
 
-    // FIXED: payload now matches ApiService signature
     const payload = { did: `did:ethr:${this.wallet.address}` };
 
-    this.api.eraseProfile(payload).subscribe({
-      next: (res: any) => {
-        this.result = res;
-        this.loading = false;
-        this.confirmed = false;
-        // ✅ Remember erased DID for Vault display
-        sessionStorage.setItem(
-          'erasedDid',
-          `did:ethr:${this.wallet.address}`
+    try {
+      const response = await firstValueFrom(this.api.eraseProfile(payload));
+
+      let txHash: string;
+
+      if (response.unsignedTx) {
+        // Hybrid mode — supports gasless
+        if (this.useGasless) {
+          this.snackBar.open('Preparing gasless erasure...', 'Close', { duration: 8000 });
+
+          const { request, signature } = await this.metaTx.buildAndSignMetaTx({
+            forwarderAbi: ForwarderAbi,
+            targetAddress: response.unsignedTx.to,
+            rawData: response.unsignedTx.data
+          });
+
+          const relayResponse: any = await firstValueFrom(
+            this.http.post(`${environment.backendUrl}/meta/relay`, { request, signature })
+          );
+
+          if (!relayResponse.txHash) {
+            throw new Error('Gasless relay failed — no txHash returned');
+          }
+
+          txHash = relayResponse.txHash;
+        } else {
+          // Fallback: direct signing (pays gas)
+          this.snackBar.open('Please sign the erasure transaction...', 'Close', { duration: 15000 });
+
+          const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
+          txHash = txResponse.hash;
+        }
+
+        // Wait for confirmation (critical!)
+        if (!this.wallet.provider) {
+          throw new Error('Wallet provider not available — please reconnect');
+        }
+
+        this.snackBar.open('Transaction sent — waiting for on-chain confirmation...', 'Close', { duration: 15000 });
+
+        await this.wallet.provider.waitForTransaction(txHash, 1, 120000);
+
+        const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+
+        const snackBarRef = this.snackBar.open(
+          `Profile permanently erased! Tx confirmed: ${txHash.slice(0, 10)}...`,
+          'View on Basescan',
+          { duration: 15000, panelClass: ['success-snackbar'] }
         );
-        sessionStorage.setItem(
-          'erasedAt',
-          new Date().toISOString()
-        );
-        // ✅ GDPR-compliant cleanup
-        this.wallet.disconnect();
-        // ✅ Leave identity-related views
-       // this.router.navigate(['/']);
-      },
-      error: (err: any) => {
-        this.error = err?.error?.message || err?.message || 'Erasure request failed';
-        this.loading = false;
+
+        snackBarRef.onAction().subscribe(() => window.open(explorerUrl, '_blank'));
+      } else if (response.txHash) {
+        // Backend-signed mode (dev/testing)
+        txHash = response.txHash;
+        this.snackBar.open('Profile erased successfully (backend signed)!', 'Close', { duration: 6000 });
+      } else {
+        throw new Error('Unexpected response from server — no transaction info');
       }
-    });
+
+      // Success path
+      this.result = {
+        message: '✅ GDPR Art.17 erasure enforced',
+        did: payload.did,
+        erasedCid: response.newCid || response.cid,
+        txHash
+      };
+
+      this.confirmed = false;
+
+      sessionStorage.setItem('erasedDid', payload.did);
+      sessionStorage.setItem('erasedAt', new Date().toISOString());
+
+      // Disconnect LAST
+      this.wallet.disconnect();
+
+      // Optional redirect
+      // this.router.navigate(['/']);
+
+    } catch (err: any) {
+      console.error('Erasure failed:', err);
+      this.error = err.message || err.error?.error || 'Erasure request failed';
+      if (this.error) {
+        this.snackBar.open(this.error, 'Close', { duration: 10000, panelClass: ['error-snackbar'] });
+      }
+    } finally {
+      this.loading = false;
+    }
   }
 }
 

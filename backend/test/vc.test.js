@@ -5,7 +5,7 @@ import request from "supertest";
 
 import "../test/setup-pinata-mock.js";
 import "../test/setup-contract-mock.js";
-import * as contractUtils from "../src/utils/contract.js";
+
 
 jest.setTimeout(60000);
 
@@ -18,14 +18,6 @@ let validJwtToken;
 let fetchJSON;
 let mockContract;
 
-
-
-// Mock getContract to always return our global mock
-jest.mock("../src/utils/contract.js", () => ({
-  ...jest.requireActual("../src/utils/contract.js"),
-  getContract: jest.fn(() => globalThis.mockContract),
-  isHybridMode: jest.fn(() => true), // ensure hybrid path
-}));
 
 beforeAll(async () => {
   // Override registry FIRST

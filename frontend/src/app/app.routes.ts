@@ -134,11 +134,7 @@ export const routes: Routes = [
   path: 'contact',
   loadComponent: () => import('./pages/contact.component').then(m => m.ContactComponent)
 },
-{
-  path: 'defense-intro',
-  loadComponent: () =>
-    import('./pages/defense-intro.component').then(m => m.DefenseIntroPageComponent)
-},
+
   // =========================================
   // Wildcard
   // =========================================

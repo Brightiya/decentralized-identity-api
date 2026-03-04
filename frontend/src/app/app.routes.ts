@@ -12,7 +12,8 @@ import { DisclosuresComponent } from './pages/disclosures.component';
 import { AdvancedComponent } from './pages/advanced/advanced.component';
 import { VerifierComponent } from './pages/verifier/verifier.component';
 import { LoginComponent } from './pages/login.component';
-// import { AdminUsersComponent } from './pages/admin-users/admin-users.component';
+
+
 
 export const routes: Routes = [
   // =========================================
@@ -121,6 +122,23 @@ export const routes: Routes = [
     ]
   },
 
+  {
+  path: 'privacy-policy',
+  loadComponent: () => import('./pages/privacy-policy.component').then(m => m.PrivacyPolicyComponent)
+},
+{
+  path: 'terms',
+  loadComponent: () => import('./pages/terms.component').then(m => m.TermsComponent)
+},
+{
+  path: 'contact',
+  loadComponent: () => import('./pages/contact.component').then(m => m.ContactComponent)
+},
+{
+  path: 'defense-intro',
+  loadComponent: () =>
+    import('./pages/defense-intro.component').then(m => m.DefenseIntroPageComponent)
+},
   // =========================================
   // Wildcard
   // =========================================

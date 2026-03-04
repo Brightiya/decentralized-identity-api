@@ -238,10 +238,10 @@ import { SafariInstallDialogComponent } from './pages/safari-install-dialog.comp
         </div>
 
         <div class="footer-links">
-          <a href="#" class="footer-link">Privacy Policy</a>
-          <a href="#" class="footer-link">Terms of Use</a>
-          <a href="#" class="footer-link">Contact</a>
-        </div>
+      <a routerLink="/privacy-policy" class="footer-link">Privacy Policy</a>
+      <a routerLink="/terms" class="footer-link">Terms of Use</a>
+      <a routerLink="/contact" class="footer-link">Contact</a>
+    </div>
       </div>
     </footer>
   </mat-sidenav-content>
@@ -475,10 +475,13 @@ import { SafariInstallDialogComponent } from './pages/safari-install-dialog.comp
 
 
   /* Modern Footer */
-  .main-footer {
+.main-footer {
   background: rgba(30,41,59,0.04);
   border-top: 1px solid rgba(226,232,240,0.3);
-  padding: clamp(20px, 4vw, 28px) clamp(16px, 5vw, 40px);
+
+  /* Desktop smaller, mobile scales */
+  padding: 20px clamp(16px, 5vw, 40px);
+
   flex-shrink: 0;
   font-size: 0.92rem;
   color: #64748b;
@@ -493,17 +496,16 @@ import { SafariInstallDialogComponent } from './pages/safari-install-dialog.comp
   }
 
   .footer-container {
-    flex-direction: column;
-    padding: 24px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px;
-    width: 100%;
-    box-sizing: border-box;
-    margin: 0 auto;
-  }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
 
     .footer-brand {
     display: flex;
@@ -589,6 +591,13 @@ import { SafariInstallDialogComponent } from './pages/safari-install-dialog.comp
     @media (min-width: 961px) {
   .mat-sidenav-content {
     margin-left: auto !important;
+      }
+     .main-footer {
+        padding: 16px 40px;
+      }
+
+      .footer-container {
+        gap: 12px;
       }
     }
 

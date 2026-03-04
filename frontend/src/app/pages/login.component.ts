@@ -20,6 +20,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ThemeService } from '../services/theme.service';
 import { firstValueFrom } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { IntroOverlayComponent } from './intro-overlay.component';
 
 @Component({
   selector: 'app-login',
@@ -58,6 +60,13 @@ import { firstValueFrom } from 'rxjs';
           <mat-card-title>PIMV Identity Vault</mat-card-title>
           <mat-card-subtitle>Secure • Decentralized • Self-Sovereign</mat-card-subtitle>
         </mat-card-header>
+
+        <button mat-flat-button
+        class="intro-btn"
+        (click)="openIntroOverlay()">
+          <mat-icon>play_circle</mat-icon>
+          Watch PIMV Intro Demo Here
+        </button>
 
         <mat-card-content class="card-content">
           <!-- QR Code + Mobile Hint (new section – appears at the top of content) -->
@@ -643,6 +652,11 @@ import { firstValueFrom } from 'rxjs';
       color: #e2e8f0;
     }
 
+    .intro-btn {
+      margin-top: 20px;
+      border-radius: 999px;
+    }
+
     /* Status Pill */
     .status-pill {
       display: flex;
@@ -801,6 +815,8 @@ export class LoginComponent {
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
 
+  private dialog = inject(MatDialog);
+
   roleDescription: Record<AppRole, string> = {
     USER: 'Access your personal identity vault, create secured profiles and manage credentials.',
     ADMIN: 'Access advanced identity tools and administrative features.',
@@ -816,6 +832,14 @@ export class LoginComponent {
   async ngOnInit() {
     // Only run browser-specific code (IndexedDB) in browser
     if (isPlatformBrowser(this.platformId)) {
+        const seen = localStorage.getItem('pimv_intro_seen');
+
+        if (!seen) {
+        setTimeout(() => {
+          this.openIntroOverlay();
+          localStorage.setItem('pimv_intro_seen', 'true');
+        }, 600);
+       }
       try {
         const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
         if (savedRpc) {
@@ -1015,4 +1039,15 @@ export class LoginComponent {
     this.selectedRole.set(role);
     this.error.set(null);
   }
+
+  openIntroOverlay() {
+  this.dialog.open(IntroOverlayComponent, {
+    panelClass: 'full-screen-dialog',
+    backdropClass: 'transparent-backdrop',
+    data: {
+      videoId: 'uGCeSzCiQnY'
+    },
+    disableClose: false
+  });
+}
 }

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url'; // Required for ES Modules
 import cors from "cors";
 import "./config/env.js";
 import morgan from "morgan";
-
+import contact from './routes/contact.js';
 
 // Define __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -93,6 +93,7 @@ app.get('/api/health', (req, res) => res.sendStatus(200));
 // Auth endpoints (public - anyone can request challenge / verify)
 app.get('/api/auth/challenge', getChallenge);
 app.post('/api/auth/verify', verifySignature);
+app.post('/api/contact', contact);
 
 // ────────────────────────────────────────────────
 // GSN Routes (some public, some protected)

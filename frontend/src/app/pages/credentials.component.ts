@@ -989,20 +989,6 @@ const payload = {
     expiresAt: this.expiresAt || undefined,
   }
 };
-/** 
-    const payload = {
-      issuer: `did:ethr:${addr}`,
-      subject: `did:ethr:${addr}`, // self-issue for now
-      claimId: this.claimId,
-      claim: claimObj,
-      context: this.context,
-      consent: {
-        purpose: this.purpose.trim(),
-        expiresAt: this.expiresAt || undefined,
-      },
-      currentProfileCid,   // ← this is the missing piece
-    };
-    */
     const response = await firstValueFrom(this.api.issueSignedVC(payload));  // ← new endpoint name
    // const response = await firstValueFrom(this.api.issueVC(payload));
     //console.log("Backend returned newProfileCid:", response.newProfileCid);

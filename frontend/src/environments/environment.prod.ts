@@ -2,7 +2,7 @@
 export const environment = {
   production: true,
   
-  // Point to your live Render backend
+  // Point to your fly.io
   backendUrl:  '',
   
   // Optional: you can expose these if your frontend needs them directly

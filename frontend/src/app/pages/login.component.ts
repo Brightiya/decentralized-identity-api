@@ -1041,10 +1041,14 @@ export class LoginComponent {
 
   openIntroOverlay() {
   this.dialog.open(IntroOverlayComponent, {
-    panelClass: 'full-screen-dialog',
-    backdropClass: 'transparent-backdrop',
+    width: '100vw',
+    height: '100vh',
+    maxWidth: '100vw',
+    maxHeight: '100vh',
+    panelClass: 'intro-overlay-dialog',
+    backdropClass: 'intro-overlay-backdrop',
     data: {
-      videoId: 'uGCeSzCiQnY'
+      videoId: 'SmQF41i6MIc'
     },
     disableClose: false
   });

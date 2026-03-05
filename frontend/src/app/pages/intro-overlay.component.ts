@@ -111,6 +111,8 @@ import { MatIconModule } from '@angular/material/icon';
         height: 300px;
       }
     }
+
+    
   `]
 })
 export class IntroOverlayComponent {

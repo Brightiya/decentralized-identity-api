@@ -136,7 +136,7 @@ import { IntroOverlayComponent } from './intro-overlay.component';
 
             <!-- Enhanced loading message during connect -->
           <div class="loading-message" *ngIf="connecting()">
-            <p>Waking up the backend... just a moment ☕</p>
+            <p>Just a moment... ☕</p>
             <p class="small">This happens only on the first request after inactivity.</p>
           </div>
           </div>
@@ -190,8 +190,7 @@ import { IntroOverlayComponent } from './intro-overlay.component';
                 <mat-icon>cloud</mat-icon>
                 <p>
                   <strong>Just a moment...</strong><br>
-                  Signing may take 10–30 seconds the first time (Render is waking up).  
-                  It will be instant afterward!
+                   Now signing and authenticating your session.
                 </p>
               </div>
 

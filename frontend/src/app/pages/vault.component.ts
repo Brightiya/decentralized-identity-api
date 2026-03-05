@@ -323,7 +323,7 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
               <p class="muted small">
                 Cryptographically proven on-chain — no data recoverable.
                 This makes your data inaccessible to verifiers and third parties.
-                You can still view your personal copy of past credentials and consents for your records.
+                You cannot view your  past credentials and consents. You can create a new vault profile, but it will be a fresh start with no link to your previous identity.
               </p>
             </div>
           </div>

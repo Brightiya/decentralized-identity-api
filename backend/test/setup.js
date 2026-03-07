@@ -4,7 +4,6 @@ import { jest } from "@jest/globals";
 
 // 🚨 MUST be first
 process.env.NODE_ENV = "test";
-
 // =========================
 // 🧪 MOCK SIWE VERIFY HERE
 // =========================
@@ -64,6 +63,20 @@ console.log(
   !!process.env.JWT_SECRET
 );
 
+
+// =========================
+// Reset test state before each test
+// =========================
+
+beforeEach(async () => {
+  await pool.query(`
+    TRUNCATE TABLE 
+      consents,
+      disclosures,
+      login_audit
+    RESTART IDENTITY CASCADE;
+  `);
+});
 
 // =========================
 

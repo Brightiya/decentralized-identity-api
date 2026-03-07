@@ -18,6 +18,28 @@ let validJwtToken;
 let fetchJSON;
 let mockContract;
 
+// 🔹 Helper to guarantee clean consent state for every test
+async function seedConsent(subjectAddress, verifierAddress) {
+  await pool.query(`
+    DELETE FROM consents
+    WHERE subject_did = $1
+      AND claim_id = $2
+      AND context = $3
+  `, [subjectAddress, "identity.email", "profile"]);
+
+  await pool.query(`
+    INSERT INTO consents (
+      subject_did, claim_id, purpose, verifier_did, context, issued_at, expires_at
+    )
+    VALUES ($1,$2,$3,$4,$5,NOW(),NOW()+INTERVAL '30 days')
+  `, [
+    subjectAddress,
+    "identity.email",
+    "Email verification for login",
+    verifierAddress,
+    "profile"
+  ]);
+}
 
 beforeAll(async () => {
   // Override registry FIRST
@@ -83,6 +105,8 @@ describe("Verifiable Credentials Routes", () => {
 
   beforeEach(async () => {
     validJwtToken = await getValidJwtFor(subjectAddress);  // token for subject (owner/signer)
+     // 🔹 Ensure consent state is always clean for each test
+    await seedConsent(subjectAddress, verifierAddress);
   });
 
   // Helper: create mock signed VC for tests (backend test mode accepts mock jws)
@@ -108,7 +132,7 @@ describe("Verifiable Credentials Routes", () => {
   "pimv": {
     "context": context,
     "claimId": claimId,
-    "purpose": `${claimId} verification`,
+    "purpose": "Email verification for login",
     "consentRequired": true
   }
 });
@@ -335,14 +359,26 @@ describe("Verifiable Credentials Routes", () => {
     const cid = issueRes.body.signedCid;
 
     // Ensure fresh consent
-    await pool.query(`
-      UPDATE consents
-      SET expires_at = NOW() + INTERVAL '30 days',
-          revoked_at = NULL
-      WHERE subject_did = $1
-        AND claim_id = $2
-        AND context = $3
-    `, [subjectAddress, "identity.email", "profile"]);
+    // Reset consent state
+      await pool.query(`
+        DELETE FROM consents
+        WHERE subject_did = $1
+          AND claim_id = $2
+          AND context = $3
+      `, [subjectAddress, "identity.email", "profile"]);
+
+      await pool.query(`
+        INSERT INTO consents (
+          subject_did, claim_id, purpose, verifier_did, context, issued_at, expires_at
+        )
+        VALUES ($1,$2,$3,$4,$5,NOW(),NOW()+INTERVAL '30 days')
+      `, [
+        subjectAddress,
+        "identity.email",
+        "Email verification for login",
+        verifierAddress,
+        "profile"
+      ]);
 
     const verifyRes = await request(app)
       .post("/api/vc/verify")

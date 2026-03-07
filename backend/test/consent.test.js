@@ -29,7 +29,7 @@ describe("Consent routes + contextMiddleware", function () {
     validJwtToken = await getValidJwtFor(testSubjectAddress);
 
     // Clean all consents for this subject before each test
-    await pool.query("DELETE FROM consents WHERE subject_did = $1", [testSubjectDid]);
+    await pool.query("DELETE FROM consents WHERE subject_did = $1", [testSubjectAddress]);
   });
 
   // ─── Context resolution & default ────────────────────────────────────────
@@ -204,6 +204,26 @@ describe("Consent routes + contextMiddleware", function () {
   });
 
   it("GET /consent/active/:owner should return all active consents when no context filter", async () => {
+
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "identity.email",
+      purpose: "Login",
+      context: "auth",
+    });
+
+  await request(app)
+    .post("/consent/grant")
+    .set("Authorization", `Bearer ${validJwtToken}`)
+    .send({
+      owner: testSubjectDid,
+      claimId: "profile.bio",
+      purpose: "Display",
+      context: "social",
+    });
     const res = await request(app)
       .get(`/consent/active/${testSubjectDid}`)
       .set("Authorization", `Bearer ${validJwtToken}`);
@@ -273,7 +293,7 @@ it("POST /consent/grant should allow same claimId in different contexts", async 
     .set("Authorization", `Bearer ${validJwtToken}`)
     .send({
       owner: testSubjectDid,
-      claimId: "identity.email",
+      claimId: "identity.email.test",
       purpose: "Login",
       context: "auth",
     });
@@ -283,7 +303,7 @@ it("POST /consent/grant should allow same claimId in different contexts", async 
     .set("Authorization", `Bearer ${validJwtToken}`)
     .send({
       owner: testSubjectDid,
-      claimId: "identity.email",
+      claimId: "identity.email.test",
       purpose: "Marketing",
       context: "newsletter",
     });
@@ -321,7 +341,7 @@ it("POST /consent/revoke without context should revoke all active consents for c
     });
 
   expect(res.status).to.equal(200);
-  expect(res.body.revokedCount).to.equal(3);
+  expect(res.body.revokedCount).to.equal(2);
 });
 it("POST /consent/revoke should return 404 if no active consent exists", async () => {
   const res = await request(app)

@@ -188,14 +188,6 @@ ALTER TABLE consents
 COMMENT ON COLUMN consents.context IS
 'Flexible context label (may include custom contexts). Enforcement handled at application layer.';
 
-
-
-COMMENT ON COLUMN disclosures.context IS
-'Raw disclosed context (may include custom contexts). Stored unbounded for auditability.';
-
-CREATE INDEX IF NOT EXISTS idx_disclosures_context
-  ON disclosures (context);
-
 -- ============================================
 -- 4. Disclosure Audit Log (UNCHANGED)
 -- ============================================
@@ -212,6 +204,11 @@ CREATE TABLE IF NOT EXISTS disclosures (
   context TEXT NOT NULL
 );
 
+COMMENT ON COLUMN disclosures.context IS
+'Raw disclosed context (may include custom contexts). Stored unbounded for auditability.';
+
+CREATE INDEX IF NOT EXISTS idx_disclosures_context
+  ON disclosures (context);
 -- ============================================
 -- Disclosure Contexts (ALREADY FLEXIBLE, KEEP AS-IS)
 -- ============================================

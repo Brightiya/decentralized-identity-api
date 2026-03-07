@@ -1,5 +1,5 @@
 // backend/src/utils/db.js
-// backend/src/utils/db.js
+import "../../src/config/env.js";
 import pg from "pg";
 
 const connectionString = process.env.DATABASE_URL;
@@ -12,7 +12,10 @@ if (!connectionString) {
 // 2. Add SSL configuration (Required for Fly.io Postgres)
 export const pool = new pg.Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000, // Increased timeout for cold starts
@@ -30,7 +33,6 @@ export const pool = new pg.Pool({
 })();
 
 export default pool;
-
 
 pool.on("error", (err, client) => {
   console.error("❌ PostgreSQL pool error:", err.stack);

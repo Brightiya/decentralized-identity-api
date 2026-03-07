@@ -8,18 +8,18 @@ import { ethers } from "ethers";
 import "../test/setup-pinata-mock.js";
 import "../test/setup-contract-mock.js";
 jest.setTimeout(60000);
-
 const { expect } = chai;
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-dev-key-change-in-prod-please";
+const JWT_SECRET  = "test-secret";
 
 let app;
 let pool;
 let getValidJwtFor;
+let getTestToken;
 
 beforeAll(async () => {
   ({ default: app } = await import("./testServer.js"));
   ({ pool } = await import("../src/utils/db.js"));
-  ({ getValidJwtFor } = await import("./testHelpers.js"));
+  ({ getValidJwtFor, getTestToken } = await import("./testHelpers.js"));
 });
 
 
@@ -228,7 +228,7 @@ describe("Authentication & Authorization", function () {
 
     beforeEach(async () => {
       await pool.query("DELETE FROM nonces WHERE address = $1", [testUserAddress.toLowerCase()]);
-      validJwtToken = await getValidJwtFor(testUserAddress);
+      validJwtToken = await getTestToken(testUserAddress);
 
       // Expired token
       expiredJwtToken = jwt.sign(
@@ -379,7 +379,7 @@ describe("Authentication & Authorization", function () {
     let validJwtToken;
 
     beforeAll(async function () {
-    validJwtToken = await getValidJwtFor(testUserAddress);
+     validJwtToken = await getTestToken(testUserAddress);
 
     // Grant ALL needed consents once
     const consents = [
@@ -423,7 +423,7 @@ describe("Authentication & Authorization", function () {
   });
 
   beforeEach(async () => {
-    validJwtToken = await getValidJwtFor(testUserAddress);
+    validJwtToken = await getTestToken(testUserAddress);
   });
 
     it("GET /test/self-read/:address returns 200 for self (consent enforcement not active", async () => {

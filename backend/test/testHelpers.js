@@ -3,6 +3,7 @@ import request from 'supertest';
 import app from './testServer.js';
 import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
+let cachedToken = null;
 
 const TEST_PRIVATE_KEY = "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"; // Hardhat #2
 export async function getValidJwtFor(address) {
@@ -58,4 +59,14 @@ export async function getValidJwtFor(address) {
     throw new Error(`Verify failed after ${attempts} attempts: ${verifyRes.status} - ${JSON.stringify(verifyRes.body)}`);
   }
   throw new Error(`Failed to get valid JWT after ${maxAttempts} attempts`);
+}
+export async function getTestToken(address) {
+  if (cachedToken) {
+    return cachedToken;
+  }
+
+  const token = await getValidJwtFor(address);
+  cachedToken = token;
+
+  return token;
 }

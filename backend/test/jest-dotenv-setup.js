@@ -13,7 +13,8 @@ console.warn = function (...args) {
   // Suppress only the specific Pinata security warnings
   if (
     typeof args[0] === 'string' &&
-    args[0].includes('[SECURITY] Using shared Pinata JWT')
+    args[0].includes('[SECURITY] Using shared Pinata JWT') ||
+     args[0].includes("[SECURITY] Using shared Pinata JWT - per-user recommended")
   ) {
     return; // skip logging
   }

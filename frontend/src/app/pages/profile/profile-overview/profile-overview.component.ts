@@ -10,6 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { ThemeService } from '../../../services/theme.service';
 import { ApiService } from '../../../services/api.service';
 import { WalletService } from '../../../services/wallet.service';
+import { RouterLink } from '@angular/router';
 
 interface ProfileData {
   address: string;
@@ -31,7 +32,8 @@ interface ProfileData {
     MatButtonModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatDividerModule
+    MatDividerModule,
+    RouterLink
   ],
   template: `
     <div class="overview-container" [class.dark]="darkMode()">

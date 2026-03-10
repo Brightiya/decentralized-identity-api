@@ -19,7 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 interface Consent {
   claimId: string;
   purpose: string;
-  issuedAt: string | null;     // ← allow null
+  grantedAt: string;     // ← allow null
   expiresAt?: string | null;
   verifierDid?: string;
 }
@@ -85,7 +85,7 @@ interface Consent {
                       <div class="meta">
                         <span class="claim">Claim: <code>{{ consent.claimId || 'N/A' }}</code></span>
                         <span class="dates">
-                          Granted: {{ formatDate(consent.issuedAt) }}
+                          Granted: {{ formatDate(consent.grantedAt) }}
                           <ng-container *ngIf="consent.expiresAt">
                             • Expires: {{ formatDate(consent.expiresAt) }}
                             <span *ngIf="isExpired(consent.expiresAt)" class="expired-tag">Expired</span>

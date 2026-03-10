@@ -4,9 +4,16 @@ import { BehaviorSubject } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class ContextService {
   private readonly DEFAULT_CONTEXTS = [
+    'profile',
     'personal',
     'professional',
-    'legal'
+    'legal',
+    'medical',
+    'financial',
+    'educational',
+    'social',
+    'cultural',
+    'religious',
   ];
 
   private contextsSubject = new BehaviorSubject<string[]>(

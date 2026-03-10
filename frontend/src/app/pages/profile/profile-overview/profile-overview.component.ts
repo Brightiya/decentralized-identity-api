@@ -1,7 +1,7 @@
 // src/app/pages/profile/profile-overview.component.ts
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -42,7 +42,9 @@ interface ProfileData {
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
-    RouterLink
+    RouterLink,
+    ReactiveFormsModule
+
   ],
   template: `
     <div class="overview-container" [class.dark]="darkMode()">

@@ -36,8 +36,8 @@ router.get(
 // Enforced erasure (GDPR Art.17)
 router.delete("/erase", contextMiddleware, eraseProfile);
 
-router.get('/db/:address', contextMiddleware, getDbProfile);
-router.post('/db', contextMiddleware, upsertDbProfile);  // or without pinata if no upload needed
+router.get('/db/:address', getDbProfile);
+router.post('/db', upsertDbProfile);  // or without pinata if no upload needed
 
 export default router;
  

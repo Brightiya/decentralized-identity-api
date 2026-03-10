@@ -378,8 +378,8 @@ export const getDbProfile = async (req, res) => {
       'SELECT id FROM users WHERE eth_address = $1',
       [subjectAddress]
     );
-    if (!userRes.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
+    if (userRes.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found – please register or sign in first' });
     }
     const userId = userRes.rows[0].id;
 

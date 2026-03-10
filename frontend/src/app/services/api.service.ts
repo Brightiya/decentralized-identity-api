@@ -171,20 +171,50 @@ export class ApiService {
     );
   }
 
-  getDbProfile(address: string): Observable<any> {
-  return this.http.get(`${this.base}/api/profile/db/${encodeURIComponent(address)}`);
+ // ────────────────────────────────────────────────
+// Profile endpoints (DB-backed)
+// ────────────────────────────────────────────────
+
+/**
+ * Get a user's profile from the database for a specific context.
+ * @param address Ethereum address (normalized to lowercase by backend)
+ * @param context Optional context (defaults to 'profile')
+ */
+getDbProfile(address: string, context: string = 'profile'): Observable<any> {
+  let params = new HttpParams().set('context', context);
+  return this.http.get(
+    `${this.base}/api/profile/db/${encodeURIComponent(address)}`,
+    { params, headers: this.getBaseHeaders() }
+  ).pipe(
+    catchError(err => {
+      console.error('getDbProfile error:', err);
+      return throwError(() => new Error(err.error?.error || 'Failed to load profile'));
+    })
+  );
 }
 
+/**
+ * Create or update a user's profile in the database for a specific context.
+ * @param payload Profile data including owner address and optional context
+ */
 upsertDbProfile(payload: {
-  owner: string;
-  gender?: string;
-  pronouns?: string;
-  bio?: string;
+  owner: string;                    // Ethereum address
+  context?: string;                 // e.g. 'profile', 'identity', 'custom'...
+  gender?: string | null;
+  pronouns?: string | null;
+  bio?: string | null;
   online_links?: Record<string, string>;
 }): Observable<any> {
-  return this.http.post(`${this.base}/api/profile/db`, payload, {
-    headers: this.getBaseHeaders()
-  });
+  return this.http.post(
+    `${this.base}/api/profile/db`,
+    payload,
+    { headers: this.getBaseHeaders() }
+  ).pipe(
+    catchError(err => {
+      console.error('upsertDbProfile error:', err);
+      return throwError(() => new Error(err.error?.error || 'Failed to save profile'));
+    })
+  );
 }
 
   /* -------------------------------------------------

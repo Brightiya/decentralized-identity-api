@@ -71,6 +71,48 @@ COMMENT ON TABLE profiles IS
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id
   ON profiles(user_id);
 
+-- ────────────────────────────────────────────────
+-- Add multi-context support to profiles (safe for PG 13+)
+-- ────────────────────────────────────────────────
+
+-- 1. Add the context column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'profiles' 
+      AND column_name = 'context'
+  ) THEN
+    ALTER TABLE profiles
+      ADD COLUMN context TEXT NOT NULL DEFAULT 'profile';
+  END IF;
+END $$;
+
+-- 2. Add the unique constraint if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM pg_constraint 
+    WHERE conname = 'profiles_user_context_unique'
+      AND conrelid = 'profiles'::regclass
+  ) THEN
+    ALTER TABLE profiles
+      ADD CONSTRAINT profiles_user_context_unique 
+      UNIQUE (user_id, context);
+  END IF;
+END $$;
+
+-- 3. Add comment (safe to run always)
+COMMENT ON COLUMN profiles.context IS
+'Context for this profile data (e.g., profile, identity, medical, or custom)';
+
+-- 4. Migrate any existing rows without context
+UPDATE profiles 
+SET context = 'profile' 
+WHERE context IS NULL OR context = '';
 -- ============================================
 -- 1.1 Optional: Login Audit (NON-BREAKING)
 -- ============================================

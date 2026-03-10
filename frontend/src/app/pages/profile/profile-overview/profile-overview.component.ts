@@ -1,19 +1,24 @@
 // src/app/pages/profile/profile-overview.component.ts
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormControl, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../../services/theme.service';
 import { ApiService } from '../../../services/api.service';
 import { WalletService } from '../../../services/wallet.service';
-import { RouterLink } from '@angular/router';
 
 interface ProfileData {
   address: string;
+  context: string;
   gender?: string | null;
   pronouns?: string | null;
   bio?: string | null;
@@ -27,27 +32,45 @@ interface ProfileData {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatDividerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatAutocompleteModule,
     RouterLink
   ],
   template: `
     <div class="overview-container" [class.dark]="darkMode()">
       <div class="page-header">
         <h1>User Profile Overview</h1>
-        <p class="subtitle">Your personal information & online presence</p>
+        <p class="subtitle">Your personal information across contexts</p>
       </div>
+
+      <!-- Context Selector -->
+      <mat-form-field appearance="outline" class="context-selector glass-select">
+        <mat-label>Viewing Context</mat-label>
+        <input matInput [formControl]="contextControl" 
+               placeholder="profile, identity, medical, or custom..."
+               [matAutocomplete]="auto">
+        <mat-autocomplete #auto="matAutocomplete">
+          <mat-option *ngFor="let ctx of filteredContexts()" [value]="ctx">
+            {{ ctx | titlecase }}
+          </mat-option>
+        </mat-autocomplete>
+        <mat-hint>Select or type a custom context</mat-hint>
+      </mat-form-field>
 
       <ng-container *ngIf="loading(); else content">
         <div class="loading-state">
           <mat-spinner diameter="56"></mat-spinner>
           <div class="state-message">
-            <h3>Loading your profile...</h3>
-            <p class="muted">Fetching your personal details</p>
+            <h3>Loading profile data...</h3>
+            <p class="muted">Fetching information for {{ selectedContext() | titlecase }}</p>
           </div>
         </div>
       </ng-container>
@@ -58,7 +81,10 @@ interface ProfileData {
             <mat-card-header>
               <mat-icon class="avatar-icon" mat-card-avatar>person</mat-icon>
               <mat-card-title>Personal Information</mat-card-title>
-              <mat-card-subtitle>Last updated: {{ data.updated_at | date:'mediumDate' }}</mat-card-subtitle>
+              <mat-card-subtitle>
+                Context: {{ data.context | titlecase }} • 
+                Last updated: {{ data.updated_at ? (data.updated_at | date:'mediumDate') : 'Never' }}
+              </mat-card-subtitle>
             </mat-card-header>
 
             <mat-card-content>
@@ -107,9 +133,10 @@ interface ProfileData {
                 <!-- Empty personal data state -->
                 <div class="empty-personal" *ngIf="!hasPersonalData(data)">
                   <mat-icon class="empty-icon">info_outline</mat-icon>
-                  <h3>No profile information yet</h3>
+                  <h3>No information in this context yet</h3>
                   <p class="muted">
-                    You haven't added any personal details. Go to Edit Profile to get started.
+                    No details added for {{ data.context | titlecase }}. 
+                    Edit to add some.
                   </p>
                   <button mat-raised-button color="primary" routerLink="../edit">
                     Edit Profile
@@ -123,7 +150,7 @@ interface ProfileData {
           <div class="refresh-area">
             <button mat-stroked-button (click)="loadProfile()">
               <mat-icon>refresh</mat-icon>
-              Refresh
+              Refresh Data
             </button>
           </div>
         </ng-container>
@@ -132,8 +159,10 @@ interface ProfileData {
           <mat-card class="empty-card glass-card">
             <mat-card-content class="empty-content">
               <mat-icon class="empty-icon">person_off</mat-icon>
-              <h3>No profile found</h3>
-              <p class="muted">Create your profile to get started.</p>
+              <h3>No profile found for this context</h3>
+              <p class="muted">
+                No data exists yet for {{ selectedContext() | titlecase }}.
+              </p>
               <button mat-raised-button color="primary" routerLink="../edit">
                 Create Profile
               </button>
@@ -294,12 +323,12 @@ interface ProfileData {
       font-weight: 500;
       transition: all 0.25s ease;
     }
-          .external-link {
+
+    .external-link {
       cursor: pointer;
       text-decoration: none;
     }
 
-    /* Optional: make it more obviously clickable */
     .external-link:hover,
     .external-link:focus {
       text-decoration: underline;
@@ -420,7 +449,11 @@ export class ProfileOverviewComponent implements OnInit {
   profile = signal<ProfileData | null>(null);
   darkMode = this.themeService.darkMode;
 
-  // Gender label mapping (same as in edit form)
+  contextControl = new FormControl('profile');
+  standardContexts = ['profile', 'identity', 'medical', 'professional', 'compliance'];
+  filteredContexts = signal<string[]>(this.standardContexts);
+  selectedContext = signal('profile');
+
   private genderLabels: Record<string, string> = {
     male: 'Male',
     female: 'Female',
@@ -433,11 +466,22 @@ export class ProfileOverviewComponent implements OnInit {
 
   ngOnInit() {
     this.loadProfile();
+
+    // Update selected context and reload on change
+    this.contextControl.valueChanges.subscribe(value => {
+      const ctx = value?.trim().toLowerCase() || 'profile';
+      this.selectedContext.set(ctx);
+      this.filteredContexts.set(
+        value ? this.standardContexts.filter(c => c.toLowerCase().includes(value.toLowerCase())) : this.standardContexts
+      );
+      this.loadProfile();
+    });
   }
 
   loadProfile() {
     this.loading.set(true);
     this.error.set(null);
+    this.profile.set(null);
 
     this.wallet.address$.subscribe(address => {
       if (!address) {
@@ -446,14 +490,18 @@ export class ProfileOverviewComponent implements OnInit {
         return;
       }
 
-      this.apiService.getDbProfile(address).subscribe({
+      this.apiService.getDbProfile(address, this.selectedContext()).subscribe({
         next: (data: ProfileData) => {
           this.profile.set(data);
           this.loading.set(false);
         },
         error: (err) => {
           console.error('Failed to load DB profile:', err);
-          this.error.set('Could not load your profile. It may be empty or there was a connection issue.');
+          if (err.status === 404) {
+            this.error.set(`No profile found for context "${this.selectedContext()}". Create one to get started.`);
+          } else {
+            this.error.set('Failed to load profile. Please try again later.');
+          }
           this.loading.set(false);
         }
       });

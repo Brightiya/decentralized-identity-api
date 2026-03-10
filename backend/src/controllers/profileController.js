@@ -372,36 +372,33 @@ export const eraseProfile = async (req, res) => {
 export const getDbProfile = async (req, res) => {
   try {
     const { address } = req.params;
+    const context = req.query.context || 'profile';
     const subjectAddress = address.toLowerCase();
 
-    const userRes = await pool.query(
-      'SELECT id FROM users WHERE eth_address = $1',
-      [subjectAddress]
-    );
-    if (userRes.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found – please register or sign in first' });
-    }
+    const userRes = await pool.query('SELECT id FROM users WHERE eth_address = $1', [subjectAddress]);
+    if (userRes.rowCount === 0) return res.status(404).json({ error: 'User not found' });
     const userId = userRes.rows[0].id;
 
     const profileRes = await pool.query(
-      'SELECT gender, pronouns, bio, online_links, preferences, updated_at ' +
-      'FROM profiles WHERE user_id = $1',
-      [userId]
+      'SELECT gender, pronouns, bio, online_links, updated_at, context ' +
+      'FROM profiles WHERE user_id = $1 AND context = $2',
+      [userId, context]
     );
 
-    if (!profileRes.rows[0]) {
-      return res.status(404).json({ error: 'Profile not found in database' });
+    if (profileRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Profile not found for this context' });
     }
 
     const profile = profileRes.rows[0];
     res.json({
       address: subjectAddress,
+      context: profile.context,
       gender: profile.gender,
       pronouns: profile.pronouns,
       bio: profile.bio,
       online_links: profile.online_links || {},
       updated_at: profile.updated_at,
-      source: 'database'  // to distinguish from vault
+      source: 'database'
     });
   } catch (err) {
     console.error('getDbProfile error:', err);
@@ -409,33 +406,30 @@ export const getDbProfile = async (req, res) => {
   }
 };
 
-// Create/Update DB profile
 export const upsertDbProfile = async (req, res) => {
   try {
-    const { owner, gender, pronouns, bio, online_links } = req.body;
+    const { owner, gender, pronouns, bio, online_links, context } = req.body;
+    if (!owner) return res.status(400).json({ error: 'owner address required' });
+    const selectedContext = context || 'profile';
+
     const subjectAddress = owner.toLowerCase();
 
-    const userRes = await pool.query(
-      'SELECT id FROM users WHERE eth_address = $1',
-      [subjectAddress]
-    );
-    if (!userRes.rows[0]) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const userRes = await pool.query('SELECT id FROM users WHERE eth_address = $1', [subjectAddress]);
+    if (userRes.rowCount === 0) return res.status(404).json({ error: 'User not found' });
     const userId = userRes.rows[0].id;
 
     await pool.query(`
-      INSERT INTO profiles (user_id, gender, pronouns, bio, online_links, updated_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      ON CONFLICT (user_id) DO UPDATE SET
+      INSERT INTO profiles (user_id, context, gender, pronouns, bio, online_links, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      ON CONFLICT (user_id, context) DO UPDATE SET
         gender = EXCLUDED.gender,
         pronouns = EXCLUDED.pronouns,
         bio = EXCLUDED.bio,
         online_links = EXCLUDED.online_links,
         updated_at = NOW()
-    `, [userId, gender || null, pronouns || null, bio || null, online_links || {}]);
+    `, [userId, selectedContext, gender || null, pronouns || null, bio || null, online_links || {}]);
 
-    res.json({ message: 'Database profile updated successfully', source: 'database' });
+    res.json({ message: 'Profile updated successfully for context: ' + selectedContext, source: 'database' });
   } catch (err) {
     console.error('upsertDbProfile error:', err);
     res.status(500).json({ error: 'Failed to update DB profile' });

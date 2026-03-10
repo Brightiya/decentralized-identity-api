@@ -1,7 +1,7 @@
 // src/app/pages/profile/profile-edit.component.ts
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray, FormControl } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -11,9 +11,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ActivatedRoute, Router } from '@angular/router';
-import { switchMap, take } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { ThemeService } from '../../../services/theme.service';
 import { ApiService } from '../../../services/api.service';
 import { WalletService } from '../../../services/wallet.service';
@@ -32,7 +32,8 @@ import { WalletService } from '../../../services/wallet.service';
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatAutocompleteModule
   ],
   template: `
     <div class="edit-profile-container" [class.dark]="darkMode()">
@@ -61,6 +62,20 @@ import { WalletService } from '../../../services/wallet.service';
           <!-- Main form -->
           <ng-container *ngIf="!loading() && (wallet.address$ | async)">
             <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-edit-form">
+              <!-- Context Selector -->
+              <mat-form-field appearance="outline" class="form-field full-width">
+                <mat-label>Context</mat-label>
+                <input matInput formControlName="context" 
+                       placeholder="profile, identity, medical, or custom..."
+                       [matAutocomplete]="auto">
+                <mat-autocomplete #auto="matAutocomplete">
+                  <mat-option *ngFor="let ctx of filteredContexts()" [value]="ctx">
+                    {{ ctx | titlecase }}
+                  </mat-option>
+                </mat-autocomplete>
+                <mat-hint>Select or type a custom context</mat-hint>
+              </mat-form-field>
+
               <div class="form-grid">
                 <!-- Gender -->
                 <mat-form-field appearance="outline" class="form-field">
@@ -372,6 +387,9 @@ export class ProfileEditComponent implements OnInit {
   loading = signal(true);
   darkMode = this.themeService.darkMode;
 
+  standardContexts = ['profile', 'identity', 'medical', 'professional', 'compliance'];
+  filteredContexts = signal<string[]>(this.standardContexts);
+
   genderOptions = [
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
@@ -385,10 +403,18 @@ export class ProfileEditComponent implements OnInit {
   ngOnInit() {
     this.initForm();
     this.loadCurrentProfile();
+
+    // Filter contexts on input change
+    this.profileForm.get('context')?.valueChanges.subscribe(value => {
+      this.filteredContexts.set(
+        value ? this.standardContexts.filter(c => c.toLowerCase().includes(value.toLowerCase())) : this.standardContexts
+      );
+    });
   }
 
   private initForm() {
     this.profileForm = this.fb.group({
+      context: ['profile', Validators.required],
       gender: [''],
       pronouns: [''],
       bio: ['', [Validators.maxLength(500)]],
@@ -421,9 +447,13 @@ export class ProfileEditComponent implements OnInit {
         return;
       }
 
-      this.apiService.getDbProfile(address).subscribe({
+      // Load for default 'profile' context or query param if needed
+      const loadContext = this.activatedRoute.snapshot.queryParams['context'] || 'profile';
+
+      this.apiService.getDbProfile(address, loadContext).subscribe({
         next: (data: any) => {
           this.profileForm.patchValue({
+            context: data.context || 'profile',
             gender: data.gender || '',
             pronouns: data.pronouns || '',
             bio: data.bio || ''
@@ -449,9 +479,8 @@ export class ProfileEditComponent implements OnInit {
         },
         error: (err) => {
           console.error('Failed to load DB profile:', err);
-          this.snackBar.open('Could not load your profile. It may be empty.', 'Close', { duration: 5000 });
+          this.snackBar.open('Could not load profile. Create a new one.', 'Close', { duration: 5000 });
           this.loading.set(false);
-          // Form stays empty/ready for first-time creation
         }
       });
     });
@@ -460,7 +489,7 @@ export class ProfileEditComponent implements OnInit {
   onSubmit() {
     if (this.profileForm.invalid) {
       this.profileForm.markAllAsTouched();
-      this.snackBar.open('Please complete required fields correctly', 'Close', { duration: 4000 });
+      this.snackBar.open('Please fill required fields correctly', 'Close', { duration: 4000 });
       return;
     }
 
@@ -473,17 +502,15 @@ export class ProfileEditComponent implements OnInit {
         return;
       }
 
-      // Prepare links as object
       const linksArray = this.onlineLinks.value;
       const online_links = linksArray.reduce((acc: Record<string, string>, item: any) => {
-        if (item.platform?.trim() && item.url?.trim()) {
-          acc[item.platform.trim()] = item.url.trim();
-        }
+        if (item.platform && item.url) acc[item.platform.trim()] = item.url.trim();
         return acc;
       }, {});
 
       const payload = {
         owner: address,
+        context: this.profileForm.value.context.trim().toLowerCase(),
         gender: this.profileForm.value.gender || null,
         pronouns: this.profileForm.value.pronouns || null,
         bio: this.profileForm.value.bio || null,
@@ -491,15 +518,17 @@ export class ProfileEditComponent implements OnInit {
       };
 
       this.apiService.upsertDbProfile(payload).subscribe({
-        next: () => {
+        next: (response) => {
           this.saving.set(false);
-          this.snackBar.open('Profile saved successfully!', 'Close', { duration: 4000 });
+          this.snackBar.open('Profile updated successfully!', 'Close', { duration: 4000 });
+
+          // Navigate back to overview (relative to current route)
           this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
         },
         error: (err) => {
-          console.error('Profile save failed:', err);
+          console.error('Profile update failed:', err);
           this.saving.set(false);
-          this.snackBar.open('Failed to save profile. Please try again.', 'Close', { duration: 6000 });
+          this.snackBar.open('Failed to update profile. Try again.', 'Close', { duration: 6000 });
         }
       });
     });
@@ -508,9 +537,4 @@ export class ProfileEditComponent implements OnInit {
   cancel() {
     this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
   }
-
-  // Placeholder for future decentralized publish feature
-  // publishToVault() {
-  //   // ... build vault payload and call apiService.createProfile(...)
-  // }
 }

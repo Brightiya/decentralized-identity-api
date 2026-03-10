@@ -171,6 +171,22 @@ export class ApiService {
     );
   }
 
+  getDbProfile(address: string): Observable<any> {
+  return this.http.get(`${this.base}/api/profile/db/${encodeURIComponent(address)}`);
+}
+
+upsertDbProfile(payload: {
+  owner: string;
+  gender?: string;
+  pronouns?: string;
+  bio?: string;
+  online_links?: Record<string, string>;
+}): Observable<any> {
+  return this.http.post(`${this.base}/api/profile/db`, payload, {
+    headers: this.getBaseHeaders()
+  });
+}
+
   /* -------------------------------------------------
      Disclosure & GDPR - unchanged
   -------------------------------------------------- */

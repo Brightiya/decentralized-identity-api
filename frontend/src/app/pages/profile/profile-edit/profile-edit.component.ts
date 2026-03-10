@@ -43,7 +43,7 @@ import { WalletService } from '../../../services/wallet.service';
 
       <mat-card class="edit-card glass-card" appearance="outlined">
         <mat-card-content>
-          <!-- Loading / Disconnected state -->
+          <!-- Wallet not connected -->
           <div class="connection-state" *ngIf="!(wallet.address$ | async)">
             <mat-spinner diameter="48"></mat-spinner>
             <div class="state-message">
@@ -52,7 +52,14 @@ import { WalletService } from '../../../services/wallet.service';
             </div>
           </div>
 
-          <ng-container *ngIf="wallet.address$ | async">
+          <!-- Loading state -->
+          <div class="loading-state" *ngIf="loading() && (wallet.address$ | async)">
+            <mat-spinner diameter="48"></mat-spinner>
+            <p class="muted">Loading your profile...</p>
+          </div>
+
+          <!-- Main form -->
+          <ng-container *ngIf="!loading() && (wallet.address$ | async)">
             <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="profile-edit-form">
               <div class="form-grid">
                 <!-- Gender -->
@@ -108,13 +115,13 @@ import { WalletService } from '../../../services/wallet.service';
                     <mat-form-field appearance="outline" class="platform">
                       <mat-label>Platform</mat-label>
                       <input matInput formControlName="platform" 
-                             placeholder="Twitter / X, GitHub, LinkedIn, Website...">
+                             placeholder="X / Twitter, GitHub, LinkedIn, Website...">
                     </mat-form-field>
 
                     <mat-form-field appearance="outline" class="url">
                       <mat-label>URL</mat-label>
                       <input matInput formControlName="url" 
-                             placeholder="https://twitter.com/yourhandle">
+                             placeholder="https://x.com/yourhandle">
                       <mat-icon matPrefix>link</mat-icon>
                     </mat-form-field>
 
@@ -146,6 +153,13 @@ import { WalletService } from '../../../services/wallet.service';
                 <button mat-stroked-button type="button" (click)="cancel()">
                   Cancel
                 </button>
+
+                <!-- Future: Publish to decentralized vault -->
+                <!-- 
+                <button mat-stroked-button color="accent" type="button" (click)="publishToVault()">
+                  Publish to Vault (SSI)
+                </button>
+                -->
               </div>
             </form>
           </ng-container>
@@ -239,6 +253,17 @@ import { WalletService } from '../../../services/wallet.service';
 
     .form-field.full-width {
       grid-column: 1 / -1;
+    }
+
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
+      gap: 24px;
+      color: #94a3b8;
+      text-align: center;
     }
 
     @media (max-width: 720px) {
@@ -340,7 +365,7 @@ export class ProfileEditComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
   private themeService = inject(ThemeService);
   private router = inject(Router);
-  private activatedRoute = inject(ActivatedRoute); // ← NEW: inject ActivatedRoute
+  private activatedRoute = inject(ActivatedRoute);
 
   profileForm!: FormGroup;
   saving = signal(false);
@@ -396,17 +421,19 @@ export class ProfileEditComponent implements OnInit {
         return;
       }
 
-      this.apiService.getProfile(address, 'profile').subscribe({
+      this.apiService.getDbProfile(address).subscribe({
         next: (data: any) => {
-          const attr = data.attributes || {} as Record<string, any>; // ← Fix TS7053: broader type
-
           this.profileForm.patchValue({
-            gender: (attr.gender as any)?.code || '',
-            pronouns: attr.pronouns || '',
-            bio: attr.bio || ''
+            gender: data.gender || '',
+            pronouns: data.pronouns || '',
+            bio: data.bio || ''
           });
 
-          // Load existing online links
+          // Clear and load existing links
+          while (this.onlineLinks.length) {
+            this.onlineLinks.removeAt(0);
+          }
+
           if (data.online_links && typeof data.online_links === 'object') {
             Object.entries(data.online_links).forEach(([platform, url]) => {
               this.onlineLinks.push(
@@ -421,9 +448,10 @@ export class ProfileEditComponent implements OnInit {
           this.loading.set(false);
         },
         error: (err) => {
-          console.error('Failed to load profile for editing:', err);
-          this.snackBar.open('Could not load current profile data', 'Close', { duration: 5000 });
+          console.error('Failed to load DB profile:', err);
+          this.snackBar.open('Could not load your profile. It may be empty.', 'Close', { duration: 5000 });
           this.loading.set(false);
+          // Form stays empty/ready for first-time creation
         }
       });
     });
@@ -432,7 +460,7 @@ export class ProfileEditComponent implements OnInit {
   onSubmit() {
     if (this.profileForm.invalid) {
       this.profileForm.markAllAsTouched();
-      this.snackBar.open('Please fill required fields correctly', 'Close', { duration: 4000 });
+      this.snackBar.open('Please complete required fields correctly', 'Close', { duration: 4000 });
       return;
     }
 
@@ -445,42 +473,33 @@ export class ProfileEditComponent implements OnInit {
         return;
       }
 
-      // Prepare online links
+      // Prepare links as object
       const linksArray = this.onlineLinks.value;
       const online_links = linksArray.reduce((acc: Record<string, string>, item: any) => {
-        if (item.platform && item.url) acc[item.platform.trim()] = item.url.trim();
+        if (item.platform?.trim() && item.url?.trim()) {
+          acc[item.platform.trim()] = item.url.trim();
+        }
         return acc;
       }, {});
 
-      // Build proper nested structure backend expects
       const payload = {
-      owner: address,
-      contexts: {
-        profile: {
-          attributes: {
-            gender: this.profileForm.value.gender || undefined,
-            pronouns: this.profileForm.value.pronouns || undefined,
-            bio: this.profileForm.value.bio || undefined
-          },
-          online_links: online_links
-        }
-      },
-      credentials: [] // keep empty for now
-    };
+        owner: address,
+        gender: this.profileForm.value.gender || null,
+        pronouns: this.profileForm.value.pronouns || null,
+        bio: this.profileForm.value.bio || null,
+        online_links
+      };
 
-      // Save profile (using the correct method name)
-      this.apiService.createProfile(payload).subscribe({
-        next: (response) => {
+      this.apiService.upsertDbProfile(payload).subscribe({
+        next: () => {
           this.saving.set(false);
-          this.snackBar.open('Profile updated successfully!', 'Close', { duration: 4000 });
-
-          // Navigate back to overview (relative to current route)
+          this.snackBar.open('Profile saved successfully!', 'Close', { duration: 4000 });
           this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
         },
         error: (err) => {
-          console.error('Profile update failed:', err);
+          console.error('Profile save failed:', err);
           this.saving.set(false);
-          this.snackBar.open('Failed to update profile. Try again.', 'Close', { duration: 6000 });
+          this.snackBar.open('Failed to save profile. Please try again.', 'Close', { duration: 6000 });
         }
       });
     });
@@ -489,4 +508,9 @@ export class ProfileEditComponent implements OnInit {
   cancel() {
     this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
   }
+
+  // Placeholder for future decentralized publish feature
+  // publishToVault() {
+  //   // ... build vault payload and call apiService.createProfile(...)
+  // }
 }

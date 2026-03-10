@@ -367,3 +367,77 @@ export const eraseProfile = async (req, res) => {
     return res.status(500).json({ error: err.message || "Internal server error during erasure" });
   }
 };
+
+// Get DB profile (fast, no chain/IPFS)
+export const getDbProfile = async (req, res) => {
+  try {
+    const { address } = req.params;
+    const subjectAddress = address.toLowerCase();
+
+    const userRes = await pool.query(
+      'SELECT id FROM users WHERE eth_address = $1',
+      [subjectAddress]
+    );
+    if (!userRes.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const userId = userRes.rows[0].id;
+
+    const profileRes = await pool.query(
+      'SELECT gender, pronouns, bio, online_links, preferences, updated_at ' +
+      'FROM profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    if (!profileRes.rows[0]) {
+      return res.status(404).json({ error: 'Profile not found in database' });
+    }
+
+    const profile = profileRes.rows[0];
+    res.json({
+      address: subjectAddress,
+      gender: profile.gender,
+      pronouns: profile.pronouns,
+      bio: profile.bio,
+      online_links: profile.online_links || {},
+      updated_at: profile.updated_at,
+      source: 'database'  // to distinguish from vault
+    });
+  } catch (err) {
+    console.error('getDbProfile error:', err);
+    res.status(500).json({ error: 'Failed to load DB profile' });
+  }
+};
+
+// Create/Update DB profile
+export const upsertDbProfile = async (req, res) => {
+  try {
+    const { owner, gender, pronouns, bio, online_links } = req.body;
+    const subjectAddress = owner.toLowerCase();
+
+    const userRes = await pool.query(
+      'SELECT id FROM users WHERE eth_address = $1',
+      [subjectAddress]
+    );
+    if (!userRes.rows[0]) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const userId = userRes.rows[0].id;
+
+    await pool.query(`
+      INSERT INTO profiles (user_id, gender, pronouns, bio, online_links, updated_at)
+      VALUES ($1, $2, $3, $4, $5, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        gender = EXCLUDED.gender,
+        pronouns = EXCLUDED.pronouns,
+        bio = EXCLUDED.bio,
+        online_links = EXCLUDED.online_links,
+        updated_at = NOW()
+    `, [userId, gender || null, pronouns || null, bio || null, online_links || {}]);
+
+    res.json({ message: 'Database profile updated successfully', source: 'database' });
+  } catch (err) {
+    console.error('upsertDbProfile error:', err);
+    res.status(500).json({ error: 'Failed to update DB profile' });
+  }
+};

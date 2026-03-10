@@ -7,27 +7,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { FormsModule } from '@angular/forms';
-import { switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
 import { ThemeService } from '../../../services/theme.service';
 import { ApiService } from '../../../services/api.service';
 import { WalletService } from '../../../services/wallet.service';
 
 interface ProfileData {
-  did: string;
-  context: string;
-  attributes: {
-    gender?: { code: string; label: string } | null;
-    pronouns?: string;
-    bio?: string;
-    [key: string]: any;
-  };
-  online_links?: { [key: string]: string };
-  credentials?: Array<{ cid: string; claimId: string; context: string }>;
-  note?: string;
+  address: string;
+  gender?: string | null;
+  pronouns?: string | null;
+  bio?: string | null;
+  online_links?: Record<string, string>;
+  updated_at?: string;
+  source?: string; // 'database'
 }
 
 @Component({
@@ -35,79 +26,61 @@ interface ProfileData {
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatDividerModule,
-    MatSelectModule,
-    MatFormFieldModule
-    ],
+    MatDividerModule
+  ],
   template: `
     <div class="overview-container" [class.dark]="darkMode()">
       <div class="page-header">
         <h1>User Profile Overview</h1>
-        <p class="subtitle">Your current personal information across contexts</p>
+        <p class="subtitle">Your personal information & online presence</p>
       </div>
-
-      <!-- Context Selector -->
-      <mat-form-field appearance="outline" class="context-selector glass-select">
-        <mat-label>Viewing Context</mat-label>
-        <mat-select [(ngModel)]="selectedContext" 
-                    (selectionChange)="loadProfile()"
-                    panelClass="context-dropdown">
-          <mat-option *ngFor="let ctx of allowedContexts" [value]="ctx">
-            {{ ctx | titlecase }}
-          </mat-option>
-        </mat-select>
-        <mat-hint>Switch to view different attribute sets</mat-hint>
-      </mat-form-field>
 
       <ng-container *ngIf="loading(); else content">
         <div class="loading-state">
           <mat-spinner diameter="56"></mat-spinner>
           <div class="state-message">
-            <h3>Loading profile data...</h3>
-            <p class="muted">Fetching information for {{ selectedContext() | titlecase }}</p>
+            <h3>Loading your profile...</h3>
+            <p class="muted">Fetching your personal details</p>
           </div>
         </div>
       </ng-container>
 
       <ng-template #content>
-        <ng-container *ngIf="profile(); let data">
+        <ng-container *ngIf="profile(); let data; else noData">
           <mat-card class="profile-card glass-card" appearance="outlined">
             <mat-card-header>
               <mat-icon class="avatar-icon" mat-card-avatar>person</mat-icon>
               <mat-card-title>Personal Information</mat-card-title>
-              <mat-card-subtitle>Context: {{ data.context | titlecase }}</mat-card-subtitle>
+              <mat-card-subtitle>Last updated: {{ data.updated_at | date:'mediumDate' }}</mat-card-subtitle>
             </mat-card-header>
 
             <mat-card-content>
               <div class="profile-grid">
                 <!-- Gender -->
-            <div class="profile-item" *ngIf="data.attributes?.gender as gender">
-              <div class="label">Gender</div>
-              <div class="value">
-                {{ gender.label }}
-                <span class="gender-code" *ngIf="gender.code">
-                  ({{ gender.code }})          
-                </span>
-            </div>
+                <div class="profile-item" *ngIf="data.gender">
+                  <div class="label">Gender</div>
+                  <div class="value">
+                    {{ getGenderLabel(data.gender) }}
+                    <span class="gender-code">({{ data.gender }})</span>
+                  </div>
                 </div>
 
                 <!-- Pronouns -->
-                <div class="profile-item" *ngIf="data.attributes?.pronouns">
+                <div class="profile-item" *ngIf="data.pronouns">
                   <div class="label">Pronouns</div>
-                  <div class="value">{{ data.attributes.pronouns }}</div>
+                  <div class="value">{{ data.pronouns }}</div>
                 </div>
 
                 <!-- Bio -->
-                <div class="profile-item bio-item" *ngIf="data.attributes?.bio">
+                <div class="profile-item bio-item" *ngIf="data.bio">
                   <div class="label">About me</div>
                   <div class="value bio-content">
-                    {{ data.attributes.bio }}
+                    {{ data.bio }}
                   </div>
                 </div>
 
@@ -116,14 +89,14 @@ interface ProfileData {
                   <div class="label">Online Presence</div>
                   <div class="value links-grid">
                     <a *ngFor="let link of getLinks(data)"
-                       [href]="link.url" 
-                       target="_blank" 
+                       [href]="link.url"
+                       target="_blank"
                        rel="noopener noreferrer"
-                       class="link-chip external-link"
-                       >
+                       class="link-chip external-link">
                       <mat-icon class="link-icon"
-                      matTooltip="{{ link.platform | titlecase }} profile"
-                      >{{ getIcon(link.platform) }}</mat-icon>
+                                matTooltip="{{ link.platform | titlecase }} profile">
+                        {{ getIcon(link.platform) }}
+                      </mat-icon>
                       {{ link.platform | titlecase }}
                     </a>
                   </div>
@@ -132,29 +105,39 @@ interface ProfileData {
                 <!-- Empty personal data state -->
                 <div class="empty-personal" *ngIf="!hasPersonalData(data)">
                   <mat-icon class="empty-icon">info_outline</mat-icon>
-                  <h3>No personal information yet</h3>
+                  <h3>No profile information yet</h3>
                   <p class="muted">
-                    This context doesn't contain any personal details at the moment.
+                    You haven't added any personal details. Go to Edit Profile to get started.
                   </p>
+                  <button mat-raised-button color="primary" routerLink="../edit">
+                    Edit Profile
+                  </button>
                 </div>
               </div>
             </mat-card-content>
           </mat-card>
 
-          <!-- Backend note (if any) -->
-          <div class="backend-note glass-note" *ngIf="data.note">
-            <mat-icon>info_outline</mat-icon>
-            <span>{{ data.note }}</span>
-          </div>
-
           <!-- Refresh -->
           <div class="refresh-area">
             <button mat-stroked-button (click)="loadProfile()">
               <mat-icon>refresh</mat-icon>
-              Refresh Data
+              Refresh
             </button>
           </div>
         </ng-container>
+
+        <ng-template #noData>
+          <mat-card class="empty-card glass-card">
+            <mat-card-content class="empty-content">
+              <mat-icon class="empty-icon">person_off</mat-icon>
+              <h3>No profile found</h3>
+              <p class="muted">Create your profile to get started.</p>
+              <button mat-raised-button color="primary" routerLink="../edit">
+                Create Profile
+              </button>
+            </mat-card-content>
+          </mat-card>
+        </ng-template>
 
         <!-- Error state -->
         <ng-container *ngIf="error()">
@@ -389,6 +372,27 @@ interface ProfileData {
       margin-bottom: 16px;
     }
 
+    .empty-card, .error-card {
+      border-radius: 20px;
+      text-align: center;
+      padding: 48px 32px;
+      margin-top: 32px;
+    }
+
+    .empty-content, .error-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      height: 64px;
+      width: 64px;
+      opacity: 0.7;
+    }
+
     /* Responsive */
     @media (max-width: 720px) {
       .profile-item {
@@ -413,8 +417,17 @@ export class ProfileOverviewComponent implements OnInit {
   error = signal<string | null>(null);
   profile = signal<ProfileData | null>(null);
   darkMode = this.themeService.darkMode;
-  selectedContext = signal('profile');
-  allowedContexts = ['profile', 'identity', 'medical', 'professional', 'compliance'];
+
+  // Gender label mapping (same as in edit form)
+  private genderLabels: Record<string, string> = {
+    male: 'Male',
+    female: 'Female',
+    'non-binary': 'Non-binary',
+    genderqueer: 'Genderqueer',
+    transgender: 'Transgender',
+    'prefer-not-to-say': 'Prefer not to say',
+    other: 'Other'
+  };
 
   ngOnInit() {
     this.loadProfile();
@@ -424,37 +437,32 @@ export class ProfileOverviewComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.wallet.address$.pipe(
-      switchMap(address => {
-        if (!address) {
-          this.error.set("No wallet connected");
-          this.loading.set(false);
-          return of(null);
-        }
-
-        return this.apiService.getProfile(address, this.selectedContext());
-      })
-    ).subscribe({
-      next: (response) => {
-        if (response) {
-          this.profile.set(response);
-        }
+    this.wallet.address$.subscribe(address => {
+      if (!address) {
+        this.error.set('No wallet connected');
         this.loading.set(false);
-      },
-      error: (err) => {
-        console.error('Profile fetch error:', err);
-        this.error.set("Failed to load profile. Please try again later.");
-        this.loading.set(false);
+        return;
       }
+
+      this.apiService.getDbProfile(address).subscribe({
+        next: (data: ProfileData) => {
+          this.profile.set(data);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          console.error('Failed to load DB profile:', err);
+          this.error.set('Could not load your profile. It may be empty or there was a connection issue.');
+          this.loading.set(false);
+        }
+      });
     });
   }
 
   hasPersonalData(data: ProfileData): boolean {
-    const attr = data.attributes || {};
     return !!(
-      attr.gender?.label ||
-      attr.pronouns ||
-      attr.bio ||
+      data.gender ||
+      data.pronouns ||
+      data.bio ||
       this.hasLinks(data)
     );
   }
@@ -469,6 +477,10 @@ export class ProfileOverviewComponent implements OnInit {
       platform,
       url
     }));
+  }
+
+  getGenderLabel(code: string): string {
+    return this.genderLabels[code] || code;
   }
 
   getIcon(platform: string): string {
@@ -486,7 +498,7 @@ export class ProfileOverviewComponent implements OnInit {
       telegram: 'send',
       default: 'link'
     };
-    const lowerPlatform = platform.toLowerCase();
-    return icons[lowerPlatform] || icons['default'] || 'link';
+    const lower = platform.toLowerCase();
+    return icons[lower] || icons['default'] || 'link';
   }
 }

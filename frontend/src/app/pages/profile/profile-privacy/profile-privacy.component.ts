@@ -19,8 +19,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 interface Consent {
   claimId: string;
   purpose: string;
-  issuedAt: string;
-  expiresAt?: string;
+  issuedAt: string | null;     // ← allow null
+  expiresAt?: string | null;
   verifierDid?: string;
 }
 
@@ -81,9 +81,9 @@ interface Consent {
                     <mat-icon matListItemIcon color="primary">verified_user</mat-icon>
 
                     <div class="consent-content">
-                      <h3 class="purpose">{{ consent.purpose }}</h3>
+                      <h3 class="purpose">{{ consent.purpose || 'Unnamed access' }}</h3>
                       <div class="meta">
-                        <span class="claim">Claim: <code>{{ consent.claimId }}</code></span>
+                        <span class="claim">Claim: <code>{{ consent.claimId || 'N/A' }}</code></span>
                         <span class="dates">
                           Granted: {{ formatDate(consent.issuedAt) }}
                           <ng-container *ngIf="consent.expiresAt">
@@ -380,6 +380,7 @@ export class ProfilePrivacyComponent implements OnInit {
       })
     ).subscribe({
       next: (data) => {
+        console.log('Raw consents from backend:', data); // ← temporary debug
         if (data) {
           this.consents.set(data || []);
         }
@@ -436,7 +437,6 @@ export class ProfilePrivacyComponent implements OnInit {
           next: () => {
             this.snackBar.open('Erasure request submitted successfully', 'Close', { duration: 6000 });
             this.erasing.set(false);
-            // Optional: navigate away or show success page
           },
           error: (err) => {
             console.error('Erasure failed:', err);
@@ -448,22 +448,32 @@ export class ProfilePrivacyComponent implements OnInit {
     });
   }
 
-  formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString(undefined, {
+  formatDate(dateStr: string | null | undefined): string {
+    if (!dateStr) {
+      return 'N/A';
+    }
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return 'Invalid date'; // or return dateStr to show raw value
+    }
+
+    return date.toLocaleDateString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   }
 
-  isExpired(expiresAt?: string): boolean {
+  isExpired(expiresAt: string | null | undefined): boolean {
     if (!expiresAt) return false;
-    return new Date(expiresAt) < new Date();
+    const expDate = new Date(expiresAt);
+    return !isNaN(expDate.getTime()) && expDate < new Date();
   }
 }
 
 // ────────────────────────────────────────────────
-// Confirmation Dialog (standalone component)
+// Confirmation Dialog (unchanged)
 // ────────────────────────────────────────────────
 @Component({
   selector: 'confirm-erasure-dialog',

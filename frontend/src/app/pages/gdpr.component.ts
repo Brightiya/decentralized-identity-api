@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WalletService } from '../services/wallet.service';
@@ -84,8 +84,35 @@ const ForwarderAbi = ForwarderArtifact.abi;
       </mat-card-content>
     </mat-card>
 
+    <mat-card
+    class="card elevated success-card"
+    appearance="outlined"
+    *ngIf="wallet.address && alreadyErased">
+
+    <mat-card-header>
+      <mat-icon class="header-icon" color="primary" mat-card-avatar>task_alt</mat-icon>
+      <mat-card-title>Profile Already Erased</mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <p>
+        This decentralized identity has already been erased under
+        <strong>GDPR Article 17</strong>.
+      </p>
+
+      <p class="small muted">
+        The DID remains on-chain but points to a permanent erasure tombstone.
+      </p>
+
+      <p class="small muted">
+        DID: <code>did:ethr:{{ wallet.address }}</code>
+      </p>
+    </mat-card-content>
+
+  </mat-card>
+
     <!-- Erasure Request Form -->
-    <mat-card class="card elevated warning-card" appearance="outlined" *ngIf="wallet.address && !result && !error">
+    <mat-card class="card elevated warning-card" appearance="outlined" *ngIf="wallet.address && !result && !error && !alreadyErased">
       <mat-card-header>
         <mat-icon class="header-icon" color="warn" mat-card-avatar>warning_amber</mat-icon>
         <mat-card-title>Irreversible Erasure Request</mat-card-title>
@@ -169,9 +196,6 @@ const ForwarderAbi = ForwarderArtifact.abi;
 
       <mat-card-content>
         <p>{{ error }}</p>
-        <p class="small muted">
-          The transaction may still be pending — check Basescan or try again.
-        </p>
       </mat-card-content>
     </mat-card>
   </div>
@@ -554,143 +578,449 @@ styles: [`
 `]
 })
 
-export class GdprComponent {
+/**
+ * GdprComponent
+ *
+ * Handles the GDPR Article 17 "Right to Erasure" functionality.
+ *
+ * Responsibilities:
+ * - Connect the user's wallet
+ * - Display the user's DID (Decentralized Identifier)
+ * - Allow the user to request permanent profile erasure
+ * - Support both gasless (meta-transaction) and direct transaction modes
+ * - Wait for on-chain confirmation before confirming deletion
+ * - Display transaction confirmation and explorer link
+ * - Store erasure proof in session storage
+ */
+export class GdprComponent implements OnInit {
+
+  /** Checkbox confirmation state (user must confirm deletion) */
   confirmed = false;
+
+  /** Indicates wallet connection is in progress */
   connecting = false;
+
+  /** Indicates erasure process is currently running */
   loading = false;
+
+  /** Used to briefly show "Copied!" UI feedback */
   copied = false;
 
+  /** Result object displayed after successful erasure */
   result: any = null;
+
+  /** Error message displayed when the process fails */
   error: string | null = null;
+
+/** Indicates the DID was already erased in this session */
+alreadyErased = false;
+
+  /** Theme service used for dark mode signal */
   private themeService = inject(ThemeService);
+
+  /** Angular Material snackbar for notifications */
   private snackBar = inject(MatSnackBar);
-  private metaTx = inject(MetaTxService);          // ← NEW
+
+  /**
+   * MetaTx service used for gasless transactions.
+   * This builds and signs EIP-2771 meta-transactions.
+   */
+  private metaTx = inject(MetaTxService);
+
+  /** Http client used to call the backend relay endpoint */
   private http = inject(HttpClient);
-  useGasless = true; // default true — can make signal later
-  darkMode = this.themeService.darkMode;   // readonly signal
+
+  /**
+   * Enables gasless transactions by default.
+   * Can later be converted to a signal if UI toggling is needed.
+   */
+  useGasless = true;
+
+  /** Dark mode signal exposed to template */
+  darkMode = this.themeService.darkMode;
 
   constructor(
+    /** Wallet service managing connection, signer, and provider */
     public wallet: WalletService,
+
+    /** API service used to request profile erasure preparation */
     private api: ApiService,
-   // private router: Router
+
+    
   ) {}
 
+  /**
+ * Runs when the component initializes.
+ *
+ * Checks if a GDPR erasure was already recorded in this browser session.
+ * If so, the UI is switched to the "already erased" state to prevent
+ * accidental duplicate erasure attempts in the same session.
+ *
+ * Note:
+ * We only check sessionStorage here because the wallet may not yet
+ * be connected. DID validation happens later in checkErasedState().
+ */
+ngOnInit() {
+
+  const erasedDid = sessionStorage.getItem('erasedDid');
+
+  if (erasedDid) {
+    this.alreadyErased = true;
+  }
+
+}
+
+
+/**
+ * Validates whether the currently connected wallet DID matches
+ * a DID erased earlier in this session.
+ *
+ * Called after wallet connection to prevent the same identity
+ * from requesting erasure multiple times within one session.
+ */
+checkErasedState() {
+
+  const erasedDid = sessionStorage.getItem('erasedDid');
+
+  if (!this.wallet.address) return;
+
+  if (erasedDid === `did:ethr:${this.wallet.address}`) {
+    this.alreadyErased = true;
+  }
+
+}
+
+  /**
+   * Connects the user's wallet.
+   *
+   * This allows the system to:
+   * - Identify the DID
+   * - Sign transactions or meta-transactions
+   */
   async connect() {
+
     this.connecting = true;
+
     try {
+
       await this.wallet.connect();
+      this.checkErasedState();
+
     } catch (e: any) {
+
       alert(e.message || 'Wallet connection failed');
+
     } finally {
+
       this.connecting = false;
+
     }
   }
 
+  /**
+   * Copies the user's DID to clipboard.
+   *
+   * DID format:
+   * did:ethr:<walletAddress>
+   */
   copyDid() {
+
     if (!this.wallet.address) return;
+
     const did = `did:ethr:${this.wallet.address}`;
+
     navigator.clipboard.writeText(did);
+
     this.copied = true;
+
     setTimeout(() => this.copied = false, 2000);
   }
 
+  /**
+   * Executes the GDPR erasure flow.
+   *
+   * Steps:
+   * 1. Ensure wallet connected and confirmation checked
+   * 2. Request unsigned transaction from backend
+   * 3. Either:
+   *    - Execute gasless meta-transaction
+   *    - Or sign and send direct transaction
+   * 4. Wait for blockchain confirmation
+   * 5. Display result and transaction link
+   * 6. Store erasure proof in sessionStorage
+   * 7. Disconnect wallet
+   */
   async erase() {
+
+    /** Ensure wallet connected and user confirmed deletion */
+
     if (!this.wallet.address || !this.confirmed) return;
 
     this.loading = true;
     this.result = null;
     this.error = null;
 
+    /** Build payload containing the user's DID */
+
     const payload = { did: `did:ethr:${this.wallet.address}` };
 
     try {
+
+      /**
+       * Request profile erasure preparation from backend.
+       *
+       * Backend returns:
+       * - unsignedTx → user must sign transaction
+       * - txHash → backend already signed (dev mode)
+       */
+
       const response = await firstValueFrom(this.api.eraseProfile(payload));
 
       let txHash: string;
 
+      /**
+       * HYBRID MODE
+       *
+       * Backend returned unsigned transaction
+       * → user must execute it (gasless or direct)
+       */
       if (response.unsignedTx) {
-        // Hybrid mode — supports gasless
+
+        /**
+         * GASLESS MODE
+         *
+         * Uses meta-transactions:
+         * - user signs a meta request
+         * - backend relay pays gas
+         */
+
         if (this.useGasless) {
-          this.snackBar.open('Preparing gasless erasure...', 'Close', { duration: 8000 });
 
-          const { request, signature } = await this.metaTx.buildAndSignMetaTx({
-            forwarderAbi: ForwarderAbi,
-            targetAddress: response.unsignedTx.to,
-            rawData: response.unsignedTx.data
-          });
-
-          const relayResponse: any = await firstValueFrom(
-            this.http.post(`${environment.backendUrl}/meta/relay`, { request, signature })
+          this.snackBar.open(
+            'Preparing gasless erasure...',
+            'Close',
+            { duration: 8000 }
           );
 
+          /**
+           * Build and sign EIP-2771 meta-transaction
+           */
+
+          const { request, signature } = await this.metaTx.buildAndSignMetaTx({
+
+            forwarderAbi: ForwarderAbi,
+
+            targetAddress: response.unsignedTx.to,
+
+            rawData: response.unsignedTx.data
+
+          });
+
+          /**
+           * Send signed meta-transaction to backend relay
+           */
+
+          const relayResponse: any = await firstValueFrom(
+
+            this.http.post(
+              `${environment.backendUrl}/meta/relay`,
+              { request, signature }
+            )
+
+          );
+
+          /**
+           * Validate relay response
+           */
+
           if (!relayResponse.txHash) {
+
             throw new Error('Gasless relay failed — no txHash returned');
+
           }
 
           txHash = relayResponse.txHash;
-        } else {
-          // Fallback: direct signing (pays gas)
-          this.snackBar.open('Please sign the erasure transaction...', 'Close', { duration: 15000 });
 
-          const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
+        } else {
+
+          /**
+           * DIRECT TRANSACTION MODE
+           *
+           * User signs and pays gas themselves.
+           */
+
+          this.snackBar.open(
+            'Please sign the erasure transaction...',
+            'Close',
+            { duration: 15000 }
+          );
+
+          const txResponse = await this.wallet.signAndSendTransaction(
+            response.unsignedTx
+          );
+
           txHash = txResponse.hash;
         }
 
-        // Wait for confirmation (critical!)
+        /**
+         * WAIT FOR ON-CHAIN CONFIRMATION
+         *
+         * Critical to ensure the erasure is finalized.
+         */
+
         if (!this.wallet.provider) {
+
           throw new Error('Wallet provider not available — please reconnect');
+
         }
 
-        this.snackBar.open('Transaction sent — waiting for on-chain confirmation...', 'Close', { duration: 15000 });
+        this.snackBar.open(
+          'Transaction sent — waiting for on-chain confirmation...',
+          'Close',
+          { duration: 15000 }
+        );
 
-        await this.wallet.provider.waitForTransaction(txHash, 1, 120000);
+        await this.wallet.provider.waitForTransaction(
+          txHash,
+          1,
+          120000
+        );
+
+        /**
+         * Create blockchain explorer link
+         */
 
         const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
+        /**
+         * Show confirmation snackbar with explorer link
+         */
+
         const snackBarRef = this.snackBar.open(
+
           `Profile permanently erased! Tx confirmed: ${txHash.slice(0, 10)}...`,
+
           'View on Basescan',
-          { duration: 15000, panelClass: ['success-snackbar'] }
+
+          {
+            duration: 15000,
+            panelClass: ['success-snackbar']
+          }
+
         );
 
-        snackBarRef.onAction().subscribe(() => window.open(explorerUrl, '_blank'));
-      } else if (response.txHash) {
-        // Backend-signed mode (dev/testing)
-        txHash = response.txHash;
-        this.snackBar.open('Profile erased successfully (backend signed)!', 'Close', { duration: 6000 });
-      } else {
-        throw new Error('Unexpected response from server — no transaction info');
+        snackBarRef.onAction().subscribe(() =>
+          window.open(explorerUrl, '_blank')
+        );
+
       }
 
-      // Success path
+      /**
+       * BACKEND-SIGNED MODE
+       *
+       * Used mainly in development or testing.
+       */
+      else if (response.txHash) {
+
+        txHash = response.txHash;
+
+        this.snackBar.open(
+          'Profile erased successfully (backend signed)!',
+          'Close',
+          { duration: 6000 }
+        );
+
+      }
+
+      /**
+       * Unexpected backend response
+       */
+      else {
+
+        throw new Error(
+          'Unexpected response from server — no transaction info'
+        );
+
+      }
+
+      /**
+       * SUCCESS RESULT OBJECT
+       *
+       * Displayed in the UI after confirmation.
+       */
+
       this.result = {
+
         message: '✅ GDPR Art.17 erasure enforced',
+
         did: payload.did,
+
         erasedCid: response.newCid || response.cid,
+
         txHash
       };
 
+      /** Reset confirmation checkbox */
+
       this.confirmed = false;
 
+      /**
+       * Store erasure proof locally for session tracking.
+       *
+       * This allows UI to show that the DID was erased.
+       */
+
       sessionStorage.setItem('erasedDid', payload.did);
+
       sessionStorage.setItem('erasedAt', new Date().toISOString());
 
-      // Disconnect LAST
+      /**
+       * Disconnect wallet AFTER completion
+       */
+
       this.wallet.disconnect();
 
-      // Optional redirect
-      // this.router.navigate(['/']);
-
     } catch (err: any) {
+
       console.error('Erasure failed:', err);
-      this.error = err.message || err.error?.error || 'Erasure request failed';
+
+      if (err.status === 410) {
+          this.alreadyErased = true;
+        }
+
+      /**
+       * Extract meaningful error message
+       */
+
+      this.error =
+        err?.error?.error
+          ? `${err.error.error} (${new Date(err.error.erasedAt).toLocaleString()})`
+          : err.message || 'Erasure request failed';
+
+      /**
+       * Display error snackbar
+       */
+
       if (this.error) {
-        this.snackBar.open(this.error, 'Close', { duration: 10000, panelClass: ['error-snackbar'] });
+
+        this.snackBar.open(
+          this.error,
+          'Close',
+          {
+            duration: 10000,
+            panelClass: ['error-snackbar']
+          }
+        );
       }
+
     } finally {
+
+      /** Reset loading state */
+
       this.loading = false;
     }
   }
 }
 
+/** Default export for lazy loading or module usage */
 export default GdprComponent;

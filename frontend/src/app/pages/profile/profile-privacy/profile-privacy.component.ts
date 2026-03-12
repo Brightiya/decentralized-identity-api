@@ -346,135 +346,313 @@ interface Consent {
     }
   `]
 })
+/**
+ * ProfilePrivacyComponent
+ *
+ * Displays and manages privacy-related controls for the user's profile.
+ *
+ * Responsibilities:
+ * • Load active consent records granted for profile disclosures
+ * • Allow users to revoke previously granted consents
+ * • Allow users to request GDPR erasure of their profile
+ * • Display consent status, expiration, and metadata
+ */
 export class ProfilePrivacyComponent implements OnInit {
+
+  /** API service used to retrieve and update consent records */
   private apiService = inject(ApiService);
+
+  /** Wallet service used to access the currently connected address */
   public wallet = inject(WalletService);
+
+  /** Angular Material snackbar used for UI notifications */
   private snackBar = inject(MatSnackBar);
+
+  /** Angular Material dialog used for confirmation modals */
   private dialog = inject(MatDialog);
+
+  /** Theme service exposing dark mode signal */
   private themeService = inject(ThemeService);
 
+  /** Loading state signal for consent list retrieval */
   loading = signal(true);
+
+  /** Error message signal if consent loading fails */
   error = signal<string | null>(null);
+
+  /** Signal storing currently active consents for the user */
   consents = signal<Consent[]>([]);
+
+  /** Indicates a GDPR erasure request is currently running */
   erasing = signal(false);
 
+  /** Dark mode signal exposed to the template */
   darkMode = this.themeService.darkMode;
 
+  /**
+   * Lifecycle hook
+   *
+   * Loads active consents when the component initializes.
+   */
   ngOnInit() {
     this.loadConsents();
   }
 
+  /**
+   * Loads all active consent records for the connected wallet.
+   *
+   * Flow:
+   * 1. Wait for wallet address
+   * 2. Request active consents from backend
+   * 3. Store results in the consents signal
+   */
   loadConsents() {
+
     this.loading.set(true);
     this.error.set(null);
 
     this.wallet.address$.pipe(
+
       switchMap(address => {
+
+        /**
+         * If no wallet is connected, abort request.
+         */
         if (!address) {
           this.error.set('No wallet connected');
           this.loading.set(false);
           return of(null);
         }
 
+        /**
+         * Request active consent records from backend.
+         * Context "profile" filters profile-related disclosures.
+         */
         return this.apiService.getActiveConsents(address, 'profile');
+
       })
+
     ).subscribe({
+
       next: (data) => {
-        console.log('Raw consents from backend:', data); // ← temporary debug
+
+        /** Temporary debug output for backend response */
+        console.log('Raw consents from backend:', data);
+
         if (data) {
           this.consents.set(data || []);
         }
+
         this.loading.set(false);
       },
+
       error: (err) => {
+
         console.error('Failed to load consents:', err);
+
         this.error.set('Could not load consent information');
+
         this.loading.set(false);
       }
+
     });
   }
 
+  /**
+   * Revokes a previously granted consent.
+   *
+   * Steps:
+   * 1. Retrieve current wallet address
+   * 2. Send revoke request to backend
+   * 3. Refresh consent list on success
+   */
   revokeConsent(consent: Consent) {
+
     this.wallet.address$.pipe(take(1)).subscribe(address => {
+
       if (!address) return;
 
       this.apiService.revokeConsent({
+
         owner: address,
+
         claimId: consent.claimId,
+
         context: 'profile'
+
       }).subscribe({
+
         next: () => {
-          this.snackBar.open('Consent revoked successfully', 'Close', { duration: 4000 });
+
+          this.snackBar.open(
+            'Consent revoked successfully',
+            'Close',
+            { duration: 4000 }
+          );
+
+          /** Reload consent list after revocation */
           this.loadConsents();
+
         },
+
         error: (err) => {
+
           console.error('Revoke failed:', err);
-          this.snackBar.open('Failed to revoke consent', 'Close', { duration: 5000 });
+
+          this.snackBar.open(
+            'Failed to revoke consent',
+            'Close',
+            { duration: 5000 }
+          );
         }
+
       });
+
     });
   }
 
+  /**
+   * Initiates the GDPR erasure request process.
+   *
+   * Steps:
+   * 1. Show confirmation dialog
+   * 2. If confirmed, retrieve wallet address
+   * 3. Send erasure request to backend
+   */
   requestErasure() {
+
     const dialogRef = this.dialog.open(ConfirmErasureDialog, {
+
       width: '400px',
-      data: { title: 'Erase Profile', message: 'This will permanently delete your profile data. This action cannot be undone.' }
+
+      data: {
+
+        title: 'Erase Profile',
+
+        message: 'This will permanently delete your profile data. This action cannot be undone.'
+
+      }
+
     });
 
     dialogRef.afterClosed().subscribe(confirmed => {
+
+      /** If user cancels, abort operation */
       if (!confirmed) return;
 
       this.erasing.set(true);
 
       this.wallet.address$.pipe(take(1)).subscribe(address => {
+
         if (!address) {
+
           this.erasing.set(false);
-          this.snackBar.open('No wallet connected', 'Close', { duration: 3000 });
+
+          this.snackBar.open(
+            'No wallet connected',
+            'Close',
+            { duration: 3000 }
+          );
+
           return;
         }
 
-        this.apiService.eraseProfile({ did: `did:ethr:${address}` }).subscribe({
+        /**
+         * Send erasure request to backend.
+         * DID format used to identify identity.
+         */
+        this.apiService.eraseProfile({
+
+          did: `did:ethr:${address}`
+
+        }).subscribe({
+
           next: () => {
-            this.snackBar.open('Erasure request submitted successfully', 'Close', { duration: 6000 });
+
+            this.snackBar.open(
+              'Erasure request submitted successfully',
+              'Close',
+              { duration: 6000 }
+            );
+
             this.erasing.set(false);
           },
+
           error: (err) => {
+
             console.error('Erasure failed:', err);
-            this.snackBar.open('Failed to submit erasure request', 'Close', { duration: 6000 });
+
+            this.snackBar.open(
+              'Failed to submit erasure request',
+              'Close',
+              { duration: 6000 }
+            );
+
             this.erasing.set(false);
           }
+
         });
+
       });
+
     });
   }
 
+  /**
+   * Formats a timestamp into a readable date.
+   *
+   * Handles:
+   * • null/undefined values
+   * • invalid date strings
+   */
   formatDate(dateStr: string | null | undefined): string {
+
     if (!dateStr) {
       return 'N/A';
     }
 
     const date = new Date(dateStr);
+
     if (isNaN(date.getTime())) {
-      return 'Invalid date'; // or return dateStr to show raw value
+      return 'Invalid date';
     }
 
     return date.toLocaleDateString(undefined, {
+
       year: 'numeric',
+
       month: 'short',
+
       day: 'numeric'
+
     });
   }
 
+  /**
+   * Determines whether a consent has expired.
+   *
+   * Returns true if the expiration timestamp
+   * is earlier than the current time.
+   */
   isExpired(expiresAt: string | null | undefined): boolean {
+
     if (!expiresAt) return false;
+
     const expDate = new Date(expiresAt);
+
     return !isNaN(expDate.getTime()) && expDate < new Date();
   }
+
 }
 
-// ────────────────────────────────────────────────
-// Confirmation Dialog (unchanged)
-// ────────────────────────────────────────────────
+/**
+ * ConfirmErasureDialog
+ *
+ * Angular Material confirmation dialog used before performing
+ * irreversible GDPR erasure operations.
+ *
+ * Displays warning text and requires explicit user confirmation.
+ */
 @Component({
   selector: 'confirm-erasure-dialog',
   standalone: true,
@@ -495,6 +673,11 @@ export class ProfilePrivacyComponent implements OnInit {
   `]
 })
 export class ConfirmErasureDialog {
+
+  /** Data injected when dialog is opened (title and message) */
   data = inject(MAT_DIALOG_DATA);
+
+  /** Reference to the currently opened dialog instance */
   dialogRef = inject(MatDialogRef<ConfirmErasureDialog>);
+
 }

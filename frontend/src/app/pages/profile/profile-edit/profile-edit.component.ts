@@ -373,23 +373,77 @@ import { WalletService } from '../../../services/wallet.service';
     }
   `]
 })
+/**
+ * ProfileEditComponent
+ *
+ * Allows the user to create or update their profile attributes
+ * for a specific identity context (default: "profile").
+ *
+ * Responsibilities:
+ * - Build and manage a reactive form
+ * - Load existing profile data from the backend
+ * - Allow editing of personal attributes
+ * - Manage dynamic online profile links
+ * - Validate user input
+ * - Submit updated profile data to the API
+ * - Provide UI feedback (loading, saving, errors)
+ */
 export class ProfileEditComponent implements OnInit {
+
+  /** Angular FormBuilder used to construct the reactive form */
   private fb = inject(FormBuilder);
+
+  /** API service used to load and update profile data */
   private apiService = inject(ApiService);
+
+  /** Wallet service provides the connected wallet address */
   public wallet = inject(WalletService);
+
+  /** Snackbar service used for user notifications */
   private snackBar = inject(MatSnackBar);
+
+  /** Theme service providing dark mode signal */
   private themeService = inject(ThemeService);
+
+  /** Angular router used for navigation after saving/canceling */
   private router = inject(Router);
+
+  /** ActivatedRoute used for reading query parameters */
   private activatedRoute = inject(ActivatedRoute);
 
+  /** Reactive form instance for editing the profile */
   profileForm!: FormGroup;
+
+  /** Indicates the form is currently being saved */
   saving = signal(false);
+
+  /** Indicates the profile data is currently loading */
   loading = signal(true);
+
+  /** Dark mode signal passed to template */
   darkMode = this.themeService.darkMode;
 
-  standardContexts = ['profile', 'identity', 'medical', 'professional', 'compliance'];
+  /**
+   * Standard identity contexts supported by the system.
+   * Profiles can exist under different contexts.
+   */
+  standardContexts = [
+    'profile',
+    'identity',
+    'medical',
+    'professional',
+    'compliance'
+  ];
+
+  /**
+   * Filtered list of contexts used for autocomplete UI.
+   */
   filteredContexts = signal<string[]>(this.standardContexts);
 
+  /**
+   * Gender options used by the form.
+   * These values populate a dropdown in the UI.
+   */
   genderOptions = [
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
@@ -400,141 +454,348 @@ export class ProfileEditComponent implements OnInit {
     { value: 'other', label: 'Other' }
   ];
 
+  /**
+   * Angular lifecycle hook.
+   *
+   * Initializes the form and loads the current profile data.
+   */
   ngOnInit() {
+
+    /** Create the reactive form structure */
     this.initForm();
+
+    /** Load the existing profile from the backend */
     this.loadCurrentProfile();
 
-    // Filter contexts on input change
+    /**
+     * Dynamically filter available contexts
+     * as the user types into the context field.
+     */
     this.profileForm.get('context')?.valueChanges.subscribe(value => {
+
       this.filteredContexts.set(
-        value ? this.standardContexts.filter(c => c.toLowerCase().includes(value.toLowerCase())) : this.standardContexts
+
+        value
+          ? this.standardContexts.filter(c =>
+              c.toLowerCase().includes(value.toLowerCase())
+            )
+          : this.standardContexts
+
       );
     });
   }
 
+  /**
+   * Initializes the reactive form structure.
+   */
   private initForm() {
+
     this.profileForm = this.fb.group({
+
+      /** Context for this profile */
       context: ['profile', Validators.required],
+
+      /** Optional gender field */
       gender: [''],
+
+      /** Optional pronouns field */
       pronouns: [''],
+
+      /** Optional bio field with max length constraint */
       bio: ['', [Validators.maxLength(500)]],
+
+      /**
+       * Dynamic list of online profile links
+       * (Twitter, LinkedIn, website, etc.)
+       */
       online_links: this.fb.array([])
+
     });
   }
 
+  /**
+   * Getter for the online_links FormArray.
+   *
+   * Allows easier manipulation of the dynamic links list.
+   */
   get onlineLinks(): FormArray {
+
     return this.profileForm.get('online_links') as FormArray;
+
   }
 
+  /**
+   * Adds a new empty link entry to the form.
+   */
   addLink() {
+
     this.onlineLinks.push(
+
       this.fb.group({
+
+        /** Platform name (e.g., twitter, linkedin) */
         platform: ['', Validators.required],
-        url: ['', [Validators.required, Validators.pattern(/^https?:\/\/[^\s$.?#].[^\s]*$/)]]
+
+        /** URL validation with basic HTTP/HTTPS pattern */
+        url: [
+          '',
+          [
+            Validators.required,
+            Validators.pattern(/^https?:\/\/[^\s$.?#].[^\s]*$/)
+          ]
+        ]
+
       })
+
     );
   }
 
+  /**
+   * Removes a link entry by index.
+   */
   removeLink(index: number) {
+
     this.onlineLinks.removeAt(index);
+
   }
 
+  /**
+   * Loads the existing profile for the connected wallet.
+   *
+   * If no profile exists, the form remains empty.
+   */
   private loadCurrentProfile() {
+
+    /**
+     * Retrieve the wallet address once.
+     */
     this.wallet.address$.pipe(take(1)).subscribe(address => {
+
       if (!address) {
+
         this.snackBar.open('No wallet connected', 'Close', { duration: 4000 });
+
         this.loading.set(false);
+
         return;
       }
 
-      // Load for default 'profile' context or query param if needed
-      const loadContext = this.activatedRoute.snapshot.queryParams['context'] || 'profile';
+      /**
+       * Determine which context to load.
+       *
+       * If the URL contains a context query param,
+       * use that. Otherwise default to "profile".
+       */
+      const loadContext =
+        this.activatedRoute.snapshot.queryParams['context'] || 'profile';
 
+      /**
+       * Request profile data from backend.
+       */
       this.apiService.getDbProfile(address, loadContext).subscribe({
+
         next: (data: any) => {
+
+          /**
+           * Populate form fields with returned data.
+           */
           this.profileForm.patchValue({
+
             context: data.context || 'profile',
+
             gender: data.gender || '',
+
             pronouns: data.pronouns || '',
+
             bio: data.bio || ''
+
           });
 
-          // Clear and load existing links
+          /**
+           * Clear existing links before loading new ones.
+           */
           while (this.onlineLinks.length) {
+
             this.onlineLinks.removeAt(0);
+
           }
 
+          /**
+           * Load existing online links into the form.
+           */
           if (data.online_links && typeof data.online_links === 'object') {
+
             Object.entries(data.online_links).forEach(([platform, url]) => {
+
               this.onlineLinks.push(
+
                 this.fb.group({
+
                   platform: [platform],
+
                   url: [url]
+
                 })
+
               );
+
             });
           }
 
           this.loading.set(false);
         },
+
         error: (err) => {
+
           console.error('Failed to load DB profile:', err);
-          this.snackBar.open('Could not load profile. Create a new one.', 'Close', { duration: 5000 });
+
+          this.snackBar.open(
+            'Could not load profile. Create a new one.',
+            'Close',
+            { duration: 5000 }
+          );
+
           this.loading.set(false);
         }
+
       });
+
     });
   }
 
+  /**
+   * Called when the user submits the form.
+   *
+   * Validates the form and sends the updated profile
+   * data to the backend.
+   */
   onSubmit() {
+
+    /** Ensure form is valid */
+
     if (this.profileForm.invalid) {
+
       this.profileForm.markAllAsTouched();
-      this.snackBar.open('Please fill required fields correctly', 'Close', { duration: 4000 });
+
+      this.snackBar.open(
+        'Please fill required fields correctly',
+        'Close',
+        { duration: 4000 }
+      );
+
       return;
     }
 
     this.saving.set(true);
 
+    /**
+     * Retrieve wallet address once.
+     */
     this.wallet.address$.pipe(take(1)).subscribe(address => {
+
       if (!address) {
+
         this.saving.set(false);
+
         this.snackBar.open('No wallet connected', 'Close', { duration: 3000 });
+
         return;
       }
 
+      /**
+       * Convert FormArray of links into object format.
+       *
+       * Example:
+       * { twitter: "...", linkedin: "..." }
+       */
       const linksArray = this.onlineLinks.value;
-      const online_links = linksArray.reduce((acc: Record<string, string>, item: any) => {
-        if (item.platform && item.url) acc[item.platform.trim()] = item.url.trim();
-        return acc;
-      }, {});
 
+      const online_links = linksArray.reduce(
+
+        (acc: Record<string, string>, item: any) => {
+
+          if (item.platform && item.url)
+
+            acc[item.platform.trim()] = item.url.trim();
+
+          return acc;
+
+        },
+
+        {}
+
+      );
+
+      /**
+       * Build API payload.
+       */
       const payload = {
+
         owner: address,
+
         context: this.profileForm.value.context.trim().toLowerCase(),
+
         gender: this.profileForm.value.gender || null,
+
         pronouns: this.profileForm.value.pronouns || null,
+
         bio: this.profileForm.value.bio || null,
+
         online_links
+
       };
 
+      /**
+       * Send update request to backend.
+       */
       this.apiService.upsertDbProfile(payload).subscribe({
-        next: (response) => {
-          this.saving.set(false);
-          this.snackBar.open('Profile updated successfully!', 'Close', { duration: 4000 });
 
-          // Navigate back to overview (relative to current route)
-          this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
-        },
-        error: (err) => {
-          console.error('Profile update failed:', err);
+        next: (response) => {
+
           this.saving.set(false);
-          this.snackBar.open('Failed to update profile. Try again.', 'Close', { duration: 6000 });
+
+          this.snackBar.open(
+            'Profile updated successfully!',
+            'Close',
+            { duration: 4000 }
+          );
+
+          /**
+           * Navigate back to profile overview.
+           */
+          this.router.navigate(
+            ['../overview'],
+            { relativeTo: this.activatedRoute }
+          );
+        },
+
+        error: (err) => {
+
+          console.error('Profile update failed:', err);
+
+          this.saving.set(false);
+
+          this.snackBar.open(
+            'Failed to update profile. Try again.',
+            'Close',
+            { duration: 6000 }
+          );
         }
+
       });
+
     });
   }
 
+  /**
+   * Cancels editing and returns to the profile overview page.
+   */
   cancel() {
-    this.router.navigate(['../overview'], { relativeTo: this.activatedRoute });
+
+    this.router.navigate(
+      ['../overview'],
+      { relativeTo: this.activatedRoute }
+    );
+
   }
 }

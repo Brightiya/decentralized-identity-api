@@ -40,9 +40,51 @@ import { MatButtonModule } from '@angular/material/button';
     a { color: #6366f1; text-decoration: underline; }
   `]
 })
+/**
+ * SafariInstallDialogComponent
+ *
+ * Angular Material dialog shown to Safari users when MetaMask
+ * is not detected in the browser.
+ *
+ * Purpose:
+ * - Inform the user that MetaMask is required for wallet interaction.
+ * - Provide installation links for:
+ *   • MetaMask Mobile (App Store)
+ *   • MetaMask browser download page
+ *
+ * The dialog receives installation URLs via MAT_DIALOG_DATA so the
+ * component remains reusable and environment-independent.
+ */
 export class SafariInstallDialogComponent {
+
   constructor(
+
+    /**
+     * Reference to the currently opened Angular Material dialog.
+     *
+     * Allows the component to:
+     * - Close the dialog programmatically
+     * - Return data to the caller if needed
+     */
     public dialogRef: MatDialogRef<SafariInstallDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { appStoreUrl: string; metamaskDownloadUrl: string }
+
+    /**
+     * Data injected when the dialog is opened.
+     *
+     * Contains external URLs used by the dialog buttons:
+     *
+     * appStoreUrl
+     * → Link to MetaMask Mobile on the Apple App Store.
+     *
+     * metamaskDownloadUrl
+     * → Official MetaMask website download page.
+     */
+    @Inject(MAT_DIALOG_DATA)
+    public data: {
+      appStoreUrl: string;
+      metamaskDownloadUrl: string;
+    }
+
   ) {}
+
 }

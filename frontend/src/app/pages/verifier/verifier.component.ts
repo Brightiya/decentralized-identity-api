@@ -19,6 +19,7 @@ import { ContextService } from '../../services/context.service';
 import { computed, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-verifier',
@@ -864,39 +865,100 @@ styles: [`
 
 `]
 })
+/**
+ * VerifierComponent
+ *
+ * Main UI used by verifiers to request selective disclosure of
+ * Verifiable Credentials (VCs) from a subject's decentralized identity.
+ *
+ * Responsibilities:
+ * • Connect verifier wallet
+ * • Build a verification request
+ * • Suggest previously issued claims
+ * • Filter claims by context and purpose
+ * • Submit verification request to backend
+ * • Display disclosed / denied claims
+ * • Show verifier audit trail of past disclosures
+ */
 export class VerifierComponent {
+
+  /** Angular FormBuilder used to construct the reactive form */
   private fb = inject(FormBuilder);
+
+  /** API service used for verification requests and claim suggestions */
   private api = inject(ApiService);
+
+  /** Wallet service used to connect and identify the subject DID */
   wallet = inject(WalletService);
+
+  /** Theme service used to expose dark mode signal */
   private themeService = inject(ThemeService);
+
+  /** Context service providing available credential contexts */
   private contextService = inject(ContextService);
+
+  /** ChangeDetectorRef used to manually trigger UI updates when signals change */
   private cdr = inject(ChangeDetectorRef);
+
+  /** Angular Material snackbar used for notifications */
   private snackBar = inject(MatSnackBar);
 
+  /** Reactive form used to build the verification request */
   form: FormGroup;
+
+  /** Indicates verification submission is currently running */
   isSubmitting = false;
+
+  /** Result returned from verification API */
   result: any = null;
+
+  /** Error message shown when verification fails */
   error: string | null = null;
+
+  /** Indicates wallet connection is in progress */
   connecting = false;
 
+  /** Disclosure history returned for a specific verifier DID */
   verifierAudit: any[] = [];
+
+  /** Indicates audit trail loading state */
   auditLoading = false;
+
+  /** Error message shown if audit trail fails to load */
   auditError: string | null = null;
 
-  // Signals
+  /**
+   * Signal storing suggested claims that can be disclosed.
+   * Returned by backend based on subject DID.
+   */
   suggestedClaims = signal<any[]>([]);
+
+  /** Signal storing available credential contexts */
   contexts = signal<string[]>([]);
+
+  /** Indicates claim suggestion loading state */
   suggestionsLoading = signal(false);
+
+  /** Signal storing currently selected context */
   selectedContext = signal<string>('');
 
+  /** Dark mode signal exposed to template */
   darkMode = this.themeService.darkMode;
 
+  /**
+   * Hardcoded list of suggested verifier DIDs.
+   * Used for UI autocomplete when entering verifier identity.
+   */
   suggestedVerifiers = signal<string[]>([
     'did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
     'did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
     'did:ethr:0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
   ]);
 
+  /**
+   * Filters suggested verifier DIDs based on current input.
+   * Also prevents selecting the subject DID as verifier.
+   */
   filteredVerifierSuggestions = computed(() => {
     const input = this.form.get('verifierDid')?.value?.toLowerCase() || '';
     const subject = this.form.get('subject')?.value?.toLowerCase() || '';
@@ -908,10 +970,20 @@ export class VerifierComponent {
       );
   });
 
+  /**
+   * Normalizes context values for consistent filtering.
+   * Converts strings to lowercase, trims spaces,
+   * and replaces whitespace with hyphens.
+   */
   private normalizeContext(ctx: string): string {
     return ctx?.toLowerCase()?.trim()?.replace(/\s+/g, '-') || '';
   }
 
+  /**
+   * Filters suggested claims based on:
+   * • Selected context
+   * • Entered purpose search string
+   */
   filteredSuggestedPurposes = computed(() => {
     const search = this.form.get('purpose')?.value?.toLowerCase().trim() || '';
     const currentContext = this.selectedContext()?.toLowerCase() || '';
@@ -931,6 +1003,10 @@ export class VerifierComponent {
     );
   });
 
+  /**
+   * Converts timestamps to human-readable relative time.
+   * Example: "2h ago", "3d ago", "1w ago".
+   */
   getRelativeTime(dateStr: string | null): string {
     if (!dateStr) return 'recent';
     const date = new Date(dateStr);
@@ -948,6 +1024,10 @@ export class VerifierComponent {
     return 'Older';
   }
 
+  /**
+   * Determines whether a claim is the most recently issued
+   * among the currently filtered suggestions.
+   */
   isLatest(claim: any): boolean {
     if (!claim.issued_at) return false;
 
@@ -962,6 +1042,10 @@ export class VerifierComponent {
     return new Date(claim.issued_at).getTime() === maxTime;
   }
 
+  /**
+   * Returns claim IDs and CIDs filtered by selected context.
+   * Used to auto-populate disclosure credential entries.
+   */
   filteredClaimIdsByContext = computed(() => {
     const currentContext = this.selectedContext();
     const normalizedCurrent = this.normalizeContext(currentContext);
@@ -977,10 +1061,18 @@ export class VerifierComponent {
       }));
   });
 
+  /**
+   * Convenience getter for the credential FormArray.
+   * Each entry represents a claim disclosure request.
+   */
   get credentialsArray(): FormArray {
     return this.form.get('credentials') as FormArray;
   }
 
+  /**
+   * Custom validator preventing the subject DID
+   * from being the same as the verifier DID.
+   */
   private differentDidValidator() {
     return (group: FormGroup) => {
       const subject = group.get('subject')?.value?.toLowerCase();
@@ -994,6 +1086,10 @@ export class VerifierComponent {
   }
 
   constructor() {
+
+    /**
+     * Main verification request form.
+     */
     this.form = this.fb.group({
       subject: ['', [Validators.required, Validators.pattern(ETHR_DID_REGEX)]],
       verifierDid: ['', [Validators.required, Validators.pattern(ETHR_DID_REGEX)]],
@@ -1003,7 +1099,11 @@ export class VerifierComponent {
       credentials: this.fb.array([])
     }, { validators: this.differentDidValidator() });
 
-    // Wallet → prefill subject + load suggestions
+    /**
+     * When wallet connects:
+     * • Prefill subject DID
+     * • Load claim suggestions
+     */
     this.wallet.address$.subscribe(addr => {
       if (addr) {
         this.form.patchValue({ subject: `did:ethr:${addr}` });
@@ -1011,12 +1111,17 @@ export class VerifierComponent {
       }
     });
 
-    // Contexts
+    /** Load available contexts from ContextService */
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts.set(ctxs.sort());
     });
 
-    // Context changes → sync signal + auto-add first credential row
+    /**
+     * When context changes:
+     * • Normalize value
+     * • Update signal
+     * • Automatically add credential row
+     */
     this.form.get('context')?.valueChanges.subscribe(value => {
       const newValue = value || '';
       this.selectedContext.set(newValue);
@@ -1033,10 +1138,13 @@ export class VerifierComponent {
       this.cdr.detectChanges();
     });
 
-    // Purpose changes → UI refresh
+    /** Trigger UI refresh when purpose changes */
     this.form.get('purpose')?.valueChanges.subscribe(() => this.cdr.detectChanges());
 
-    // Verifier DID changes → load audit
+    /**
+     * When verifier DID changes:
+     * Load disclosure audit trail for that verifier.
+     */
     this.form.get('verifierDid')?.valueChanges.subscribe(did => {
       if (did?.startsWith('did:')) {
         this.loadVerifierAuditTrail();
@@ -1047,6 +1155,9 @@ export class VerifierComponent {
     });
   }
 
+  /**
+   * Connects the verifier's wallet.
+   */
   async connectWallet() {
     this.connecting = true;
     try {
@@ -1058,11 +1169,17 @@ export class VerifierComponent {
     }
   }
 
+  /**
+   * Loads claim suggestions for the connected subject DID.
+   */
   loadSuggestions() {
     const addr = this.wallet.address;
     if (!addr) return;
+
     this.suggestionsLoading.set(true);
+
     const did = `did:ethr:${addr}`;
+
     this.api.getSuggestableClaims(did).subscribe({
       next: (res: any) => {
         this.suggestedClaims.set(res.suggestableClaims || []);
@@ -1077,6 +1194,9 @@ export class VerifierComponent {
     });
   }
 
+  /**
+   * Adds a new credential request row.
+   */
   addCredential() {
     this.credentialsArray.push(
       this.fb.group({
@@ -1087,11 +1207,17 @@ export class VerifierComponent {
     this.cdr.detectChanges();
   }
 
+  /**
+   * Removes a credential entry by index.
+   */
   removeCredential(index: number) {
     this.credentialsArray.removeAt(index);
     this.cdr.detectChanges();
   }
 
+  /**
+   * Automatically fills CID in the latest credential row.
+   */
   autoFillCid(cid: string) {
     if (!cid) return;
 
@@ -1105,7 +1231,12 @@ export class VerifierComponent {
     this.cdr.detectChanges();
   }
 
+  /**
+   * Submits the verification request to backend.
+   * Returns disclosed and denied claims based on user consent rules.
+   */
   async submit() {
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -1130,7 +1261,10 @@ export class VerifierComponent {
     console.log('[VERIFIER] Sending verification payload:', JSON.stringify(payload, null, 2));
 
     try {
-      this.result = await this.api.verifyVC(payload).toPromise();
+      this.result = await firstValueFrom(
+              this.api.verifyVC(payload)
+            );
+
       console.log('[VERIFIER] Success:', this.result);
 
       if (this.result) {
@@ -1148,16 +1282,32 @@ export class VerifierComponent {
           { duration: 10000 }
         );
       }
+
     } catch (err: any) {
+
       console.error('[VERIFIER] Verification failed:', err);
+
       this.error = err.error?.error || err.message || 'Verification failed';
-      this.snackBar.open(this.error || 'Verification failed', 'Close', { duration: 6000, panelClass: ['error-snackbar'] });
+
+      this.snackBar.open(
+        this.error || 'Verification failed',
+        'Close',
+        { duration: 6000, panelClass: ['error-snackbar'] }
+      );
+
     } finally {
+
       this.isSubmitting = false;
+
     }
   }
 
+  /**
+   * Loads disclosure history for a verifier DID.
+   * Used to display audit trail of past verification requests.
+   */
   loadVerifierAuditTrail() {
+
     const verifierDid = this.form.get('verifierDid')?.value?.trim();
     if (!verifierDid) return;
 
@@ -1165,22 +1315,42 @@ export class VerifierComponent {
     this.auditError = null;
 
     this.api.getDisclosuresByVerifier(verifierDid).subscribe({
+
       next: (res: any) => {
+
         this.verifierAudit = res.disclosures || [];
+
         this.auditLoading = false;
+
         if (this.verifierAudit.length === 0) {
-          this.snackBar.open('No disclosure history found for this verifier', 'Close', { duration: 4000 });
+          this.snackBar.open(
+            'No disclosure history found for this verifier',
+            'Close',
+            { duration: 4000 }
+          );
         }
+
         this.cdr.detectChanges();
       },
+
       error: err => {
+
         console.error('Verifier audit error:', err);
+
         this.auditError = 'Failed to load verifier audit trail';
+
         this.auditLoading = false;
+
         this.cdr.detectChanges();
       }
     });
   }
 }
 
+/**
+ * Regular expression validating Ethereum DID format.
+ *
+ * Example:
+ * did:ethr:0x1234567890abcdef1234567890abcdef12345678
+ */
 export const ETHR_DID_REGEX = /^did:ethr:0x[a-fA-F0-9]{40}$/;

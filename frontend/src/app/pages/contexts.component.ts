@@ -576,150 +576,275 @@ styles: [`
 
 `]
 })
+// Angular component responsible for displaying and managing profile contexts.
+// A "context" represents a scoped set of attributes for a user's profile
+// (for example: identity, medical, professional, etc).
+
 export class ContextsComponent implements OnInit {
+
+  // Reactive signal holding the list of available contexts
   contexts = signal<string[]>([]);
+
+  // Currently active context (selected by user)
   currentContext = signal<string>('');
+
+  // Reactive signal used when creating a new context
   newContext = signal<string>('');
 
+  // Non-signal UI binding for selected context in dropdown
   selectedContext: string = '';
+
+  // Raw user input when creating a new context
   newContextInput: string = '';
 
+  // Profile attributes for the current context
   profile = signal<any>(null);
+
+  // Loading indicator for UI state
   loading = signal<boolean>(false);
+
+  // Tracks which attribute key was last copied to clipboard
   copiedKey: string | null = null;
 
+  // Inject theme service to allow UI to respond to dark mode
   private themeService = inject(ThemeService);
+
+  // Expose dark mode signal to template
   darkMode = this.themeService.darkMode;
 
+  // Inject API service for backend communication
   private api = inject(ApiService);
+
+  // Inject wallet service to access connected wallet address
   private wallet = inject(WalletService);
+
+  // Inject context management service
   private contextService = inject(ContextService);
+
+  // Angular Material snackbar service for notifications
   private snackBar = inject(MatSnackBar);
 
-  private readonly strictContexts = ['identity', 'medical', 'professional', 'profile', 'compliance'];
+  // List of built-in contexts that cannot be treated as custom
+  private readonly strictContexts = [
+    'identity',
+    'medical',
+    'professional',
+    'profile',
+    'compliance'
+  ];
 
   constructor() {
+
+    // Reactive effect that keeps the non-signal UI variable
+    // `selectedContext` synchronized with the signal `currentContext`.
     effect(() => {
       const ctx = this.currentContext();
+
       if (ctx !== this.selectedContext) {
         this.selectedContext = ctx;
       }
     });
   }
 
+  // ────────────────────────────────────────────────
+  // Angular lifecycle hook: component initialization
+  // ────────────────────────────────────────────────
   ngOnInit() {
+
+    // Subscribe to context updates from ContextService
     this.contextService.contexts$.subscribe(ctxs => {
+
+      // Sort contexts alphabetically for consistent display
       this.contexts.set(ctxs.sort());
     });
 
+    // Initialize selected context from signal
     this.selectedContext = this.currentContext();
 
+    // If a context is already selected, load its data
     if (this.currentContext()) {
       this.loadContext();
     }
   }
 
+  // ────────────────────────────────────────────────
+  // Called when user selects a different context
+  // ────────────────────────────────────────────────
   onContextChange(newValue: string) {
+
+    // Update signal
     this.currentContext.set(newValue);
+
+    // Reload profile attributes for new context
     this.loadContext();
   }
 
+  // ────────────────────────────────────────────────
+  // Determines if current context is a custom one
+  // (not part of predefined strict contexts)
+  // ────────────────────────────────────────────────
   isCustomContext(): boolean {
+
     return !!this.currentContext() &&
-      !this.strictContexts.includes(this.currentContext().toLowerCase());
+      !this.strictContexts.includes(
+        this.currentContext().toLowerCase()
+      );
   }
 
   /**
-   * 🔐 Sanitization helper — protects against SQL keywords, control chars, etc.
+   * Sanitization helper
+   * Protects against SQL injection attempts and unsafe characters.
+   *
+   * This function:
+   * 1. Normalizes input
+   * 2. Removes common SQL keywords
+   * 3. Removes control characters and quotes
+   * 4. Cleans duplicate hyphens
    */
   private sanitizeContextInput(input: string): string {
+
+    // Normalize input
     let out = input.trim().toLowerCase();
 
-    // Remove dangerous tokens seen in SQL injection attempts
+    // SQL injection keyword blacklist
     const blacklist = [
       'select', 'insert', 'update', 'delete', 'drop', 'alter', 'truncate',
       'create', 'replace', 'where', 'from', 'union', 'into', 'values'
     ];
+
+    // Remove each blacklisted keyword
     blacklist.forEach(keyword => {
       out = out.replace(new RegExp(keyword, 'gi'), '');
     });
 
-    // Remove SQL comment/quote/control chars
+    // Remove quotes, percent signs, semicolons, brackets, etc.
     out = out.replace(/['"%;()<>]/g, '');
+
+    // Remove SQL comment markers
     out = out.replace(/(--|\/*|\*\/)/g, '');
 
-    // Strip duplicate hyphens
+    // Remove repeated hyphens
     out = out.replace(/-{2,}/g, '-');
 
     return out;
   }
 
+  // ────────────────────────────────────────────────
+  // Add a new custom context
+  // ────────────────────────────────────────────────
   addContext() {
+
+    // Get raw input from UI
     const raw = this.newContextInput;
+
+    // Prevent empty input
     if (!raw || !raw.trim()) {
       return;
     }
 
-    // 🔐 normalize & sanitize
+    // Sanitize and normalize the context name
     const sanitized = this.sanitizeContextInput(raw);
 
-    // Apply final allowed-shape restriction
+    // Enforce strict naming rule
     if (!/^[a-z0-9-]+$/.test(sanitized)) {
+
       this.snackBar.open(
         'Context must contain only lowercase letters, numbers, and hyphens.',
         'Close',
         { duration: 5000 }
       );
+
       return;
     }
 
-    // Prevent trivial/empty or hyphen-only names
+    // Prevent contexts made entirely of hyphens
     if (!sanitized.replace(/-/g, '').length) {
-      this.snackBar.open('Context name cannot be only hyphens.', 'Close', { duration: 4000 });
+
+      this.snackBar.open(
+        'Context name cannot be only hyphens.',
+        'Close',
+        { duration: 4000 }
+      );
+
       return;
     }
 
+    // Prevent duplicate contexts
     if (this.contexts().includes(sanitized)) {
-      this.snackBar.open('Context already exists', 'Close', { duration: 3000 });
+
+      this.snackBar.open(
+        'Context already exists',
+        'Close',
+        { duration: 3000 }
+      );
+
       return;
     }
 
-    // Preserve existing behavior
+    // Add context through ContextService
     this.contextService.addContext(sanitized);
+
+    // Switch to the new context
     this.currentContext.set(sanitized);
+
+    // Reset input fields
     this.newContext.set('');
     this.newContextInput = '';
 
+    // Notify user
     this.snackBar.open(
-    `Custom context "${sanitized}" created.`,
-    'Close',
-    { duration: 5000 }
-  );
+      `Custom context "${sanitized}" created.`,
+      'Close',
+      { duration: 5000 }
+    );
 
-
+    // Load attributes for the new context
     this.loadContext();
   }
 
+  // ────────────────────────────────────────────────
+  // Load profile attributes for current context
+  // ────────────────────────────────────────────────
   loadContext() {
+
+    // Get connected wallet address
     const address = this.wallet.address;
+
+    // If no wallet or context selected, clear state
     if (!address || !this.currentContext()) {
+
       this.profile.set(null);
       this.loading.set(false);
       return;
     }
 
+    // Start loading state
     this.loading.set(true);
+
+    // Clear previous profile
     this.profile.set(null);
 
+    // Request context attributes from backend
     this.api.getProfile(address, this.currentContext()).subscribe({
+
       next: (res: any) => {
+
+        // Save returned attributes
         this.profile.set(res.attributes || {});
+
         this.loading.set(false);
       },
+
       error: (err) => {
+
         console.error('Failed to load context:', err);
+
+        // Reset profile data
         this.profile.set(null);
+
         this.loading.set(false);
+
+        // Show user-friendly error
         this.snackBar.open(
           'Failed to load context attributes. Please try again.',
           'Close',
@@ -729,27 +854,62 @@ export class ContextsComponent implements OnInit {
     });
   }
 
+  // ────────────────────────────────────────────────
+  // Return list of attribute keys in current profile
+  // ────────────────────────────────────────────────
   attributeKeys(): string[] {
+
     const prof = this.profile();
+
     return prof ? Object.keys(prof) : [];
   }
 
+  // ────────────────────────────────────────────────
+  // Check whether profile has attributes
+  // ────────────────────────────────────────────────
   hasAttributes(): boolean {
+
     const prof = this.profile();
+
     return !!prof && Object.keys(prof).length > 0;
   }
 
+  // ────────────────────────────────────────────────
+  // Utility function to detect if value is an object
+  // (used to decide whether to display JSON)
+  // ────────────────────────────────────────────────
   isObject(value: any) {
-    return value && typeof value === 'object' && !Array.isArray(value);
+
+    return value &&
+      typeof value === 'object' &&
+      !Array.isArray(value);
   }
 
+  // ────────────────────────────────────────────────
+  // Copy attribute value to clipboard
+  // ────────────────────────────────────────────────
   copyToClipboard(value: any, key: string) {
-    const text = typeof value === 'object' && value !== null
-      ? JSON.stringify(value, null, 2)
-      : String(value);
+
+    // Convert object values to formatted JSON
+    const text =
+      typeof value === 'object' && value !== null
+        ? JSON.stringify(value, null, 2)
+        : String(value);
+
+    // Write to clipboard
     navigator.clipboard.writeText(text);
+
+    // Store copied key to highlight in UI
     this.copiedKey = key;
+
+    // Clear highlight after short delay
     setTimeout(() => (this.copiedKey = null), 1500);
-    this.snackBar.open('Copied to clipboard', 'Close', { duration: 2000 });
+
+    // Notify user
+    this.snackBar.open(
+      'Copied to clipboard',
+      'Close',
+      { duration: 2000 }
+    );
   }
 }

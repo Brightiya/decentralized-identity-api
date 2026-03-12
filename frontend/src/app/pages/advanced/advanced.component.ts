@@ -696,100 +696,250 @@ styles: [`
 
 `]
 })
-export class AdvancedComponent {  // ← renamed class to match typical naming
+/**
+ * AdvancedComponent
+ *
+ * Developer / power-user tools for interacting directly with the DID
+ * and Verifiable Credential infrastructure.
+ *
+ * Provides two utilities:
+ * • DID Resolution — resolve a DID document
+ * • VC Verification — validate a raw Verifiable Credential JSON
+ *
+ * This component is mainly intended for debugging, demos,
+ * and advanced inspection of identity artifacts.
+ */
+export class AdvancedComponent { 
+
+  /** DID string entered by the user for resolution */
   did = '';
+
+  /** Raw JSON payload pasted by the user for VC verification */
   verifyPayload = '';
+
+  /** Result returned by backend APIs (resolution or verification) */
   result: any = null;
+
+  /**
+   * Optional CID used when verifying credentials.
+   * Allows backend to retrieve credential content from IPFS if needed.
+   */
   cid = '';
 
+  /** Indicates DID resolution request is currently running */
   resolving = false;
+
+  /** Indicates VC verification request is currently running */
   verifying = false;
+
+  /**
+   * Tracks which tool is currently active.
+   * Used to determine how to display the result.
+   */
   currentTool: 'resolve' | 'verify' | null = null;
 
   // Wallet connection state
+
+  /** Indicates wallet connection attempt is in progress */
   connecting = false;
+
+  /** Wallet service used to connect MetaMask and access user address */
   wallet = inject(WalletService);
 
+  /** Theme service used to expose dark mode state */
   private themeService = inject(ThemeService);
+
+  /** Dark mode signal exposed to template */
   darkMode = this.themeService.darkMode;   // readonly signal
 
+  /**
+   * Constructor
+   *
+   * Injects ApiService used to interact with backend
+   * for DID resolution and VC verification.
+   */
   constructor(private api: ApiService) {}
 
+  /**
+   * Connects the user's wallet.
+   *
+   * Required when performing operations that rely
+   * on the connected identity or wallet context.
+   */
   async connectWallet() {
+
     this.connecting = true;
+
     try {
+
       await this.wallet.connect();
+
     } catch (e: any) {
+
       alert(e.message || 'Wallet connection failed');
+
     } finally {
+
       this.connecting = false;
+
     }
   }
 
+  /**
+   * Resolves a DID document.
+   *
+   * Steps:
+   * 1. Validate that a DID was entered
+   * 2. Call backend DID resolver
+   * 3. Display returned DID document or error
+   */
   resolve() {
+
     if (!this.did.trim()) {
+
       alert('Please enter a valid DID');
+
       return;
     }
 
+    /** Set loading state and reset previous result */
     this.resolving = true;
     this.result = null;
     this.currentTool = 'resolve';
 
+    /**
+     * Call backend DID resolution API.
+     * Backend typically resolves the DID using
+     * Ethereum or another supported DID method.
+     */
     this.api.resolveDID(this.did.trim()).subscribe({
+
       next: (r) => {
+
         this.result = r;
+
         this.resolving = false;
       },
+
       error: (e) => {
-        this.result = e.error || { error: 'Resolution failed', details: e.message || e };
+
+        /** Display backend error or fallback message */
+        this.result = e.error || {
+          error: 'Resolution failed',
+          details: e.message || e
+        };
+
         this.resolving = false;
       }
+
     });
   }
 
+  /**
+   * Verifies a raw Verifiable Credential.
+   *
+   * Steps:
+   * 1. Validate JSON input
+   * 2. Optionally attach CID
+   * 3. Send payload to backend validator
+   * 4. Display verification result
+   */
   verify() {
+
     if (!this.verifyPayload.trim()) {
+
       alert('Please paste a valid VC JSON');
+
       return;
     }
 
     let payload: any;
+
+    /**
+     * Parse JSON payload pasted by user.
+     */
     try {
+
       payload = JSON.parse(this.verifyPayload);
+
     } catch {
+
       alert('Invalid JSON format');
+
       return;
     }
 
+    /**
+     * If a CID was provided, attach it to payload.
+     * This allows backend to fetch the credential
+     * from IPFS if necessary.
+     */
     if (this.cid.trim()) {
+
       payload.cid = this.cid.trim();
+
     }
 
+    /** Set verification state */
     this.verifying = true;
     this.result = null;
     this.currentTool = 'verify';
 
+    /**
+     * Send payload to backend VC validation endpoint.
+     */
     this.api.validateRawVC(payload).subscribe({
+
       next: (r) => {
+
         this.result = r;
+
         this.verifying = false;
-        // Optional: log if url missing
+
+        /**
+         * Optional fallback:
+         * If backend did not return a credential URL,
+         * build a default IPFS gateway URL from signedCid.
+         */
         if (!r.url && !r.gatewayUrl) {
-          console.warn('Backend did not return VC URL — using signedCid fallback');
-          this.result.url = r.signedCid ? `https://gateway.pinata.cloud/ipfs/${r.signedCid}` : null;
+
+          console.warn(
+            'Backend did not return VC URL — using signedCid fallback'
+          );
+
+          this.result.url = r.signedCid
+            ? `https://gateway.pinata.cloud/ipfs/${r.signedCid}`
+            : null;
         }
       },
+
       error: (e) => {
-        this.result = e.error || { error: 'Validation failed', details: e.message };
+
+        /** Display backend validation error */
+        this.result = e.error || {
+          error: 'Validation failed',
+          details: e.message
+        };
+
         this.verifying = false;
       }
+
     });
   }
 
+  /**
+   * Helper method used by template to determine
+   * if the returned result represents a successful operation.
+   */
   isSuccessResult(): boolean {
+
     return this.result && !this.result.error;
+
   }
 }
 
+/**
+ * Default export allows this component
+ * to be imported easily in lazy-loaded routes.
+ */
 export default AdvancedComponent;

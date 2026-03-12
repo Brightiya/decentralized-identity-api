@@ -792,237 +792,438 @@ import { IntroOverlayComponent } from './intro-overlay.component';
   `]
 })
 
+/**
+ * LoginComponent
+ *
+ * Handles the authentication flow for the application.
+ * Responsibilities include:
+ * - Connecting the user's wallet
+ * - Initializing encrypted storage tied to the wallet signature
+ * - Allowing the user to choose a login role (USER, ADMIN, VERIFIER)
+ * - Signing authentication messages
+ * - Redirecting users to the correct dashboard after login
+ * - Handling optional custom Hardhat RPC configuration
+ * - Displaying onboarding intro overlay for first-time visitors
+ * - Generating a QR code for desktop users to open the app on mobile
+ */
 export class LoginComponent {
-  auth = inject(AuthService);
-  wallet = inject(WalletService);
-  storage = inject(StorageService);
-  private cdr = inject(ChangeDetectorRef);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
-  private snackBar = inject(MatSnackBar);
-  private platformId = inject(PLATFORM_ID); // ← NEW: for platform checks
 
+  /** Authentication service responsible for login/session management */
+  auth = inject(AuthService);
+
+  /** Wallet service handling Web3 wallet connection and signer */
+  wallet = inject(WalletService);
+
+  /** Storage service used for encrypted IndexedDB/local storage */
+  storage = inject(StorageService);
+
+  /** Angular change detector for manual UI refresh when needed */
+  private cdr = inject(ChangeDetectorRef);
+
+  /** Angular router used to navigate after login */
+  private router = inject(Router);
+
+  /** Access to route parameters (used for returnUrl redirects) */
+  private route = inject(ActivatedRoute);
+
+  /** Snackbar for displaying UI notifications */
+  private snackBar = inject(MatSnackBar);
+
+  /**
+   * PLATFORM_ID allows Angular Universal to detect
+   * whether code runs on the browser or server (SSR).
+   */
+  private platformId = inject(PLATFORM_ID);
+
+  /** UI signal indicating wallet connection is in progress */
   connecting = signal(false);
+
+  /** UI signal indicating authentication signing is in progress */
   signing = signal(false);
+
+  /** Stores error messages displayed to the user */
   error = signal<string | null>(null);
 
+  /** Currently selected login role */
   selectedRole = signal<AppRole | null>(null);
+
+  /** Custom RPC URL entered by user for Hardhat */
   customRpcUrl = signal<string>('');
 
+  /** Generated QR code image URL for mobile access */
   qrCodeUrl = signal<string>('');
 
+  /** Theme service providing dark mode signal */
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
 
+  /** Angular Material dialog service (used for intro overlay) */
   private dialog = inject(MatDialog);
 
+  /**
+   * Role descriptions displayed in the UI to help the user
+   * understand the differences between login modes.
+   */
   roleDescription: Record<AppRole, string> = {
     USER: 'Access your personal identity vault, create secured profiles and manage credentials.',
     ADMIN: 'Access advanced identity tools and administrative features.',
     VERIFIER: 'Access verifier dashboards and credential verification tools.'
   };
 
+  /**
+   * Constructor
+   *
+   * If the user is already authenticated (e.g., returning session),
+   * immediately redirect them to their role-specific dashboard.
+   */
   constructor() {
     if (this.auth.isAuthenticated()) {
       this.redirectByRole(this.auth.role());
     }
   }
 
+  /**
+   * Angular lifecycle hook
+   *
+   * Performs browser-only initialization:
+   * - Shows onboarding intro for first-time users
+   * - Loads saved custom RPC URL
+   * - Generates QR code for desktop users
+   */
   async ngOnInit() {
-    // Only run browser-specific code (IndexedDB) in browser
-    if (isPlatformBrowser(this.platformId)) {
-        const seen = localStorage.getItem('pimv_intro_seen');
 
-        if (!seen) {
+    // Only run browser-specific logic when running in the browser
+    if (isPlatformBrowser(this.platformId)) {
+
+      /** Check if the intro overlay was already shown */
+      const seen = localStorage.getItem('pimv_intro_seen');
+
+      if (!seen) {
+        /**
+         * Delay slightly so the UI loads first,
+         * then show the onboarding video overlay.
+         */
         setTimeout(() => {
           this.openIntroOverlay();
           localStorage.setItem('pimv_intro_seen', 'true');
         }, 600);
-       }
+      }
+
+      /**
+       * Attempt to load previously saved custom Hardhat RPC URL
+       * from encrypted storage.
+       */
       try {
         const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
+
         if (savedRpc) {
           this.customRpcUrl.set(savedRpc);
           this.wallet.setCustomRpc(savedRpc);
         }
+
       } catch (err) {
         console.warn('Failed to load custom RPC (browser-only):', err);
       }
     }
 
-    // Generate QR code only on browser (desktop)
-  if (isPlatformBrowser(this.platformId) && !this.isMobile()) {
-    try {
-      const url = await QRCode.toDataURL(window.location.href, {
-        width: 180,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      });
-      this.qrCodeUrl.set(url);
-      console.log('QR code generated successfully');
-    } catch (err) {
-      console.error('Failed to generate QR code:', err);
-      // Optional: fallback message
-      this.qrCodeUrl.set(''); // or a placeholder image/data URL
+    /**
+     * Generate QR code for desktop users so they can easily
+     * open the app on their mobile device.
+     */
+    if (isPlatformBrowser(this.platformId) && !this.isMobile()) {
+
+      try {
+        const url = await QRCode.toDataURL(window.location.href, {
+          width: 180,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
+        });
+
+        this.qrCodeUrl.set(url);
+        console.log('QR code generated successfully');
+
+      } catch (err) {
+        console.error('Failed to generate QR code:', err);
+
+        /** Optional fallback if QR generation fails */
+        this.qrCodeUrl.set('');
+      }
     }
   }
+
+  /**
+   * Detects whether the current device is likely mobile.
+   *
+   * Uses:
+   * - User agent detection
+   * - Screen width fallback
+   */
+  isMobile() {
+    if (!isPlatformBrowser(this.platformId)) return false;
+
+    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth <= 768;
   }
 
-  isMobile() {
-  if (!isPlatformBrowser(this.platformId)) return false;
-  return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-         window.innerWidth <= 768;
-}
-
-  // Save custom Hardhat RPC (browser-only)
+  /**
+   * Saves a custom Hardhat RPC URL provided by the user.
+   *
+   * Behavior:
+   * - Validates protocol
+   * - Stores it in encrypted storage
+   * - Applies it to the wallet service
+   *
+   * If empty → reverts to default Hardhat RPC.
+   */
   async saveCustomRpc() {
+
     if (!isPlatformBrowser(this.platformId)) return;
 
     let url = this.customRpcUrl().trim();
 
     if (url) {
+
+      /** Basic validation */
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         this.snackBar.open('RPC URL must start with http:// or https://', 'Close', { duration: 5000 });
         return;
       }
 
       try {
+
         await this.storage.setItem('custom_hardhat_rpc', url);
         this.wallet.setCustomRpc(url);
-        this.snackBar.open('Custom Hardhat RPC saved — will be used on next connect', 'Close', { duration: 5000 });
+
+        this.snackBar.open(
+          'Custom Hardhat RPC saved — will be used on next connect',
+          'Close',
+          { duration: 5000 }
+        );
+
       } catch (err) {
+
         this.snackBar.open('Failed to save RPC URL', 'Close', { duration: 5000 });
+
       }
+
     } else {
+
+      /** Clear custom RPC and revert to default */
+
       try {
         await this.storage.removeItem('custom_hardhat_rpc');
         this.wallet.setCustomRpc('http://127.0.0.1:8545');
+
         this.snackBar.open('Reverted to default Hardhat RPC', 'Close', { duration: 4000 });
+
       } catch (err) {
         console.warn('Failed to clear custom RPC:', err);
       }
     }
   }
 
+  /**
+   * Connects the user's wallet.
+   *
+   * Flow:
+   * 1. Apply saved RPC configuration
+   * 2. Connect wallet
+   * 3. Wait for address
+   * 4. Initialize encrypted storage
+   */
   async connectWallet() {
-  this.connecting.set(true);
-  this.error.set(null);
 
-  try {
-    // Apply custom RPC first (if set)
-    if (isPlatformBrowser(this.platformId)) {
-      const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
-      if (savedRpc) {
-        this.wallet.setCustomRpc(savedRpc);
-      } else {
-        this.wallet.setCustomRpc('http://127.0.0.1:8545');
+    this.connecting.set(true);
+    this.error.set(null);
+
+    try {
+
+      /** Apply saved RPC configuration */
+
+      if (isPlatformBrowser(this.platformId)) {
+
+        const savedRpc = await this.storage.getItem('custom_hardhat_rpc');
+
+        if (savedRpc) {
+          this.wallet.setCustomRpc(savedRpc);
+        } else {
+          this.wallet.setCustomRpc('http://127.0.0.1:8545');
+        }
       }
-    }
 
-    // Connect wallet
-    await this.wallet.connect();
-    this.cdr.detectChanges();
+      /** Connect wallet */
+      await this.wallet.connect();
+      this.cdr.detectChanges();
 
-    // Wait for address to be available (reliable way using observable)
-    const address = await firstValueFrom(this.wallet.address$);
-    if (!address) {
-      throw new Error('Wallet connected but no address received');
-    }
+      /**
+       * Wait until wallet address is emitted
+       * (observable ensures reliable retrieval)
+       */
+      const address = await firstValueFrom(this.wallet.address$);
 
-    console.log('Wallet connected with address:', address);
-
-    // Now safe to init encryption
-    if (isPlatformBrowser(this.platformId)) {
-      const success = await this.storage.initEncryption();
-      if (success) {
-        this.snackBar.open('Wallet connected & secure storage ready!', 'Close', { duration: 4000 });
-      } else {
-        this.snackBar.open(
-          'Secure storage failed (signature issue). You can try again later.',
-          'Close',
-          { duration: 8000, panelClass: ['warn-snackbar'] }
-        );
+      if (!address) {
+        throw new Error('Wallet connected but no address received');
       }
-    }
 
-    // Reset role on new connection
-    this.selectedRole.set(null);
-  } catch (err: any) {
-    console.error('Wallet connect failed:', err);
-    this.error.set(err.message || 'Failed to connect wallet');
-    this.snackBar.open(err.message || 'Wallet connection failed', 'Close', { duration: 5000 });
-  } finally {
-    this.connecting.set(false);
+      console.log('Wallet connected with address:', address);
+
+      /**
+       * Initialize encrypted storage
+       * (requires wallet signature)
+       */
+      if (isPlatformBrowser(this.platformId)) {
+
+        const success = await this.storage.initEncryption();
+
+        if (success) {
+
+          this.snackBar.open(
+            'Wallet connected & secure storage ready!',
+            'Close',
+            { duration: 4000 }
+          );
+
+        } else {
+
+          this.snackBar.open(
+            'Secure storage failed (signature issue). You can try again later.',
+            'Close',
+            { duration: 8000, panelClass: ['warn-snackbar'] }
+          );
+        }
+      }
+
+      /** Reset role selection after wallet reconnect */
+      this.selectedRole.set(null);
+
+    } catch (err: any) {
+
+      console.error('Wallet connect failed:', err);
+
+      this.error.set(err.message || 'Failed to connect wallet');
+
+      this.snackBar.open(
+        err.message || 'Wallet connection failed',
+        'Close',
+        { duration: 5000 }
+      );
+
+    } finally {
+
+      this.connecting.set(false);
+    }
   }
-}
 
+  /**
+   * Performs the authentication signature flow.
+   *
+   * Steps:
+   * 1. Ensure a role is selected
+   * 2. Ensure wallet is connected
+   * 3. Use AuthService to perform login signature
+   * 4. Redirect user to role-specific dashboard
+   */
   async signIn() {
-  const role = this.selectedRole();
 
-  if (!role) {
-    this.error.set('Please select a login mode.');
-    return;
-  }
+    const role = this.selectedRole();
 
-  this.signing.set(true);
-  this.error.set(null);
-
-  try {
-    // Step 1: Ensure wallet is connected at all
-    const address = await firstValueFrom(this.wallet.address$);
-
-    if (!address) {
-      throw new Error('Wallet not connected - please connect first');
+    if (!role) {
+      this.error.set('Please select a login mode.');
+      return;
     }
-    // Step 2: Wait for signer with progressive retries + longer total time
-    if (!this.wallet.signer) {
-  throw new Error('Wallet not connected');
-}
 
+    this.signing.set(true);
+    this.error.set(null);
 
-    // Step 3: Now safe to sign (MetaMask will pop up)
-    await this.auth.login(role);
+    try {
 
-    this.redirectByRole(role);
-  } catch (err: any) {
-    console.error('Sign-in failed:', err);
-    this.error.set(err.message || 'Authentication failed');
-    this.snackBar.open(
-      err.message || 'Sign-in failed - logout, reconnect wallet and try again',
-      'Close',
-      { duration: 9000 }
-    );
-  } finally {
-    this.signing.set(false);
+      /** Ensure wallet address exists */
+
+      const address = await firstValueFrom(this.wallet.address$);
+
+      if (!address) {
+        throw new Error('Wallet not connected - please connect first');
+      }
+
+      /** Ensure signer exists */
+
+      if (!this.wallet.signer) {
+        throw new Error('Wallet not connected');
+      }
+
+      /** Trigger authentication signature */
+
+      await this.auth.login(role);
+
+      /** Redirect user after successful authentication */
+
+      this.redirectByRole(role);
+
+    } catch (err: any) {
+
+      console.error('Sign-in failed:', err);
+
+      this.error.set(err.message || 'Authentication failed');
+
+      this.snackBar.open(
+        err.message || 'Sign-in failed - logout, reconnect wallet and try again',
+        'Close',
+        { duration: 9000 }
+      );
+
+    } finally {
+
+      this.signing.set(false);
+    }
   }
-}
 
+  /**
+   * Redirects users to the correct area depending on role.
+   *
+   * Also supports a validated returnUrl parameter.
+   */
   private redirectByRole(role: AppRole) {
+
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
 
+    /** If returnUrl exists and is allowed for this role → redirect there */
     if (returnUrl && this.isReturnUrlAllowed(role, returnUrl)) {
       this.router.navigateByUrl(returnUrl);
       return;
     }
 
+    /** Otherwise go to role-specific default route */
+
     switch (role) {
+
       case 'ADMIN':
         this.router.navigateByUrl('/advanced');
         break;
+
       case 'VERIFIER':
         this.router.navigateByUrl('/verifier');
         break;
+
       default:
         this.router.navigateByUrl('/vault');
     }
   }
 
+  /**
+   * Security helper to prevent open redirect attacks.
+   *
+   * Ensures returnUrl only points to routes
+   * allowed for the selected role.
+   */
   private isReturnUrlAllowed(role: AppRole, url: string): boolean {
+
     if (role === 'ADMIN') return url.startsWith('/advanced');
+
     if (role === 'VERIFIER') return url.startsWith('/verifier');
+
     return (
       url.startsWith('/vault') ||
       url.startsWith('/credentials') ||
@@ -1033,24 +1234,37 @@ export class LoginComponent {
     );
   }
 
-  // NEW: Method to fix the template binding error
+  /**
+   * Called when the user selects a login role in the UI.
+   */
   selectRole(role: AppRole) {
+
     this.selectedRole.set(role);
     this.error.set(null);
   }
 
+  /**
+   * Opens the onboarding video overlay.
+   *
+   * Displayed the first time a user visits the login page.
+   */
   openIntroOverlay() {
-  this.dialog.open(IntroOverlayComponent, {
-    width: '100vw',
-    height: '100vh',
-    maxWidth: '100vw',
-    maxHeight: '100vh',
-    panelClass: 'intro-overlay-dialog',
-    backdropClass: 'intro-overlay-backdrop',
-    data: {
-      videoId: 'SmQF41i6MIc'
-    },
-    disableClose: false
-  });
-}
+
+    this.dialog.open(IntroOverlayComponent, {
+
+      width: '100vw',
+      height: '100vh',
+      maxWidth: '100vw',
+      maxHeight: '100vh',
+
+      panelClass: 'intro-overlay-dialog',
+      backdropClass: 'intro-overlay-backdrop',
+
+      data: {
+        videoId: 'SmQF41i6MIc'
+      },
+
+      disableClose: false
+    });
+  }
 }

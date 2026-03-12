@@ -22,6 +22,7 @@ import { ApiService } from '../services/api.service';
 import { ThemeService } from '../services/theme.service';
 import { MatOptionModule } from '@angular/material/core';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { firstValueFrom } from 'rxjs';
 
 
 @Component({
@@ -845,132 +846,212 @@ styles: [`
 
 `]
 })
+// Angular component responsible for managing attribute consent.
+// Users can select profile attributes, specify a purpose,
+// and grant or revoke consent for third-party usage.
+
 export class ConsentComponent implements OnInit {
+
+  // Wallet address of the connected user
   walletAddress = signal<string | null>(null);
+
+  // Indicates wallet connection is in progress
   connecting = signal(false);
+
+  // General loading indicator for consent operations
   loading = signal(false);
+
+  // Loading flag when attributes for a context are being fetched
   loadingAttributes = signal(false);
+
+  // Loading flag when active consents are being retrieved
   loadingConsents = signal(false);
+
+  // Tracks whether the wallet address was copied to clipboard
   copied = signal(false);
 
+  // List of available profile contexts (identity, medical, etc.)
   contexts = signal<string[]>([]);
+
+  // Attributes available inside the selected context
   attributes = signal<string[]>([]);
+
+  // Currently selected context
   selectedContext = signal<string>('');
+
+  // Suggested claims retrieved from backend
+  // These help recommend claims/purposes to the user
   suggestedClaims = signal<any[]>([]);
+
+  // Indicates suggestions are being loaded
   suggestionsLoading = signal(false);
 
+  // Free-text purpose entered by the user
   purposeValue = '';
 
+  // Attributes the user selected for consent
   selectedAttributes = signal<string[]>([]);
+
+  // Whether the user explicitly confirmed consent
   explicitConsent = signal<boolean>(false);
+
+  // List of active consents already granted
   activeConsents = signal<any[]>([]);
+
+  // Result object returned by some operations
   result = signal<any>(null);
+
+  // Mapping of attribute → claimIds that cover it
+  // Example: email → [claim1, claim2]
   claimIdsCoveringAttr = signal<Record<string, string[]>>({});
-  
+
+  // ────────────────────────────────────────────────
+  // COMPUTED: Filtered list of suggested claims
+  // ────────────────────────────────────────────────
   filteredSuggestedPurposes = computed(() => {
-  const search = this.purposeValue?.toLowerCase().trim() || '';
-  const currentContext = this.selectedContext()?.toLowerCase() || '';
-  const selectedAttrs = this.selectedAttributes().map(a => a.toLowerCase());
 
-  let claims = [...this.suggestedClaims()];
+    // Normalize search input
+    const search = this.purposeValue?.toLowerCase().trim() || '';
 
-  // 1. Must match selected context (if any)
-  if (currentContext) {
-    claims = claims.filter(
-      claim => (claim.context || '').toLowerCase() === currentContext
-    );
+    // Normalize selected context
+    const currentContext = this.selectedContext()?.toLowerCase() || '';
+
+    // Normalize selected attributes
+    const selectedAttrs = this.selectedAttributes().map(a => a.toLowerCase());
+
+    // Copy suggestions so we can safely filter
+    let claims = [...this.suggestedClaims()];
+
+    // 1️⃣ Filter by context
+    if (currentContext) {
+      claims = claims.filter(
+        claim => (claim.context || '').toLowerCase() === currentContext
+      );
+    }
+
+    // 2️⃣ Filter by selected attributes
+    if (selectedAttrs.length > 0) {
+      claims = claims.filter(claim => {
+        const claimAttrs = (claim.attributes || []).map((a: string) => a.toLowerCase());
+        return selectedAttrs.some(sel => claimAttrs.includes(sel));
+      });
+    }
+
+    // 3️⃣ Filter by purpose search text
+    if (search) {
+      claims = claims.filter(claim =>
+        (claim.purpose || '').toLowerCase().includes(search)
+      );
+    }
+
+    // 4️⃣ Sort suggestions by how well they match selected attributes
+    if (selectedAttrs.length > 0) {
+      claims.sort((a, b) => {
+
+        const aAttrs = new Set((a.attributes || []).map((x: string) => x.toLowerCase()));
+        const bAttrs = new Set((b.attributes || []).map((x: string) => x.toLowerCase()));
+
+        const aMatchCount = selectedAttrs.filter(sel => aAttrs.has(sel)).length;
+        const bMatchCount = selectedAttrs.filter(sel => bAttrs.has(sel)).length;
+
+        // Higher match count first
+        return bMatchCount - aMatchCount;
+      });
+    }
+
+    return claims;
+  });
+
+  // ────────────────────────────────────────────────
+  // Calculate percentage match for suggested claim
+  // (Used to display how relevant a suggestion is)
+  // ────────────────────────────────────────────────
+  getMatchPercentage(claim: any): number {
+
+    if (!this.selectedAttributes().length) return 100;
+
+    const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
+    const claimAttrs = new Set((claim.attributes || []).map((a: string) => a.toLowerCase()));
+
+    let matches = 0;
+
+    for (const attr of selected) {
+      if (claimAttrs.has(attr)) matches++;
+    }
+
+    return Math.round((matches / selected.size) * 100);
   }
 
-  // 2. If user has selected attributes → only show claims that cover at least one of them
-  if (selectedAttrs.length > 0) {
-    claims = claims.filter(claim => {
-      const claimAttrs = (claim.attributes || []).map((a: string) => a.toLowerCase());
-      return selectedAttrs.some(sel => claimAttrs.includes(sel));
-    });
+  // ────────────────────────────────────────────────
+  // Returns list of matching attribute names
+  // Used to show which attributes a claim covers
+  // ────────────────────────────────────────────────
+  getMatchingAttributes(claim: any): string[] {
+
+    if (!this.selectedAttributes().length)
+      return claim.attributes || [];
+
+    const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
+
+    return (claim.attributes || [])
+      .filter((a: string) => selected.has(a.toLowerCase()))
+      .map((a: string) => a);
   }
 
-  // 3. If user typed something → filter by purpose text
-  if (search) {
-    claims = claims.filter(claim =>
-      (claim.purpose || '').toLowerCase().includes(search)
-    );
+  // ────────────────────────────────────────────────
+  // Converts a timestamp to relative time text
+  // Example: "2h ago", "3d ago", "Older"
+  // ────────────────────────────────────────────────
+  getRelativeTime(dateStr: string | null): string {
+
+    if (!dateStr) return 'recent';
+
+    const date = new Date(dateStr);
+    const now = new Date();
+
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 1) {
+
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+
+      if (diffHours < 1) return 'just now';
+
+      return `${diffHours}h ago`;
+    }
+
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+
+    return 'Older';
   }
 
-  // Optional: sort by how many selected attributes are covered (best match first)
-  if (selectedAttrs.length > 0) {
-    claims.sort((a, b) => {
-      const aAttrs = new Set((a.attributes || []).map((x: string) => x.toLowerCase()));
-      const bAttrs = new Set((b.attributes || []).map((x: string) => x.toLowerCase()));
+  // ────────────────────────────────────────────────
+  // Determines if a claim is the most recent one
+  // within the filtered suggestions
+  // ────────────────────────────────────────────────
+  isLatest(claim: any): boolean {
 
-      const aMatchCount = selectedAttrs.filter(sel => aAttrs.has(sel)).length;
-      const bMatchCount = selectedAttrs.filter(sel => bAttrs.has(sel)).length;
+    if (!claim.issued_at) return false;
 
-      return bMatchCount - aMatchCount; // descending = better matches first
-    });
+    const filtered = this.filteredSuggestedPurposes();
+
+    const allTimestamps = filtered
+      .filter(c => c.issued_at)
+      .map(c => new Date(c.issued_at).getTime());
+
+    if (allTimestamps.length === 0) return false;
+
+    const maxTime = Math.max(...allTimestamps);
+
+    return new Date(claim.issued_at).getTime() === maxTime;
   }
 
-  return claims;
-});
-
-// Helper to calculate how many selected attributes this claim covers
-getMatchPercentage(claim: any): number {
-  if (!this.selectedAttributes().length) return 100;
-
-  const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
-  const claimAttrs = new Set((claim.attributes || []).map((a: string) => a.toLowerCase()));
-
-  let matches = 0;
-  for (const attr of selected) {
-    if (claimAttrs.has(attr)) matches++;
-  }
-
-  return Math.round((matches / selected.size) * 100);
-}
-
-// Helper to get list of matching attribute names (for display)
-getMatchingAttributes(claim: any): string[] {
-  if (!this.selectedAttributes().length) return claim.attributes || [];
-
-  const selected = new Set(this.selectedAttributes().map(a => a.toLowerCase()));
-  return (claim.attributes || [])
-    .filter((a: string) => selected.has(a.toLowerCase()))
-    .map((a: string) => a); // keep original casing
-}
-
-
-getRelativeTime(dateStr: string | null): string {
-  if (!dateStr) return 'recent';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 1) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    if (diffHours < 1) return 'just now';
-    return `${diffHours}h ago`;
-  }
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-  
-  // ← Here: Add "Older" for anything 30+ days old
-  return 'Older';  // or 'Older (before 2025)' or date.toLocaleDateString()
-}
-
-isLatest(claim: any): boolean {
-  if (!claim.issued_at) return false;
-
-  const filtered = this.filteredSuggestedPurposes();
-  const allTimestamps = filtered
-    .filter(c => c.issued_at)
-    .map(c => new Date(c.issued_at).getTime());
-
-  if (allTimestamps.length === 0) return false;
-
-  const maxTime = Math.max(...allTimestamps);
-  return new Date(claim.issued_at).getTime() === maxTime;
-}
-
+  // ────────────────────────────────────────────────
+  // Services injected via Angular dependency injection
+  // ────────────────────────────────────────────────
   private themeService = inject(ThemeService);
   darkMode = this.themeService.darkMode;
 
@@ -979,23 +1060,35 @@ isLatest(claim: any): boolean {
   private api = inject(ApiService);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
-  
 
+  // ────────────────────────────────────────────────
+  // Component initialization
+  // ────────────────────────────────────────────────
   ngOnInit() {
+
+    // Watch wallet address changes
     this.wallet.address$.subscribe(addr => {
+
       this.walletAddress.set(addr);
+
+      // Load suggestions when wallet becomes available
       if (addr) {
-        this.loadSuggestions(); // ← NEW: Load suggestions when wallet is ready
+        this.loadSuggestions();
       }
+
+      // Reset form if wallet disconnects
       if (!addr) this.resetForm();
     });
 
+    // Load contexts from context service
     this.contextService.contexts$.subscribe(ctxs => {
       this.contexts.set(ctxs.sort());
     });
   }
 
+  // Reset form state
   private resetForm() {
+
     this.selectedContext.set('');
     this.selectedAttributes.set([]);
     this.purposeValue = '';
@@ -1005,32 +1098,54 @@ isLatest(claim: any): boolean {
     this.result.set(null);
   }
 
+  // Connect wallet through WalletService
   async connectWallet() {
+
     this.connecting.set(true);
+
     try {
       await this.wallet.connect();
     } catch (err) {
-      this.snackBar.open('Failed to connect wallet', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Failed to connect wallet',
+        'Close',
+        { duration: 5000 }
+      );
+
     } finally {
       this.connecting.set(false);
     }
   }
 
+  // Copy wallet address to clipboard
   copyAddress() {
+
     const addr = this.walletAddress();
+
     if (!addr) return;
+
     navigator.clipboard.writeText(addr);
+
     this.copied.set(true);
+
     setTimeout(() => this.copied.set(false), 2000);
+
     this.snackBar.open('Address copied!', 'Close', { duration: 2000 });
   }
 
+  // Called when user selects a different context
   onContextChange(newValue: string) {
+
     this.selectedContext.set(newValue);
+
+    // Reset UI state
     this.selectedAttributes.set([]);
     this.purposeValue = '';
     this.explicitConsent.set(false);
+
     this.cdr.detectChanges();
+
     this.activeConsents.set([]);
     this.result.set(null);
 
@@ -1039,37 +1154,54 @@ isLatest(claim: any): boolean {
       return;
     }
 
+    // Load attributes and existing consents
     this.loadAttributesForContext();
     this.loadActiveConsents();
   }
 
+  // Load attributes belonging to the selected context
   private loadAttributesForContext() {
+
     this.loadingAttributes.set(true);
     this.attributes.set([]);
 
     this.api.getProfile(this.walletAddress()!, this.selectedContext()).subscribe({
+
       next: (res: any) => {
+
         this.attributes.set(Object.keys(res.attributes || {}));
         this.loadingAttributes.set(false);
       },
+
       error: () => {
+
         this.attributes.set([]);
         this.loadingAttributes.set(false);
-        this.snackBar.open('Failed to load attributes', 'Close', { duration: 5000 });
+
+        this.snackBar.open(
+          'Failed to load attributes',
+          'Close',
+          { duration: 5000 }
+        );
       }
     });
   }
 
-  // 🔥 FIXED: RETURNS A PROMISE SO WE CAN AWAIT UI CONSISTENCY
+  // Load active consents from backend
+  // Returns Promise so UI can await completion
   loadActiveConsents(): Promise<void> {
+
     this.loadingConsents.set(true);
     this.activeConsents.set([]);
 
     let ctx = this.selectedContext();
 
     return new Promise(resolve => {
+
       this.api.getActiveConsents(this.walletAddress()!, ctx).subscribe({
+
         next: (consents: any[]) => {
+
           this.activeConsents.set(
             consents.map(c => ({
               claimId: c.claimId,
@@ -1079,177 +1211,255 @@ isLatest(claim: any): boolean {
               expiresAt: c.expiresAt ?? null
             }))
           );
+
           this.loadingConsents.set(false);
           this.cdr.detectChanges();
+
           resolve();
         },
+
         error: () => {
+
           this.activeConsents.set([]);
           this.loadingConsents.set(false);
-          this.snackBar.open('Failed to load active consents', 'Close', { duration: 5000 });
+
+          this.snackBar.open(
+            'Failed to load active consents',
+            'Close',
+            { duration: 5000 }
+          );
+
           resolve();
         }
       });
     });
   }
 
+  // Check if a specific attribute already has active consent
   hasActiveConsent(shortAttr: string): boolean {
-  const attrLower = shortAttr.toLowerCase().trim();
-  const ctxLower = this.selectedContext()?.toLowerCase()?.trim() || '';
-  if (!ctxLower) return false;
 
-  // 1. Get all claimIds known to cover this attribute
-  const possibleClaimIds = this.claimIdsCoveringAttr()[attrLower] || [];
+    const attrLower = shortAttr.toLowerCase().trim();
+    const ctxLower = this.selectedContext()?.toLowerCase()?.trim() || '';
 
-  // 2. Also allow the short name itself (in case user granted with short name)
-  if (!possibleClaimIds.includes(shortAttr)) {
-    possibleClaimIds.push(shortAttr);
+    if (!ctxLower) return false;
+
+    // Possible claimIds that map to this attribute
+    const possibleClaimIds = this.claimIdsCoveringAttr()[attrLower] || [];
+
+    // Include attribute name itself as fallback
+    if (!possibleClaimIds.includes(shortAttr)) {
+      possibleClaimIds.push(shortAttr);
+    }
+
+    return this.activeConsents().some(consent => {
+
+      if ((consent.context || '').toLowerCase().trim() !== ctxLower)
+        return false;
+
+      if (this.isExpired(consent.expiresAt))
+        return false;
+
+      const consentClaimLower = (consent.claimId || '').toLowerCase().trim();
+
+      return possibleClaimIds.some(id =>
+        consentClaimLower === id.toLowerCase().trim()
+      );
+    });
   }
 
-  // 3. Check if ANY of those claimIds has an active (non-expired, same context) consent
-  return this.activeConsents().some(consent => {
-    if ((consent.context || '').toLowerCase().trim() !== ctxLower) return false;
-    if (this.isExpired(consent.expiresAt)) return false;
-
-    const consentClaimLower = (consent.claimId || '').toLowerCase().trim();
-
-    return possibleClaimIds.some(id => 
-      consentClaimLower === id.toLowerCase().trim()
-    );
-  });
-}
-
+  // Toggle attribute selection
   toggleAttribute(attr: string) {
+
     if (this.hasActiveConsent(attr)) return;
 
     const current = this.selectedAttributes();
+
     if (current.includes(attr)) {
-      this.selectedAttributes.set(current.filter(a => a !== attr));
+
+      this.selectedAttributes.set(
+        current.filter(a => a !== attr)
+      );
+
     } else {
-      this.selectedAttributes.set([...current, attr]);
+
+      this.selectedAttributes.set(
+        [...current, attr]
+      );
     }
   }
 
+  // Grant consent for selected attributes
   async grantConsent() {
+
     if (this.loading()) return;
+
     this.loading.set(true);
 
     try {
+
       const addr = this.walletAddress();
-      if (!addr) throw new Error('Wallet not connected');
+
+      if (!addr)
+        throw new Error('Wallet not connected');
 
       if (this.selectedAttributes().length === 0) {
-        this.snackBar.open('Select at least one attribute', 'Close', { duration: 4000 });
+
+        this.snackBar.open(
+          'Select at least one attribute',
+          'Close',
+          { duration: 4000 }
+        );
+
         return;
       }
 
       if (!this.purposeValue.trim()) {
-        this.snackBar.open('Please enter a purpose', 'Close', { duration: 4000 });
+
+        this.snackBar.open(
+          'Please enter a purpose',
+          'Close',
+          { duration: 4000 }
+        );
+
         return;
       }
 
       if (!this.explicitConsent()) {
-        this.snackBar.open('You must explicitly consent', 'Close', { duration: 4000 });
+
+        this.snackBar.open(
+          'You must explicitly consent',
+          'Close',
+          { duration: 4000 }
+        );
+
         return;
       }
 
+      // Process each selected attribute
       for (const shortAttr of this.selectedAttributes()) {
+
         const matching = this.suggestedClaims().find(c =>
-              c.attributes?.includes(shortAttr) ||
-                  c.claim_id?.split('.').pop() === shortAttr
-                );
+          c.attributes?.includes(shortAttr) ||
+          c.claim_id?.split('.').pop() === shortAttr
+        );
 
-        const claimId = matching?.claim_id || shortAttr; // fallback
+        const claimId = matching?.claim_id || shortAttr;
 
-        console.log(`Granting for attr "${shortAttr}" → using claimId:`, claimId, {
-        foundMatchingSuggestion: !!matching,
-        suggestionAttributes: matching?.attributes,
-        suggestionClaimId: matching?.claim_id
-      });
         if (this.hasActiveConsent(claimId)) continue;
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
 
-        await this.api.grantConsent({
-          owner: addr,
-          claimId: claimId,
-          purpose: this.purposeValue.trim(),
-          context: this.selectedContext(),
-          expiresAt: expiresAt.toISOString()
-        }).toPromise();
+       await firstValueFrom(
+          this.api.grantConsent({
+            owner: addr,
+            claimId: claimId,
+            purpose: this.purposeValue.trim(),
+            context: this.selectedContext(),
+            expiresAt: expiresAt.toISOString()
+          })
+        );
       }
 
-      // 🔥 FIX: WAIT UNTIL SERVER DATA IS LOADED BEFORE UI RESETS
+      // Refresh consents after granting
       await this.loadActiveConsents();
 
+      // Reset UI
       this.selectedAttributes.set([]);
       this.purposeValue = '';
       this.explicitConsent.set(false);
 
-      this.cdr.detectChanges();              // Force immediate update
+      this.cdr.detectChanges();
       setTimeout(() => this.cdr.detectChanges(), 0);
 
       this.loadAttributesForContext();
 
-      this.snackBar.open('Consent granted successfully!', 'Close', { duration: 5000 });
+      this.snackBar.open(
+        'Consent granted successfully!',
+        'Close',
+        { duration: 5000 }
+      );
 
     } catch (err: any) {
+
       console.error('Grant consent failed:', err);
+
       this.snackBar.open(
         err.error?.error || 'Failed to record consent',
         'Close',
         { duration: 6000 }
       );
+
     } finally {
+
       this.loading.set(false);
       this.cdr.detectChanges();
     }
   }
 
-  // NEW: Load suggestions when wallet is ready
+  // Load suggested claims from backend
   loadSuggestions() {
-  if (!this.walletAddress()) return;
 
-  this.suggestionsLoading.set(true);
-  const did = `did:ethr:${this.walletAddress()}`;
+    if (!this.walletAddress()) return;
 
-  this.api.getSuggestableClaims(did).subscribe({
-    next: (res: any) => {
-      console.log('Raw suggestable claims from backend:', res.suggestableClaims);
-      this.suggestedClaims.set(res.suggestableClaims || []);
+    this.suggestionsLoading.set(true);
 
-      // Build reverse mapping: short attr → list of claim_ids that cover it
-      const coverage: Record<string, string[]> = {};
-      res.suggestableClaims?.forEach((claim: any) => {
-        const cid = claim.claim_id;
-        if (!cid) return;
-        (claim.attributes || []).forEach((attr: string) => {
-          const short = attr.trim().toLowerCase();
-          if (!coverage[short]) coverage[short] = [];
-          if (!coverage[short].includes(cid)) coverage[short].push(cid);
+    const did = `did:ethr:${this.walletAddress()}`;
+
+    this.api.getSuggestableClaims(did).subscribe({
+
+      next: (res: any) => {
+
+        this.suggestedClaims.set(res.suggestableClaims || []);
+
+        // Build attribute → claimId coverage map
+        const coverage: Record<string, string[]> = {};
+
+        res.suggestableClaims?.forEach((claim: any) => {
+
+          const cid = claim.claim_id;
+
+          if (!cid) return;
+
+          (claim.attributes || []).forEach((attr: string) => {
+
+            const short = attr.trim().toLowerCase();
+
+            if (!coverage[short]) coverage[short] = [];
+
+            if (!coverage[short].includes(cid))
+              coverage[short].push(cid);
+          });
         });
-      });
 
-      this.claimIdsCoveringAttr.set(coverage);
+        this.claimIdsCoveringAttr.set(coverage);
 
-      this.suggestionsLoading.set(false);
-      this.cdr.detectChanges();
-    },
-    error: (err: any) => {
-      console.error('Failed to load suggestions:', err);
-      this.snackBar.open('Failed to load claim suggestions', 'Close', { duration: 5000 });
-      this.suggestionsLoading.set(false);
-    }
-  });
-}
+        this.suggestionsLoading.set(false);
+        this.cdr.detectChanges();
+      },
 
+      error: (err: any) => {
+
+        console.error('Failed to load suggestions:', err);
+
+        this.snackBar.open(
+          'Failed to load claim suggestions',
+          'Close',
+          { duration: 5000 }
+        );
+
+        this.suggestionsLoading.set(false);
+      }
+    });
+  }
+
+  // Confirm and revoke an existing consent
   confirmAndRevoke(consent: any) {
-    const message = `Are you sure you want to revoke consent for attribute "${consent.claimId}"?\n\nThis action cannot be undone.`;
 
-    if (!confirm(message)) {
-      return;
-    }
+    const message =
+      `Are you sure you want to revoke consent for attribute "${consent.claimId}"?\n\nThis action cannot be undone.`;
+
+    if (!confirm(message)) return;
 
     this.loading.set(true);
 
@@ -1258,29 +1468,54 @@ isLatest(claim: any): boolean {
       claimId: consent.claimId,
       context: this.selectedContext()
     }).subscribe({
+
       next: () => {
-        this.snackBar.open(`Consent for ${consent.claimId} revoked successfully`, 'Close', { duration: 5000 });
-        this.activeConsents.update(list => list.filter(c => c.claimId !== consent.claimId));
+
+        this.snackBar.open(
+          `Consent for ${consent.claimId} revoked successfully`,
+          'Close',
+          { duration: 5000 }
+        );
+
+        this.activeConsents.update(list =>
+          list.filter(c => c.claimId !== consent.claimId)
+        );
       },
+
       error: (err) => {
+
         console.error('Revoke failed:', err);
-        this.snackBar.open('Failed to revoke consent', 'Close', { duration: 5000 });
+
+        this.snackBar.open(
+          'Failed to revoke consent',
+          'Close',
+          { duration: 5000 }
+        );
       },
+
       complete: () => this.loading.set(false)
     });
   }
 
+  // Check if a consent has expired
   isExpired(expiresAt: string | null): boolean {
+
     if (!expiresAt) return false;
+
     return new Date(expiresAt) <= new Date();
   }
 
+  // Generate user-friendly expiration label
   getExpiryLabel(expiresAt: string | null): string {
+
     if (!expiresAt) return 'No expiration';
+
     if (this.isExpired(expiresAt)) return 'Expired';
 
     const diffMs = new Date(expiresAt).getTime() - Date.now();
+
     const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
     return `Expires in ${days} day${days !== 1 ? 's' : ''}`;
   }
 }

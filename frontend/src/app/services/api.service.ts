@@ -253,12 +253,8 @@ getDisclosuresByVerifier(verifierDid: string): Observable<any> {
   eraseProfile(payload: { did: string }): Observable<any> {
     return this.http.delete(`${this.base}/api/profile/erase`, { body: payload });
   }
-
-  // Add these methods to your existing ApiService in api.service.ts
-
-/* -------------------------------------------------
-   GSN (Gasless) endpoints
--------------------------------------------------- */
+  
+/**
 
 // Get GSN configuration
 getGSNConfig(): Observable<any> {
@@ -310,6 +306,7 @@ createProfileWithGSN(payload: { owner: string, useGSN?: boolean }): Observable<a
   const headers = this.getAuthHeaders();
   return this.http.post(`${this.base}/api/profile`, payload, { headers });
 }
+*/
 
 // Add this helper method if you don't have it
 private getAuthHeaders(): HttpHeaders {

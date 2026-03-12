@@ -1345,113 +1345,192 @@ const IdentityRegistryAbi = IdentityRegistryArtifact.abi;
 `]
 
 })
+// Angular component responsible for managing the "Vault" page.
+// Handles wallet connection, profile creation, gasless transactions,
+// secure storage settings, and profile status checking.
+
 export class VaultComponent implements OnInit, OnDestroy {
+
+  // Reactive loading indicator for UI state
   loading = signal(false);
+
+  // Tracks whether the wallet address was recently copied to clipboard
   copied = signal(false);
+
+  // Timestamp used to prevent repeatedly showing the same error snackbar
   private lastErrorShown: number | null = null;
 
+  // Inject ThemeService for accessing dark mode state
   private themeService = inject(ThemeService);
+
+  // Expose darkMode signal for template binding
   darkMode = this.themeService.darkMode;
 
+  // Inject wallet service that manages wallet connection and address
   public wallet = inject(WalletService);
+
+  // Inject API service used for backend profile requests
   private api = inject(ApiService);
+
+  // Angular Material snackbar service for UI notifications
   private snackBar = inject(MatSnackBar);
+
+  // Global profile state service (central state management)
   private profileState = inject(ProfileStateService);
+
+  // Secure storage service (IndexedDB + wallet encryption)
   private storage = inject(StorageService);
   
- 
+  // Meta transaction service used for gasless transactions
   private metaTx = inject(MetaTxService);
+
+  // Angular HTTP client for direct REST calls
   private http = inject(HttpClient);
 
-
+  // Signals derived from ProfileStateService
   profileExists = this.profileState.profileExists;
   isErased = this.profileState.isErased;
   erasedAt = this.profileState.erasedAt;
 
- 
-  useGasless = signal<boolean>(true); // Default to gasless if available
+  // Determines whether to use gasless transactions
+  // Default = true if available
+  useGasless = signal<boolean>(true);
 
+  // Subscription to wallet address observable
   private sub?: Subscription;
 
-  // Pinata JWT fields
+  // ────────────────────────────────────────────────
+  // Pinata JWT storage signals
+  // ────────────────────────────────────────────────
+
+  // Stores the user’s Pinata JWT token
   userPinataJwt = signal<string>('');
+
+  // Boolean indicating if a user JWT exists
   hasUserJwt = signal<boolean>(false);
 
-  // Custom Gateway
+  // ────────────────────────────────────────────────
+  // Custom IPFS Gateway
+  // ────────────────────────────────────────────────
+
+  // Stores user-defined IPFS gateway
   customGateway = signal<string>('');
 
-  // nft.storage fields
+  // ────────────────────────────────────────────────
+  // nft.storage configuration
+  // ────────────────────────────────────────────────
+
+  // nft.storage API key signal
   nftStorageKey = signal<string>('');
+
+  // Boolean flag if nft.storage key exists
   hasNftStorageKey = signal<boolean>(false);
 
+  // Platform injection used to detect SSR vs browser
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {}
 
+  // ────────────────────────────────────────────────
+  // Component initialization lifecycle hook
+  // ────────────────────────────────────────────────
   async ngOnInit() {
+
+    // Detect whether code is running in browser (not server-side rendering)
     const isBrowser = isPlatformBrowser(this.platformId);
 
     if (isBrowser) {
+
+      // Check sessionStorage for erased profile markers
       const erasedDid = sessionStorage.getItem('erasedDid');
       const erasedAtStr = sessionStorage.getItem('erasedAt');
 
+      // If erased profile exists in session, restore state
       if (erasedDid) {
         this.profileState.setProfileStatus(false, true, erasedAtStr);
       }
 
-      // Initialize secure storage (wallet-based encryption)
+      // Initialize secure wallet-based encryption for IndexedDB
       const encryptionReady = await this.storage.initEncryption();
 
-      // Load all settings from IndexedDB (encrypted)
+      // Load encrypted settings from storage
       try {
+
+        // Load Pinata JWT
         const savedJwt = await this.storage.getItem('user_pinata_jwt');
         if (savedJwt) {
           this.userPinataJwt.set(savedJwt);
           this.hasUserJwt.set(true);
         }
 
+        // Load nft.storage API key
         const savedNft = await this.storage.getItem('nft_storage_api_key');
         if (savedNft) {
           this.nftStorageKey.set(savedNft);
           this.hasNftStorageKey.set(true);
         }
 
+        // Load custom IPFS gateway
         const savedGateway = await this.storage.getItem('custom_ipfs_gateway');
         if (savedGateway) {
           this.customGateway.set(savedGateway);
         }
         
-        // NEW: Load gasless preference
+        // Load gasless transaction preference
         const gaslessPref = await this.storage.getItem('prefer_gasless');
         if (gaslessPref !== null) {
           this.useGasless.set(gaslessPref === 'true');
         }
+
       } catch (err) {
+
+        // If encrypted storage fails (wallet disconnected etc)
         console.error('Failed to load settings from secure storage:', err);
-        this.snackBar.open('Failed to load saved settings - may need to reconnect wallet', 'Close', { duration: 5000 });
+
+        this.snackBar.open(
+          'Failed to load saved settings - may need to reconnect wallet',
+          'Close',
+          { duration: 5000 }
+        );
       }
     }
 
+    // Subscribe to wallet address changes
     this.sub = this.wallet.address$.subscribe(async (address) => {
+
       if (address) {
+
+        // Clear erased markers when wallet reconnects
         if (isPlatformBrowser(this.platformId)) {
           sessionStorage.removeItem('erasedDid');
           sessionStorage.removeItem('erasedAt');
         }
+
+        // Check profile status on wallet change
         this.checkProfile();
       }
     });
   }
 
+  // Cleanup lifecycle hook
   ngOnDestroy() {
+
+    // Unsubscribe from wallet observable
     this.sub?.unsubscribe();
   }
 
+  // ────────────────────────────────────────────────
+  // Check profile status from backend
+  // ────────────────────────────────────────────────
   async checkProfile() {
+
     const address = this.wallet.address;
+
+    // If wallet disconnected reset profile state
     if (!address) {
       this.profileState.reset();
       return;
     }
 
+    // If profile already known or erased, skip API call
     if (this.profileExists() || this.isErased()) {
       this.loading.set(false);
       return;
@@ -1460,309 +1539,561 @@ export class VaultComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     try {
+
+      // Request profile from backend
       const profile: any = await firstValueFrom(
         this.api.getProfile(address)
       );
+
+      // Profile exists
       this.profileState.setProfileStatus(true, false, null);
+
     } catch (err: any) {
+
+      // Profile was erased (HTTP 410)
       if (err.status === 410) {
-        this.profileState.setProfileStatus(false, true, err.error?.erasedAt || null);
+
+        this.profileState.setProfileStatus(
+          false,
+          true,
+          err.error?.erasedAt || null
+        );
+
+      // Profile not found
       } else if (err.status === 404) {
+
         this.profileState.setProfileStatus(false, false, null);
+
       } else {
+
+        // Unexpected error
         console.error('Unexpected profile check failed', err);
+
+        // Prevent snackbar spam
         if (!this.lastErrorShown || Date.now() - this.lastErrorShown > 10000) {
-          this.snackBar.open('Failed to check vault status', 'Close', { duration: 5000 });
+
+          this.snackBar.open(
+            'Failed to check vault status',
+            'Close',
+            { duration: 5000 }
+          );
+
           this.lastErrorShown = Date.now();
         }
       }
+
     } finally {
+
+      // Always stop loading spinner
       this.loading.set(false);
     }
   }
 
+  // ────────────────────────────────────────────────
+  // Connect wallet
+  // ────────────────────────────────────────────────
   async connect() {
+
     try {
+
       this.loading.set(true);
+
+      // Connect wallet via WalletService
       await this.wallet.connect();
+
+      // Reinitialize encryption after wallet connect
       await this.storage.initEncryption();
+
     } catch (e: any) {
-      this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
+
+      // Show error if wallet connection fails
+      this.snackBar.open(
+        e.message || 'Wallet connection failed',
+        'Close',
+        { duration: 5000 }
+      );
+
     } finally {
+
       this.loading.set(false);
     }
   }
 
+  // ────────────────────────────────────────────────
+  // Copy wallet address to clipboard
+  // ────────────────────────────────────────────────
   copyAddress(address: string) {
+
     navigator.clipboard.writeText(address);
+
     this.copied.set(true);
+
+    // Reset copied indicator after 2 seconds
     setTimeout(() => this.copied.set(false), 2000);
   }
 
-  // NEW: Get create button text based on mode
+  // Returns correct UI label for Create button
   getCreateButtonText(): string {
-  if (this.loading()) {
-    return 'Creating...';
+
+    if (this.loading()) {
+      return 'Creating...';
+    }
+
+    return this.useGasless()
+      ? 'Create Profile (Gasless)'
+      : 'Create Vault Profile';
   }
 
-  return this.useGasless()
-    ? 'Create Profile (Gasless)'
-    : 'Create Vault Profile';
-}
-
-
   // ────────────────────────────────────────────────
-  // UPDATED: createProfile with gasless support
+  // Create profile entry point
   // ────────────────────────────────────────────────
-
   async createProfile() {
+
     const address = this.wallet.address;
+
+    // Prevent creation if wallet disconnected or identity erased
     if (!address || this.isErased()) {
-      this.snackBar.open('Wallet not connected or identity erased', 'Close', { duration: 4000 });
+
+      this.snackBar.open(
+        'Wallet not connected or identity erased',
+        'Close',
+        { duration: 4000 }
+      );
+
       return;
     }
 
     this.loading.set(true);
 
     try {
+
+      // Choose transaction mode
       if (this.useGasless()) {
-        // NEW: GASLESS FLOW
+
+        // Gasless meta-transaction flow
         await this.createProfileGasless(address);
+
       } else {
-        // EXISTING HYBRID FLOW (UNCHANGED)
+
+        // Regular wallet transaction
         await this.createProfileRegular(address);
       }
       
-      // Refresh profile status
+      // Refresh profile state after creation
       await this.checkProfile();
       
     } catch (err: any) {
+
       console.error('Create profile failed:', err);
-      this.snackBar.open(err.message || 'Failed to create profile', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        err.message || 'Failed to create profile',
+        'Close',
+        { duration: 5000 }
+      );
+
     } finally {
+
       this.loading.set(false);
     }
   }
       
-    // NEW: Gasless profile creation (FIXED – uses meta contract properly)
-    private async createProfileGasless(address: string) {
-      this.snackBar.open('🎉 Creating profile gaslessly...', 'Close', { duration: 4000 });
+  // ────────────────────────────────────────────────
+  // Gasless profile creation via meta-transactions
+  // ────────────────────────────────────────────────
+  private async createProfileGasless(address: string) {
 
-      try {
-        // 1️⃣ Call backend WITH gasless header
-        const payload = { owner: address };
+    this.snackBar.open(
+      '🎉 Creating profile gaslessly...',
+      'Close',
+      { duration: 4000 }
+    );
 
-        const response = await firstValueFrom(
-          this.http.post<any>(
-            `${environment.backendUrl}/api/profile`,
-            payload,
-            {
-              headers: {
-                'x-transaction-mode': 'gasless'
-              }
+    try {
+
+      // Payload sent to backend
+      const payload = { owner: address };
+
+      // Request unsigned transaction from backend
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.backendUrl}/api/profile`,
+          payload,
+          {
+            headers: {
+              'x-transaction-mode': 'gasless'
             }
-          )
-        );
-         console.log("UnsignedTx  Response from backend: ",response.unsignedTx)
-        if (!response.unsignedTx) {
-          throw new Error("Backend did not return unsignedTx for gasless mode");
-        }
+          }
+        )
+      );
 
-        // 2️⃣ Extract encoded contract call data
-        const { to, data } = response.unsignedTx;
+      console.log("UnsignedTx  Response from backend: ",response.unsignedTx)
 
-        // 3️⃣ Build & sign meta transaction
-        const { request:req, signature } = await this.metaTx.buildAndSignMetaTx({
+      // Ensure backend returned unsignedTx
+      if (!response.unsignedTx) {
+        throw new Error("Backend did not return unsignedTx for gasless mode");
+      }
+
+      // Extract contract call data
+      const { to, data } = response.unsignedTx;
+
+      // Build and sign EIP-2771 meta transaction
+      const { request:req, signature } =
+        await this.metaTx.buildAndSignMetaTx({
           forwarderAbi: ForwarderAbi,
           targetAddress: to,
           rawData: data
         });
 
-        // 4️⃣ Send to relayer
-        const relayResponse: any = await firstValueFrom(
-          this.http.post(`${environment.backendUrl}/meta/relay`, {
-            request: req,
-            signature
-          })
-        );
+      // Send signed meta transaction to relayer
+      const relayResponse: any = await firstValueFrom(
+        this.http.post(`${environment.backendUrl}/meta/relay`, {
+          request: req,
+          signature
+        })
+      );
 
-        const txHash = relayResponse.txHash;
-        const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
+      const txHash = relayResponse.txHash;
 
-        const snackBarRef = this.snackBar.open(
-          `✅ Profile created GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
-          'View',
-          { duration: 10000 }
-        );
-
-        snackBarRef.onAction().subscribe(() => {
-          window.open(explorerUrl, '_blank');
-        });
-
-        this.profileState.setProfileStatus(true, false, null);
-
-      } catch (error: any) {
-        console.error('Gasless profile creation failed:', error);
-
-        const fallback = confirm('Gasless creation failed. Try regular transaction?');
-        if (fallback) {
-          await this.createProfileRegular(address);
-        } else {
-          throw error;
-        }
-      }
-    }
-
-  // EXISTING: Regular profile creation (UNCHANGED)
-  private async createProfileRegular(address: string) {
-    const payload = { owner: address };
-    const response = await firstValueFrom(this.api.createProfile(payload));
-
-    if (response.unsignedTx) {
-      // Hybrid mode: User signs & sends
-      this.snackBar.open('Please sign the profile creation transaction in your wallet...', 'Close', { duration: 8000 });
-
-      const txResponse = await this.wallet.signAndSendTransaction(response.unsignedTx);
-      const txHash = txResponse.hash;
+      // Block explorer link
       const explorerUrl = `https://sepolia.basescan.org/tx/${txHash}`;
 
+      // Snackbar notification
       const snackBarRef = this.snackBar.open(
-            `Profile created! Tx: ${txHash.slice(0, 10)}...`,
-            'View',
-            {
-              duration: 10000,
-              panelClass: ['success-snackbar']
-            }
-          );
+        `✅ Profile created GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
+        'View',
+        { duration: 10000 }
+      );
 
-          snackBarRef.onAction().subscribe(() => {
-            window.open(explorerUrl, '_blank');
-          });
+      // Open explorer when user clicks snackbar action
+      snackBarRef.onAction().subscribe(() => {
+        window.open(explorerUrl, '_blank');
+      });
+
+      // Update profile state
+      this.profileState.setProfileStatus(true, false, null);
+
+    } catch (error: any) {
+
+      console.error('Gasless profile creation failed:', error);
+
+      // Offer fallback to regular transaction
+      const fallback = confirm(
+        'Gasless creation failed. Try regular transaction?'
+      );
+
+      if (fallback) {
+        await this.createProfileRegular(address);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // Standard wallet-based profile creation
+  // ────────────────────────────────────────────────
+  private async createProfileRegular(address: string) {
+
+    const payload = { owner: address };
+
+    // Request profile creation transaction
+    const response = await firstValueFrom(
+      this.api.createProfile(payload)
+    );
+
+    if (response.unsignedTx) {
+
+      // User signs and sends transaction
+      this.snackBar.open(
+        'Please sign the profile creation transaction in your wallet...',
+        'Close',
+        { duration: 8000 }
+      );
+
+      const txResponse =
+        await this.wallet.signAndSendTransaction(response.unsignedTx);
+
+      const txHash = txResponse.hash;
+
+      const explorerUrl =
+        `https://sepolia.basescan.org/tx/${txHash}`;
+
+      const snackBarRef = this.snackBar.open(
+        `Profile created! Tx: ${txHash.slice(0, 10)}...`,
+        'View',
+        {
+          duration: 10000,
+          panelClass: ['success-snackbar']
+        }
+      );
+
+      snackBarRef.onAction().subscribe(() => {
+        window.open(explorerUrl, '_blank');
+      });
+
     } else if (response.txHash) {
-      // Backend signed (when HYBRID_SIGNING=false)
-      this.snackBar.open('Profile created by the app! (no gas paid by you)', 'Close', { duration: 6000 });
+
+      // Backend executed transaction
+      this.snackBar.open(
+        'Profile created by the app! (no gas paid by you)',
+        'Close',
+        { duration: 6000 }
+      );
     }
 
+    // Update profile state
     this.profileState.setProfileStatus(true, false, null);
   }
 
-
   // ────────────────────────────────────────────────
-  // Pinata JWT, Custom Gateway, nft.storage methods (UNCHANGED)
+  // Save Pinata JWT
   // ────────────────────────────────────────────────
-
   async saveUserPinataJwt() {
+
     const jwt = this.userPinataJwt().trim();
+
     if (!jwt) {
       this.snackBar.open('Please enter a JWT', 'Close', { duration: 4000 });
       return;
     }
 
+    // Basic JWT format validation
     if (!jwt.startsWith('eyJ') || jwt.split('.').length !== 3) {
       this.snackBar.open('Invalid JWT format', 'Close', { duration: 5000 });
       return;
     }
 
     try {
+
+      // Save encrypted JWT
       await this.storage.setItem('user_pinata_jwt', jwt);
+
       this.hasUserJwt.set(true);
-      this.snackBar.open('Your Pinata JWT saved — uploads will use your account', 'Close', { duration: 6000 });
+
+      this.snackBar.open(
+        'Your Pinata JWT saved — uploads will use your account',
+        'Close',
+        { duration: 6000 }
+      );
+
     } catch (err) {
+
       console.error('Failed to save Pinata JWT:', err);
-      this.snackBar.open('Failed to save JWT - storage error', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Failed to save JWT - storage error',
+        'Close',
+        { duration: 5000 }
+      );
     }
   }
 
+  // Clear stored Pinata JWT
   async clearUserPinataJwt() {
+
     try {
+
       await this.storage.removeItem('user_pinata_jwt');
+
       this.userPinataJwt.set('');
       this.hasUserJwt.set(false);
-      this.snackBar.open('Removed — now using shared test key', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Removed — now using shared test key',
+        'Close',
+        { duration: 5000 }
+      );
+
     } catch (err) {
+
       console.error('Failed to clear Pinata JWT:', err);
-      this.snackBar.open('Failed to clear JWT - storage error', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Failed to clear JWT - storage error',
+        'Close',
+        { duration: 5000 }
+      );
     }
   }
 
+  // Save custom IPFS gateway
   async saveCustomGateway() {
+
     let url = this.customGateway().trim();
 
     if (url) {
+
+      // Ensure valid URL protocol
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        this.snackBar.open('Gateway must start with http:// or https://', 'Close', { duration: 4000 });
+
+        this.snackBar.open(
+          'Gateway must start with http:// or https://',
+          'Close',
+          { duration: 4000 }
+        );
+
         return;
       }
+
+      // Ensure trailing slash
       if (!url.endsWith('/')) {
         url += '/';
         this.customGateway.set(url);
       }
 
       try {
+
         await this.storage.setItem('custom_ipfs_gateway', url);
-        this.snackBar.open('Custom gateway saved', 'Close', { duration: 3000 });
+
+        this.snackBar.open(
+          'Custom gateway saved',
+          'Close',
+          { duration: 3000 }
+        );
+
       } catch (err) {
+
         console.error('Failed to save custom gateway:', err);
-        this.snackBar.open('Failed to save gateway - storage error', 'Close', { duration: 5000 });
+
+        this.snackBar.open(
+          'Failed to save gateway - storage error',
+          'Close',
+          { duration: 5000 }
+        );
       }
+
     } else {
+
+      // Clear gateway override
       try {
+
         await this.storage.removeItem('custom_ipfs_gateway');
-        this.snackBar.open('Reverted to default gateways', 'Close', { duration: 3000 });
+
+        this.snackBar.open(
+          'Reverted to default gateways',
+          'Close',
+          { duration: 3000 }
+        );
+
       } catch (err) {
+
         console.error('Failed to clear custom gateway:', err);
       }
     }
   }
 
+  // Save nft.storage API key
   async saveNftStorageKey() {
+
     const key = this.nftStorageKey().trim();
+
     if (!key) {
-      this.snackBar.open('Please enter a valid API key', 'Close', { duration: 4000 });
+
+      this.snackBar.open(
+        'Please enter a valid API key',
+        'Close',
+        { duration: 4000 }
+      );
+
       return;
     }
 
+    // Validate JWT-like format
     if (!key.startsWith('eyJ') || key.split('.').length !== 3) {
-      this.snackBar.open('Invalid nft.storage API key format', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Invalid nft.storage API key format',
+        'Close',
+        { duration: 5000 }
+      );
+
       return;
     }
 
     try {
+
       await this.storage.setItem('nft_storage_api_key', key);
+
       this.hasNftStorageKey.set(true);
-      this.snackBar.open('nft.storage key saved — pinning will use it', 'Close', { duration: 6000 });
+
+      this.snackBar.open(
+        'nft.storage key saved — pinning will use it',
+        'Close',
+        { duration: 6000 }
+      );
+
     } catch (err) {
+
       console.error('Failed to save nft.storage key:', err);
-      this.snackBar.open('Failed to save key - storage error', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Failed to save key - storage error',
+        'Close',
+        { duration: 5000 }
+      );
     }
   }
 
+  // Remove nft.storage key
   async clearNftStorageKey() {
+
     try {
+
       await this.storage.removeItem('nft_storage_api_key');
+
       this.nftStorageKey.set('');
       this.hasNftStorageKey.set(false);
-      this.snackBar.open('Removed — now using Pinata for pinning', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Removed — now using Pinata for pinning',
+        'Close',
+        { duration: 5000 }
+      );
+
     } catch (err) {
+
       console.error('Failed to clear nft.storage key:', err);
-      this.snackBar.open('Failed to clear key - storage error', 'Close', { duration: 5000 });
+
+      this.snackBar.open(
+        'Failed to clear key - storage error',
+        'Close',
+        { duration: 5000 }
+      );
     }
   }
 
-  // NEW: Toggle gasless preference
+  // ────────────────────────────────────────────────
+  // Toggle gasless transaction preference
+  // ────────────────────────────────────────────────
   async toggleGaslessPreference() {
+
     const newValue = !this.useGasless();
+
     this.useGasless.set(newValue);
     
     try {
-      await this.storage.setItem('prefer_gasless', newValue.toString());
+
+      // Persist preference to encrypted storage
+      await this.storage.setItem(
+        'prefer_gasless',
+        newValue.toString()
+      );
+
       this.snackBar.open(
-        newValue ? 'Gasless mode enabled' : 'Gasless mode disabled',
+        newValue
+          ? 'Gasless mode enabled'
+          : 'Gasless mode disabled',
         'Close',
         { duration: 3000 }
       );
+
     } catch (err) {
-      console.error('Failed to save gasless preference:', err);
+
+      console.error(
+        'Failed to save gasless preference:',
+        err
+      );
     }
   }
 }

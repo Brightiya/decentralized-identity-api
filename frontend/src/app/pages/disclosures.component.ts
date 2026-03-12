@@ -536,128 +536,362 @@ import { ThemeService } from '../services/theme.service';
     }
   `]
 })
+/**
+ * DisclosuresComponent
+ *
+ * Displays a paginated audit log of all credential disclosures
+ * associated with the currently connected user's DID.
+ *
+ * Features:
+ * - Wallet connection
+ * - DID copy helper
+ * - Context-based filtering
+ * - Pagination
+ * - Export disclosure report
+ * - Dark mode support
+ *
+ * The disclosure list represents all events where the user's
+ * identity attributes were shared with a verifier.
+ */
 export class DisclosuresComponent implements OnInit {
+
+  /** List of disclosure records returned from the backend */
   disclosures: any[] = [];
-  displayedColumns: string[] = ['verifier', 'claim', 'context', 'purpose', 'consent', 'date'];
 
-  /** Signals + ngModel bridge */
+  /**
+   * Columns displayed in the Angular Material table.
+   * These correspond to disclosure properties returned by the API.
+   */
+  displayedColumns: string[] = [
+    'verifier',
+    'claim',
+    'context',
+    'purpose',
+    'consent',
+    'date'
+  ];
+
+  /**
+   * Signal storing the currently applied context filter.
+   *
+   * Example values:
+   * - "identity"
+   * - "medical"
+   * - "professional"
+   */
   contextFilter = signal<string>('');
-  contextFilterValue = ''; // ← used for ngModel
 
-  /** Pagination */
+  /**
+   * Bridge variable used for Angular ngModel binding in the template.
+   *
+   * ngModel cannot bind directly to signals, so we use this intermediary.
+   */
+  contextFilterValue = '';
+
+  /**
+   * Pagination configuration
+   */
+
+  /** Number of disclosures loaded per page */
   limit = 25;
+
+  /** Offset for pagination */
   offset = 0;
+
+  /** Total number of disclosures available */
   total = 0;
 
-  /** UI State */
-  loading = false;
-  connecting = false;
-  copied = false;
-  Math = Math; // ← fixes template Math.min error
+  /**
+   * UI State flags
+   */
 
+  /** Indicates disclosures are currently loading */
+  loading = false;
+
+  /** Indicates wallet connection is in progress */
+  connecting = false;
+
+  /** Temporary flag for "Copied!" UI feedback */
+  copied = false;
+
+  /**
+   * Exposes the global Math object to the template.
+   *
+   * This resolves Angular template errors when using
+   * functions like Math.min().
+   */
+  Math = Math;
+
+  /**
+   * Theme service providing dark mode signal.
+   */
   private themeService = inject(ThemeService);
+
+  /** Dark mode signal used by the template */
   darkMode = this.themeService.darkMode;
 
   constructor(
+
+    /** Wallet service managing connection, address, and provider */
     public wallet: WalletService,
+
+    /** API service used to fetch disclosure records */
     private api: ApiService
+
   ) {}
 
+  /**
+   * Angular lifecycle hook.
+   *
+   * Subscribes to wallet address changes so the disclosure list
+   * automatically refreshes when the user connects or disconnects
+   * their wallet.
+   */
   ngOnInit() {
+
     this.wallet.address$.subscribe(addr => {
+
       if (addr) {
+
+        /** Reset pagination when wallet connects */
         this.resetPaging();
+
+        /** Load disclosure records */
         this.loadDisclosures();
+
       } else {
+
+        /** Clear list if wallet disconnects */
         this.disclosures = [];
+
       }
+
     });
   }
 
+  /**
+   * Connects the user's wallet.
+   *
+   * Required to identify the user's DID and fetch disclosures.
+   */
   async connect() {
+
     this.connecting = true;
+
     try {
+
       await this.wallet.connect();
+
     } catch (e: any) {
+
       alert(e.message || 'Wallet connection failed');
+
     } finally {
+
       this.connecting = false;
+
     }
   }
 
+  /**
+   * Copies the user's DID to clipboard.
+   *
+   * DID format:
+   * did:ethr:<walletAddress>
+   */
   copyDid() {
+
     if (!this.wallet.address) return;
+
     const did = `did:ethr:${this.wallet.address}`;
+
     navigator.clipboard.writeText(did);
+
     this.copied = true;
+
     setTimeout(() => this.copied = false, 2000);
   }
 
+  /**
+   * Resets pagination state.
+   *
+   * Called when:
+   * - wallet connects
+   * - filter changes
+   */
   resetPaging() {
+
     this.offset = 0;
+
     this.total = 0;
+
   }
 
+  /**
+   * Applies the context filter entered in the UI.
+   *
+   * This reloads the disclosure list starting from page 1.
+   */
   applyFilter() {
+
+    /** Sync ngModel value into signal */
+
     this.contextFilter.set(this.contextFilterValue);
+
+    /** Reset pagination */
+
     this.offset = 0;
+
+    /** Reload disclosures */
+
     this.loadDisclosures();
   }
 
+  /**
+   * Clears the context filter and reloads disclosures.
+   */
   clearFilter() {
+
     this.contextFilter.set('');
+
     this.contextFilterValue = '';
+
     this.offset = 0;
+
     this.loadDisclosures();
   }
 
+  /**
+   * Loads disclosure records from the backend.
+   *
+   * API parameters:
+   * - DID
+   * - pagination limit
+   * - pagination offset
+   * - optional context filter
+   */
   loadDisclosures() {
+
     if (!this.wallet.address) return;
 
     this.loading = true;
+
+    /** Build DID from wallet address */
+
     const did = `did:ethr:${this.wallet.address}`;
+
+    /** Optional context filter */
+
     const context = this.contextFilter().trim() || undefined;
 
-    this.api.getDisclosuresBySubject(did, this.limit, this.offset, context).subscribe({
+    /**
+     * Call backend API to retrieve disclosures.
+     */
+
+    this.api.getDisclosuresBySubject(
+      did,
+      this.limit,
+      this.offset,
+      context
+    ).subscribe({
+
       next: (res: any) => {
+
+        /**
+         * API may return disclosures in different response formats,
+         * so we normalize them here.
+         */
+
         this.disclosures = res.rows || res.disclosures || [];
-        this.total = res.totalDisclosures || res.total || this.disclosures.length;
-        
+
+        this.total =
+          res.totalDisclosures ||
+          res.total ||
+          this.disclosures.length;
+
         this.loading = false;
       }
     });
   }
 
+  /**
+   * Moves to the next page of disclosures.
+   */
   nextPage() {
+
     if (this.offset + this.limit < this.total) {
+
       this.offset += this.limit;
+
       this.loadDisclosures();
+
     }
   }
 
+  /**
+   * Moves to the previous page of disclosures.
+   */
   prevPage() {
+
     if (this.offset > 0) {
+
       this.offset -= this.limit;
+
       this.loadDisclosures();
+
     }
   }
 
+  /**
+   * Exports all disclosures for the current DID as a JSON report.
+   *
+   * The report contains:
+   * - disclosure records
+   * - claim types
+   * - contexts
+   * - verifier identifiers
+   * - consent metadata
+   */
   exportDisclosures() {
+
     if (!this.wallet.address) return;
 
     const did = `did:ethr:${this.wallet.address}`;
+
     this.api.exportDisclosures(did).subscribe({
+
       next: (bundle) => {
-        const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+
+        /**
+         * Convert disclosure bundle to downloadable JSON file
+         */
+
+        const blob = new Blob(
+          [JSON.stringify(bundle, null, 2)],
+          { type: 'application/json' }
+        );
+
         const url = window.URL.createObjectURL(blob);
+
+        /**
+         * Create temporary anchor element for download
+         */
+
         const a = document.createElement('a');
+
         a.href = url;
-        a.download = `disclosure-report-${this.wallet.address?.substring(0, 8)}-${Date.now()}.json`;
+
+        a.download =
+          `disclosure-report-${this.wallet.address?.substring(0, 8)}-${Date.now()}.json`;
+
         a.click();
+
+        /** Cleanup object URL */
+
         window.URL.revokeObjectURL(url);
       },
+
       error: () => alert('Failed to export disclosures')
     });
   }
 }
-

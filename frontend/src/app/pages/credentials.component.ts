@@ -693,564 +693,828 @@ import { BrowserProvider } from 'ethers';
   `]
 })
 
+// Angular component responsible for issuing Verifiable Credentials (VCs)
+// and anchoring them on-chain (preferably gasless via meta-transactions).
 export class CredentialsComponent implements OnInit {
+
+  // --------------------
+  // Dependency Injection
+  // --------------------
+
+  // Wallet abstraction service (handles connect, sign, send tx)
   public wallet = inject(WalletService);
+
+  // API service for backend communication (profiles, VC issuance, etc.)
   private api = inject(ApiService);
+
+  // Context management service (tracks allowed VC contexts)
   private contextService = inject(ContextService);
+
+  // Angular Material snackbar for UI notifications
   private snackBar = inject(MatSnackBar);
+
+  // Theme manager (light/dark mode)
   private themeService = inject(ThemeService);
+
+  // Meta-transaction builder/signing service
+  // Used to construct gasless transactions for the relayer
   private metaTx = inject(MetaTxService);
+
+  // Angular HTTP client used for relayer calls
   private http = inject(HttpClient);
 
 
+  // Bind dark mode state from theme service
   darkMode = this.themeService.darkMode;
 
-  // Wallet
+  // --------------------
+  // Wallet UI State
+  // --------------------
+
+  // Tracks when the wallet address has been copied
   copied = signal(false);
+
+  // Shows loading state during wallet connection
   connecting = signal(false);
 
-  // Context
+  // --------------------
+  // Context State
+  // --------------------
+
+  // List of available contexts
   contexts: string[] = [];
+
+  // Selected context
   context = '';
+
+  // Input field for creating a new context
   newContext = '';
+
+  // Optional expiration for consent
   expiresAt?: string;
 
- // Claim issuance – all mandatory, no defaults
+  // --------------------
+  // Claim Issuance Fields
+  // --------------------
+
+  // Unique identifier for the claim
   claimId = '';
+
+  // JSON string representing credential data
   claim = '';
+
+  // Purpose of the credential (for consent and auditing)
   purpose = '';
 
-  // UI state
+  // --------------------
+  // UI State
+  // --------------------
+
+  // Tracks whether issuance is currently in progress
   issuing = signal(false);
+
+  // Stores the result of issuance (success or error)
   result: any | null = null;
 
-  // Default claim template (prefilled when field is empty)
-private defaultClaimTemplate = `{
+  // --------------------
+  // Default Claim Template
+  // --------------------
+
+  // Prefilled JSON example shown to users when the claim field is empty
+  private defaultClaimTemplate = `{
   "name": "Your Name",
   "email": "you@example.com",
   "role": "Developer",
   "verified": true
 }`;
 
+  // --------------------
+  // Lifecycle
+  // --------------------
+
   ngOnInit() {
+
+    // Subscribe to context list updates from ContextService
     this.contextService.contexts$.subscribe(ctxs => {
+      // Keep contexts sorted for better UX
       this.contexts = ctxs.sort();
     });
 
-    // Prefill only if claim is empty (first time)
-  if (!this.claim) {
-    this.claim = this.defaultClaimTemplate;
-  }
+    // If user has not typed anything yet,
+    // prefill the claim field with a template
+    if (!this.claim) {
+      this.claim = this.defaultClaimTemplate;
+    }
   }
 
   // --------------------
   // Wallet
   // --------------------
+
+  // Connect user's wallet (MetaMask, etc.)
   async connect() {
+
     this.connecting.set(true);
 
     try {
+
+      // Calls WalletService which handles wallet connection
       await this.wallet.connect();
+
     } catch (e: any) {
-      this.snackBar.open(e.message || 'Wallet connection failed', 'Close', { duration: 5000 });
+
+      // Display error if connection fails
+      this.snackBar.open(
+        e.message || 'Wallet connection failed',
+        'Close',
+        { duration: 5000 }
+      );
+
     } finally {
+
       this.connecting.set(false);
+
     }
   }
 
+  // Copy wallet address to clipboard
   copyAddress(addr: string) {
+
     navigator.clipboard.writeText(addr);
+
     this.copied.set(true);
+
+    // Reset copy indicator after 2 seconds
     setTimeout(() => this.copied.set(false), 2000);
   }
 
   // --------------------
   // Contexts
   // --------------------
+
+  // Add a custom context to the list
   addContext() {
+
     const ctx = this.newContext.trim().toLowerCase();
+
     if (!ctx) return;
 
+    // Validate format (lowercase letters, numbers, hyphens only)
     if (!/^[a-z0-9-]+$/.test(ctx)) {
-      this.snackBar.open('Context must contain only lowercase letters, numbers, and hyphens.', 'Close', { duration: 5000 });
+      this.snackBar.open(
+        'Context must contain only lowercase letters, numbers, and hyphens.',
+        'Close',
+        { duration: 5000 }
+      );
       return;
     }
 
+    // Prevent duplicate contexts
     if (this.contexts.includes(ctx)) {
-      this.snackBar.open('Context already exists', 'Close', { duration: 3000 });
+      this.snackBar.open(
+        'Context already exists',
+        'Close',
+        { duration: 3000 }
+      );
       return;
     }
 
+    // Add new context to service
     this.contextService.addContext(ctx);
+
+    // Select it automatically
     this.context = ctx;
+
     this.newContext = '';
-    this.snackBar.open(`Custom context "${ctx}" added`, 'Close', { duration: 5000 });
+
+    this.snackBar.open(
+      `Custom context "${ctx}" added`,
+      'Close',
+      { duration: 5000 }
+    );
   }
 
   // --------------------
   // Validation Helpers
   // --------------------
-  // Auto-format JSON on blur (fix spacing, smart quotes, etc.)
-    formatJson() {
-      if (!this.claim?.trim()) return;
 
-      let cleaned = this.claim.trim();
+  // Auto-format JSON when user leaves the field
+  // Fixes spacing, smart quotes, trailing commas
+  formatJson() {
 
-      // Fix smart quotes
-      cleaned = cleaned.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"');
+    if (!this.claim?.trim()) return;
 
-      // Remove trailing commas
-      cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+    let cleaned = this.claim.trim();
 
-      try {
-        const parsed = JSON.parse(cleaned);
-        // Pretty print with 2-space indentation
-        this.claim = JSON.stringify(parsed, null, 2);
-      } catch {
-        // If still invalid, leave as-is (user is typing)
-      }
+    // Replace smart quotes with standard quotes
+    cleaned = cleaned
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"');
+
+    // Remove trailing commas
+    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+    try {
+
+      const parsed = JSON.parse(cleaned);
+
+      // Pretty print JSON
+      this.claim = JSON.stringify(parsed, null, 2);
+
+    } catch {
+
+      // Ignore errors while user is typing
+
     }
+  }
 
-    // Optional: live validation feedback while typing
-    onClaimInput() {
-      // You can add live formatting or hints here if desired
-      // For now, we just format on blur to avoid annoying the user
+  // Triggered on input changes
+  onClaimInput() {
+    // Reserved for future live validation
+  }
+
+  // Validate claim JSON structure
+  isValidJson(): boolean {
+
+    if (!this.claim?.trim()) return false;
+
+    try {
+
+      const parsed = JSON.parse(this.claim);
+
+      // Must be an object and not empty
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) return false;
+
+      return Object.keys(parsed).length > 0;
+
+    } catch {
+
+      return false;
+
     }
+  }
 
-    // Keep your existing isValidJson() — it's perfect now
-    isValidJson(): boolean {
-      if (!this.claim?.trim()) return false;
-
-      try {
-        const parsed = JSON.parse(this.claim);
-        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return false;
-        return Object.keys(parsed).length > 0;
-      } catch {
-        return false;
-      }
-    }
-
+  // Validate the entire issuance form
   isIssueValid(): boolean {
+
     if (!this.context?.trim()) return false;
     if (!this.purpose?.trim()) return false;
     if (!this.claimId?.trim()) return false;
+
     return this.isValidJson();
   }
 
-  // --------------------------
-// Issue VC - with full hybrid signing support
-// --------------------------
-async issueVC() {
+  // ------------------------------------------------------------
+  // Issue Verifiable Credential
+  // ------------------------------------------------------------
+  // This is the main flow:
+  //
+  // 1️⃣ Validate inputs
+  // 2️⃣ Fetch current profile CID
+  // 3️⃣ Build and sign the VC in the browser
+  // 4️⃣ Send VC to backend
+  // 5️⃣ Anchor claim hash on-chain (gasless if possible)
+  // ------------------------------------------------------------
+  async issueVC() {
+
+    // Validate input fields
     if (!this.isIssueValid()) {
+
       if (this.claim?.trim() && !this.isValidJson()) {
+
         this.snackBar.open(
           'Claim JSON must contain at least one meaningful key-value pair (empty keys/values not allowed)',
           'Close',
           { duration: 7000 }
         );
+
       } else {
+
         this.snackBar.open(
           'Please fill in Context, Purpose, Claim ID, and valid non-empty JSON claim data',
           'Close',
           { duration: 6000 }
         );
       }
+
       return;
     }
 
-  const addr = this.wallet.address;
-  if (!addr) {
-    this.snackBar.open('Wallet not connected', 'Close', { duration: 4000 });
-    return;
-  }
+    // Ensure wallet is connected
+    const addr = this.wallet.address;
 
-  let currentProfileCid: string | null = null;
+    if (!addr) {
 
-  try {
-    // Fetch current profile (lightweight — backend already reads CID anyway)
-    const profileRes = await firstValueFrom(
-      this.api.getProfile(addr, this.context)
-    );
+      this.snackBar.open(
+        'Wallet not connected',
+        'Close',
+        { duration: 4000 }
+      );
 
-    // IMPORTANT: backend must return 'cid' in getProfile response
-    // If not yet, add it in backend (see below)
-    currentProfileCid = profileRes.cid || null;
+      return;
+    }
 
-    console.log("Sending fresh currentProfileCid:", currentProfileCid);
-  } catch (e) {
-    console.warn("Could not pre-fetch current CID — backend will fallback", e);
-  }
+    let currentProfileCid: string | null = null;
 
-  this.issuing.set(true);
-  this.result = null;
-
-  try {
-    let claimObj: any;
     try {
-      claimObj = JSON.parse(this.claim);
-    } catch {
-      throw new Error('Invalid JSON in claim field');
+
+      // Fetch the user's current profile
+      const profileRes = await firstValueFrom(
+        this.api.getProfile(addr, this.context)
+      );
+
+      // Backend should return the CID of the profile
+      currentProfileCid = profileRes.cid || null;
+
+      console.log("Sending fresh currentProfileCid:", currentProfileCid);
+
+    } catch (e) {
+
+      console.warn(
+        "Could not pre-fetch current CID — backend will fallback",
+        e
+      );
+
     }
 
-// ────────────────────────────────────────────────
-// NEW: Frontend signs VC with user's wallet
-// ────────────────────────────────────────────────
-let signedVc;
-try {
-  // Ensure window.ethereum exists
-  if (!(window as any).ethereum) {
-    throw new Error('No Ethereum provider found. Please install MetaMask.');
-  }
-  const provider = new ethers.BrowserProvider((window as any).ethereum);
-  await provider.send("eth_requestAccounts", []); // Ensure connected
-  const signer = await provider.getSigner();
+    this.issuing.set(true);
+    this.result = null;
 
-  const signerAddress = (await signer.getAddress()).toLowerCase();
-  console.log("Signer address used for VC signature:", signerAddress);
-  
- // Deep clone everything to prevent reference loss/mutation
-  const claimObjCopy = JSON.parse(JSON.stringify(claimObj)); // force deep copy
+    try {
 
-  console.log("Cloned claimObj:", claimObjCopy); // should match original
-  const vc = {
-    "@context": ["https://www.w3.org/2018/credentials/v1"],
-    type: ["VerifiableCredential"],
-    issuer: `did:ethr:${addr}`,
-    issuanceDate: new Date().toISOString(),
-    credentialSubject: {
-      id: `did:ethr:${addr}`,
-      claim: claimObjCopy
-    },
-    pimv: {
-      context: this.context,
-      claimId: this.claimId,
-      purpose: this.purpose.trim(),
-      consentRequired: true
-    }
-  };
- 
-  console.log("Full VC before signing:", vc);
- // ← Add these three lines
-console.log("credentialSubject at this moment:", vc.credentialSubject);
-console.log("claim inside it:", vc.credentialSubject?.claim);
-console.log("Is claim plain object?", vc.credentialSubject?.claim && Object.prototype.toString.call(vc.credentialSubject.claim) === '[object Object]');
+      // Parse claim JSON
+      let claimObj: any;
 
-// Recursive deterministic stringify (sort all levels)
-  const vcString = JSON.stringify(vc, Object.keys(vc).sort());
-  // Find position of credentialSubject
-const start = vcString.indexOf('"credentialSubject":');
-if (start === -1) {
-  console.log("credentialSubject key not found in stringified VC!");
-} else {
-  // Extract ~200 chars after the key to see content
-  const excerpt = vcString.substring(start, start + 200);
-  console.log("credentialSubject excerpt (first ~200 chars after key):", excerpt);
-}
+      try {
 
-// Also log full length + prefix/suffix for comparison
-console.log("Full vcString length:", vcString.length);
-console.log("vcString starts with:", vcString.substring(0, 150));
-console.log("vcString ends with:", vcString.substring(vcString.length - 150));
-  console.log("Canonical(top level) string being signed (first 300 chars):", vcString.substring(0, 300));
+        claimObj = JSON.parse(this.claim);
 
-  const signature = await signer.signMessage(vcString);
+      } catch {
 
-  signedVc = {
-    ...vc,
-    proof: {
-      type: "EcdsaSecp256k1Signature2019",
-      created: new Date().toISOString(),
-      proofPurpose: "assertionMethod",
-      verificationMethod: `did:ethr:${addr}`,
-      jws: signature
-    }
-  };
-} catch (signErr: any) {
-  console.error("Frontend VC signing failed:", signErr);
-  this.snackBar.open(
-    signErr.code === 4001 ? 'VC signing rejected' : 'Failed to sign VC',
-    'Close',
-    { duration: 6000, panelClass: ['error-snackbar'] }
-  );
-  this.issuing.set(false);
-  return; // Stop here — no credential issued
-}
+        throw new Error('Invalid JSON in claim field');
 
-// ────────────────────────────────────────────────
-// Existing payload — now send signedVc instead of unsigned data
-// ────────────────────────────────────────────────
-const payload = {
-  signedVc,                    // ← NEW: full signed VC
-  context: this.context,
-  claimId: this.claimId,
-  currentProfileCid,
-  consent: {
-    purpose: this.purpose.trim(),
-    expiresAt: this.expiresAt || undefined,
-  }
-};
-    const response = await firstValueFrom(this.api.issueSignedVC(payload));  // ← new endpoint name
-   // const response = await firstValueFrom(this.api.issueVC(payload));
-    //console.log("Backend returned newProfileCid:", response.newProfileCid);
-   // console.log("Did we send currentProfileCid? ", payload.currentProfileCid); // will be undefined
+      }
 
-        this.snackBar.open(
-          'Preparing gasless credential anchoring...',
-          'Close',
-          { duration: 6000 }
-        );
+      // ------------------------------------------------------------
+      // Frontend VC Signing
+      // ------------------------------------------------------------
+      // The VC is signed with the user's wallet BEFORE sending
+      // to the backend. This ensures the credential is cryptographically
+      // bound to the issuer DID.
+      // ------------------------------------------------------------
 
-        const claimIdBytes32 = response.claimIdBytes32;
-        const claimHash = response.claimHash;
+      let signedVc;
 
-        if (!claimIdBytes32 || !claimHash) {
-          throw new Error('Backend did not return claimIdBytes32 or claimHash');
+      try {
+
+        if (!(window as any).ethereum) {
+          throw new Error(
+            'No Ethereum provider found. Please install MetaMask.'
+          );
         }
 
-        try {
+        const provider = new ethers.BrowserProvider(
+          (window as any).ethereum
+        );
 
-          // 1️⃣ Build & sign meta-tx in browser (LIKE VAULT)
-          const { request:req, signature } = await this.metaTx.buildAndSignMetaTx({
+        await provider.send("eth_requestAccounts", []);
+
+        const signer = await provider.getSigner();
+
+        const signerAddress =
+          (await signer.getAddress()).toLowerCase();
+
+        console.log(
+          "Signer address used for VC signature:",
+          signerAddress
+        );
+
+        // Deep clone claim object to avoid mutations
+        const claimObjCopy =
+          JSON.parse(JSON.stringify(claimObj));
+
+        const vc = {
+
+          "@context": [
+            "https://www.w3.org/2018/credentials/v1"
+          ],
+
+          type: ["VerifiableCredential"],
+
+          issuer: `did:ethr:${addr}`,
+
+          issuanceDate: new Date().toISOString(),
+
+          credentialSubject: {
+            id: `did:ethr:${addr}`,
+            claim: claimObjCopy
+          },
+
+          pimv: {
+            context: this.context,
+            claimId: this.claimId,
+            purpose: this.purpose.trim(),
+            consentRequired: true
+          }
+        };
+
+        // Deterministic serialization before signing
+        const vcString = JSON.stringify(
+          vc,
+          Object.keys(vc).sort()
+        );
+
+        console.log(
+          "Canonical VC string being signed:",
+          vcString.substring(0, 300)
+        );
+
+        // Sign VC content with wallet
+        const signature =
+          await signer.signMessage(vcString);
+
+        // Attach proof to VC
+        signedVc = {
+          ...vc,
+          proof: {
+            type: "EcdsaSecp256k1Signature2019",
+            created: new Date().toISOString(),
+            proofPurpose: "assertionMethod",
+            verificationMethod: `did:ethr:${addr}`,
+            jws: signature
+          }
+        };
+
+      } catch (signErr: any) {
+
+        console.error(
+          "Frontend VC signing failed:",
+          signErr
+        );
+
+        this.snackBar.open(
+          signErr.code === 4001
+            ? 'VC signing rejected'
+            : 'Failed to sign VC',
+          'Close',
+          {
+            duration: 6000,
+            panelClass: ['error-snackbar']
+          }
+        );
+
+        this.issuing.set(false);
+
+        return;
+
+      }
+
+      // ------------------------------------------------------------
+      // Send VC to Backend
+      // ------------------------------------------------------------
+      // Backend will:
+      // - store credential
+      // - compute claim hash
+      // - prepare blockchain anchoring
+      // ------------------------------------------------------------
+
+      const payload = {
+
+        signedVc,
+
+        context: this.context,
+
+        claimId: this.claimId,
+
+        currentProfileCid,
+
+        consent: {
+          purpose: this.purpose.trim(),
+          expiresAt: this.expiresAt || undefined
+        }
+      };
+
+      const response =
+        await firstValueFrom(
+          this.api.issueSignedVC(payload)
+        );
+
+      // Notify user gasless anchoring is starting
+      this.snackBar.open(
+        'Preparing gasless credential anchoring...',
+        'Close',
+        { duration: 6000 }
+      );
+
+      const claimIdBytes32 = response.claimIdBytes32;
+      const claimHash = response.claimHash;
+
+      if (!claimIdBytes32 || !claimHash) {
+        throw new Error(
+          'Backend did not return claimIdBytes32 or claimHash'
+        );
+      }
+
+      // ------------------------------------------------------------
+      // Gasless anchoring via Meta-Transactions
+      // ------------------------------------------------------------
+      // Uses ERC2771 forwarder + relayer
+      // ------------------------------------------------------------
+
+      try {
+
+        // Build meta-transaction for setClaim
+        const { request: req, signature } =
+          await this.metaTx.buildAndSignMetaTx({
+
             forwarderAbi: ForwarderAbi,
-            targetAddress: environment.IDENTITY_REGISTRY_META_ADDRESS,
+
+            targetAddress:
+              environment.IDENTITY_REGISTRY_META_ADDRESS,
+
             targetAbi: IdentityRegistryAbi,
+
             functionName: "setClaim",
+
             functionArgs: [
               addr,
               claimIdBytes32,
               claimHash
             ]
           });
-          // 2️⃣ Relay and WAIT for confirmation
-        const relayResponse: any = await firstValueFrom(
-          this.http.post(`${environment.backendUrl}/meta/relay`, { request: req, signature })
-        );
-        // 🔥 Wait for backend to confirm mining
-        if (!relayResponse.txHash) throw new Error("Relay failed");
 
-        // Wait until tx is mined
+        // Send to relayer backend
+        const relayResponse: any =
+          await firstValueFrom(
+            this.http.post(
+              `${environment.backendUrl}/meta/relay`,
+              { request: req, signature }
+            )
+          );
+
+        if (!relayResponse.txHash) {
+          throw new Error("Relay failed");
+        }
+
+        // Wait until transaction is mined
         await this.waitForTx(relayResponse.txHash);
-        console.log("Claim 1 mined:", relayResponse.txHash);
 
-        this.snackBar.open(
-          'Submitting gasless transaction...',
-          'Close',
-          { duration: 8000 }
+        console.log(
+          "Claim anchored:",
+          relayResponse.txHash
         );
-         
-        const txHash = relayResponse.txHash;
 
-          // 3️⃣ Second Transaction: setProfileCID (Only AFTER first is confirmed)
+        // ------------------------------------------------------------
+        // Second meta-transaction: update profile CID
+        // ------------------------------------------------------------
+
         if (response.newProfileCid) {
-          const { request: profileReq, signature: profileSig } =
+
+          const {
+            request: profileReq,
+            signature: profileSig
+          } =
             await this.metaTx.buildAndSignMetaTx({
+
               forwarderAbi: ForwarderAbi,
-              targetAddress: environment.IDENTITY_REGISTRY_META_ADDRESS,
+
+              targetAddress:
+                environment.IDENTITY_REGISTRY_META_ADDRESS,
+
               targetAbi: IdentityRegistryAbi,
+
               functionName: "setProfileCID",
+
               functionArgs: [
                 addr,
-                response.newProfileCid 
+                response.newProfileCid
               ]
             });
 
-           await firstValueFrom(
-          this.http.post(`${environment.backendUrl}/meta/relay`, { 
-            request: profileReq, 
-            signature: profileSig 
-          })
-        );
+          await firstValueFrom(
+            this.http.post(
+              `${environment.backendUrl}/meta/relay`,
+              {
+                request: profileReq,
+                signature: profileSig
+              }
+            )
+          );
         }
-          this.snackBar.open(
-            `Credential anchored GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
-            'Close',
-            { duration: 8000, panelClass: ['success-snackbar'] }
+
+        // Success notification
+        const txHash = relayResponse.txHash;
+
+        this.snackBar.open(
+          `Credential anchored GASLESSLY! Tx: ${txHash.slice(0, 10)}...`,
+          'Close',
+          {
+            duration: 8000,
+            panelClass: ['success-snackbar']
+          }
+        );
+
+        this.result = {
+          ...response,
+          txHash,
+          gasless: true
+        };
+
+        this.resetFormAfterSuccess();
+
+        return;
+
+      } catch (gaslessErr: any) {
+
+        console.error(
+          'Gasless credential anchoring failed:',
+          gaslessErr
+        );
+
+        const fallback =
+          confirm(
+            'Gasless anchoring failed. Try regular transaction?'
           );
 
-          this.result = {
-            ...response,
-            txHash,
-            gasless: true
-          };
-
-          this.resetFormAfterSuccess();
-          return;
-
-        } catch (gaslessErr: any) {
-          console.error('Gasless credential anchoring failed:', gaslessErr);
-
-          const fallback = confirm('Gasless anchoring failed. Try regular transaction?');
-          if (fallback) {
-            // Let it fall through to hybrid logic below
-          } else {
-            throw gaslessErr;
-          }
+        if (!fallback) {
+          throw gaslessErr;
         }
-
-    // ── Backend-signed (dev) mode ────────────────────────────────
-    if (!response.unsignedTx && response.txHash) {
-      this.snackBar.open(`Success! Credential anchored on-chain (2 txs confirmed)`, 'Close', {
-        duration: 9000,
-        panelClass: ['success-snackbar'],
-      });
-      this.result = response;
-      return;
-    }
-
-    // ── Hybrid mode: Frontend must sign ──────────────────────────
-    if (!response.unsignedTx) {
-      throw new Error('Unexpected server response - missing unsignedTx in hybrid mode');
-    }
-
-    // 1. Main credential issuance transaction
-    this.snackBar.open(
-      'Please sign the credential issuance transaction in your wallet...',
-      'Close',
-      { duration: 15000 }
-    );
-
-    let mainTxHash: string;
-
-    try {
-      const { hash } = await this.wallet.signAndSendTransaction(response.unsignedTx);
-      mainTxHash = hash;
-    } catch (signError: any) {
-      console.error('Main tx signing failed:', signError);
-
-      const msg =
-        signError.code === 4001
-          ? 'Transaction was rejected by user'
-          : signError.shortMessage || signError.message || 'Failed to sign/send transaction';
-
-      this.snackBar.open(msg, 'Close', {
-        duration: 8000,
-        panelClass: ['error-snackbar'],
-      });
-      return; // Stop here — credential not issued
-    }
-
-    // Wait for confirmation — strongly recommended when doing multiple txs
-    this.snackBar.open('Waiting for on-chain confirmation...', 'Close', {
-      duration: 12000,
-    });
-
-    try {
-      const receipt = await this.wallet.provider!.waitForTransaction(mainTxHash, 1, 90000); // 90s timeout
-
-      if (!receipt) {
-        throw new Error('No receipt received after waiting');
       }
 
-      console.log(`Main tx confirmed in block ${receipt.blockNumber}`);
-    } catch (waitErr: any) {
-      console.warn('Confirmation wait failed (timeout or dropped?):', waitErr);
-      // We still proceed — second tx might work (especially with fresh nonce)
-    }
+      // ------------------------------------------------------------
+      // Fallback: direct blockchain transaction
+      // ------------------------------------------------------------
 
-    // 2. Optional profile CID update
-    let profileTxHash: string | undefined;
+      if (!response.unsignedTx && response.txHash) {
 
-    if (response.profileUnsignedTx) {
+        this.snackBar.open(
+          `Success! Credential anchored on-chain`,
+          'Close',
+          {
+            duration: 9000,
+            panelClass: ['success-snackbar']
+          }
+        );
+
+        this.result = response;
+
+        return;
+      }
+
+      // Hybrid mode (frontend signs transaction)
+      if (!response.unsignedTx) {
+        throw new Error(
+          'Unexpected server response - missing unsignedTx'
+        );
+      }
+
+      // Ask user to sign main transaction
       this.snackBar.open(
-        'Please sign the profile update transaction...',
+        'Please sign the credential issuance transaction in your wallet...',
+        'Close',
+        { duration: 15000 }
+      );
+
+      let mainTxHash: string;
+
+      try {
+
+        const { hash } =
+          await this.wallet.signAndSendTransaction(
+            response.unsignedTx
+          );
+
+        mainTxHash = hash;
+
+      } catch (signError: any) {
+
+        console.error(
+          'Main tx signing failed:',
+          signError
+        );
+
+        const msg =
+          signError.code === 4001
+            ? 'Transaction was rejected by user'
+            : signError.message ||
+              'Failed to sign/send transaction';
+
+        this.snackBar.open(msg, 'Close', {
+          duration: 8000,
+          panelClass: ['error-snackbar']
+        });
+
+        return;
+      }
+
+      // Wait for confirmation
+      this.snackBar.open(
+        'Waiting for on-chain confirmation...',
         'Close',
         { duration: 12000 }
       );
 
       try {
-        const { hash } = await this.wallet.signAndSendTransaction(response.profileUnsignedTx);
-        profileTxHash = hash;
 
-        this.snackBar.open(
-          `Profile updated successfully! Tx: ${profileTxHash.slice(0, 10)}...`,
-          'Close',
-          { duration: 6000, panelClass: ['success-snackbar'] }
+        const receipt =
+          await this.wallet.provider!
+            .waitForTransaction(mainTxHash, 1, 90000);
+
+        if (!receipt) {
+          throw new Error(
+            'No receipt received after waiting'
+          );
+        }
+
+        console.log(
+          `Main tx confirmed in block ${receipt.blockNumber}`
         );
-      } catch (profileErr: any) {
-        console.warn('Profile tx failed/rejected:', profileErr);
 
-        const msg =
-          profileErr.code === 4001
-            ? 'Profile update was rejected (skipped)'
-            : 'Profile update failed — credential still issued';
+      } catch (waitErr) {
 
-        this.snackBar.open(msg, 'Close', {
-          duration: 7000,
-          panelClass: ['warn-snackbar'],
-        });
-        // We don't fail the whole flow — main credential is already anchored
+        console.warn(
+          'Confirmation wait failed:',
+          waitErr
+        );
       }
-    }
 
-    // ── Final success ───────────────────────────────────────────────
-    this.snackBar.open(`Credential successfully issued & anchored! Tx: ${mainTxHash.slice(0, 10)}...`, 'Close', {
-        duration: 7000,
-        panelClass: ['success-snackbar'],
-      });
+      // ------------------------------------------------------------
+      // Final success
+      // ------------------------------------------------------------
+
+      this.snackBar.open(
+        `Credential successfully issued & anchored! Tx: ${mainTxHash.slice(0, 10)}...`,
+        'Close',
+        {
+          duration: 7000,
+          panelClass: ['success-snackbar']
+        }
+      );
 
       this.resetFormAfterSuccess();
-    // Auto-add the context to the dropdown if it's new
-    if (this.context && !this.contextService.contexts.includes(this.context)) {
-      this.contextService.addContext(this.context);
+
+      this.result = {
+        ...response,
+        txHash: mainTxHash
+      };
+
+    } catch (err: any) {
+
+      console.error('Issue VC failed:', err);
+
       this.snackBar.open(
-        `New context "${this.context}" added to your list`,
+        err.message || 'Failed to issue credential',
         'Close',
-        { duration: 5000, panelClass: ['info-snackbar'] }
+        {
+          duration: 9000,
+          panelClass: ['error-snackbar']
+        }
       );
+
+      this.result = {
+        error: err.message || 'Unknown error'
+      };
+
+    } finally {
+
+      this.issuing.set(false);
+
     }
-
-    this.result = {
-      ...response,
-      txHash: mainTxHash,
-      profileTxHash,
-    };
-  } catch (err: any) {
-    console.error('Issue VC failed:', err);
-
-    let displayMessage = 'Failed to issue credential';
-
-    if (err.code === 4001) {
-      displayMessage = 'Transaction was rejected by user';
-    } else if (err.code === -32603) {
-      displayMessage = 'Internal JSON-RPC error — check gas/network';
-    } else if (err.message?.includes('nonce')) {
-      displayMessage = 'Nonce error — try again or reset MetaMask account';
-    } else if (err.message?.includes('insufficient funds')) {
-      displayMessage = 'Insufficient funds for gas';
-    }
-
-    this.snackBar.open(displayMessage, 'Close', {
-      duration: 9000,
-      panelClass: ['error-snackbar'],
-    });
-
-    this.result = { error: err.shortMessage || err.message || 'Unknown error' };
-  } finally {
-    this.issuing.set(false);
   }
-}
 
-async waitForTx(txHash: string) {
-  const provider = new BrowserProvider((window as any).ethereum);
-  await provider.waitForTransaction(txHash);
-}
+  // ------------------------------------------------------------
+  // Wait for transaction confirmation
+  // ------------------------------------------------------------
+  async waitForTx(txHash: string) {
 
-private resetFormAfterSuccess() {
+    const provider =
+      new BrowserProvider((window as any).ethereum);
+
+    await provider.waitForTransaction(txHash);
+  }
+
+  // Reset form fields after successful issuance
+  private resetFormAfterSuccess() {
+
     this.claimId = '';
     this.claim = '';
     this.purpose = '';
-    // Optionally keep context selected or reset it too
     this.context = '';
   }
 
-  // --------------------
-  // Helpers
-  // --------------------
+  // Check if result represents a successful issuance
   isSuccessResult(): boolean {
+
     return !!(
       this.result &&
-      (this.result.message?.toLowerCase().includes('issued') ||
-       this.result.txHash)
+      (
+        this.result.message?.toLowerCase().includes('issued') ||
+        this.result.txHash
+      )
     );
   }
 }

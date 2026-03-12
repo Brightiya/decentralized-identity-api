@@ -441,116 +441,325 @@ interface ProfileData {
     }
   `]
 })
+/**
+ * ProfileOverviewComponent
+ *
+ * Displays the user's profile information for a selected context.
+ *
+ * Responsibilities:
+ * - Load profile data from the backend
+ * - Allow switching between profile contexts
+ * - Display personal attributes (gender, pronouns, bio)
+ * - Display online links
+ * - Provide loading and error states
+ * - Support dark mode UI
+ */
 export class ProfileOverviewComponent implements OnInit {
+
+  /** API service used to fetch profile data from the backend */
   private apiService = inject(ApiService);
+
+  /** Wallet service providing the connected wallet address */
   public wallet = inject(WalletService);
+
+  /** Theme service exposing dark mode signal */
   private themeService = inject(ThemeService);
 
+  /** Indicates profile data is currently loading */
   loading = signal(true);
+
+  /** Error message if profile retrieval fails */
   error = signal<string | null>(null);
+
+  /** Signal storing the loaded profile data */
   profile = signal<ProfileData | null>(null);
+
+  /** Dark mode signal passed to template */
   darkMode = this.themeService.darkMode;
 
+  /**
+   * FormControl used for selecting profile context.
+   *
+   * Default context: "profile"
+   */
   contextControl = new FormControl('profile');
-  standardContexts = ['profile', 'identity', 'medical', 'professional', 'compliance'];
+
+  /**
+   * List of standard contexts supported by the system.
+   *
+   * Profiles can exist under different contexts to separate
+   * identity information (e.g., medical vs professional).
+   */
+  standardContexts = [
+    'profile',
+    'identity',
+    'medical',
+    'professional',
+    'compliance'
+  ];
+
+  /**
+   * Filtered context list used by autocomplete UI.
+   */
   filteredContexts = signal<string[]>(this.standardContexts);
+
+  /**
+   * Signal storing the currently selected context.
+   */
   selectedContext = signal('profile');
 
+  /**
+   * Maps stored gender codes to human-readable labels.
+   *
+   * Used when rendering profile information in the UI.
+   */
   private genderLabels: Record<string, string> = {
+
     male: 'Male',
+
     female: 'Female',
+
     'non-binary': 'Non-binary',
+
     genderqueer: 'Genderqueer',
+
     transgender: 'Transgender',
+
     'prefer-not-to-say': 'Prefer not to say',
+
     other: 'Other'
   };
 
+  /**
+   * Angular lifecycle hook.
+   *
+   * Initializes profile loading and sets up context change
+   * handling for dynamic profile switching.
+   */
   ngOnInit() {
+
+    /** Load profile for the default context */
     this.loadProfile();
 
-    // Update selected context and reload on change
+    /**
+     * Listen for context selection changes.
+     *
+     * When the user changes the context:
+     * - update selectedContext signal
+     * - update autocomplete filter
+     * - reload profile data
+     */
     this.contextControl.valueChanges.subscribe(value => {
+
       const ctx = value?.trim().toLowerCase() || 'profile';
+
       this.selectedContext.set(ctx);
+
       this.filteredContexts.set(
-        value ? this.standardContexts.filter(c => c.toLowerCase().includes(value.toLowerCase())) : this.standardContexts
+
+        value
+          ? this.standardContexts.filter(c =>
+              c.toLowerCase().includes(value.toLowerCase())
+            )
+          : this.standardContexts
+
       );
+
       this.loadProfile();
     });
   }
 
+  /**
+   * Loads profile data for the currently selected context.
+   */
   loadProfile() {
+
+    /** Reset UI state */
+
     this.loading.set(true);
+
     this.error.set(null);
+
     this.profile.set(null);
 
+    /**
+     * Subscribe to wallet address stream.
+     */
     this.wallet.address$.subscribe(address => {
+
       if (!address) {
+
         this.error.set('No wallet connected');
+
         this.loading.set(false);
+
         return;
       }
 
-      this.apiService.getDbProfile(address, this.selectedContext()).subscribe({
+      /**
+       * Request profile data from backend API.
+       */
+      this.apiService.getDbProfile(
+        address,
+        this.selectedContext()
+      ).subscribe({
+
         next: (data: ProfileData) => {
+
+          /** Store returned profile data */
+
           this.profile.set(data);
+
           this.loading.set(false);
         },
+
         error: (err) => {
+
           console.error('Failed to load DB profile:', err);
+
+          /**
+           * If the backend returns 404,
+           * the profile simply doesn't exist yet.
+           */
           if (err.status === 404) {
-            this.error.set(`No profile found for context "${this.selectedContext()}". Create one to get started.`);
+
+            this.error.set(
+              `No profile found for context "${this.selectedContext()}". Create one to get started.`
+            );
+
           } else {
-            this.error.set('Failed to load profile. Please try again later.');
+
+            /**
+             * Generic failure case
+             */
+            this.error.set(
+              'Failed to load profile. Please try again later.'
+            );
           }
+
           this.loading.set(false);
         }
+
       });
     });
   }
 
+  /**
+   * Determines if the profile contains any personal data.
+   *
+   * Used to conditionally render profile sections in the UI.
+   */
   hasPersonalData(data: ProfileData): boolean {
+
     return !!(
+
       data.gender ||
+
       data.pronouns ||
+
       data.bio ||
+
       this.hasLinks(data)
+
     );
   }
 
+  /**
+   * Checks whether the profile contains any online links.
+   */
   hasLinks(data: ProfileData): boolean {
-    return !!(data.online_links && Object.keys(data.online_links).length > 0);
+
+    return !!(
+
+      data.online_links &&
+      Object.keys(data.online_links).length > 0
+
+    );
   }
 
+  /**
+   * Converts the online_links object into a list
+   * suitable for template iteration.
+   *
+   * Example conversion:
+   *
+   * {
+   *   twitter: "https://...",
+   *   github: "https://..."
+   * }
+   *
+   * →
+   *
+   * [
+   *   { platform: "twitter", url: "https://..." },
+   *   { platform: "github", url: "https://..." }
+   * ]
+   */
   getLinks(data: ProfileData): { platform: string; url: string }[] {
+
     if (!data.online_links) return [];
-    return Object.entries(data.online_links).map(([platform, url]) => ({
-      platform,
-      url
-    }));
+
+    return Object.entries(data.online_links).map(
+      ([platform, url]) => ({
+
+        platform,
+
+        url
+
+      })
+    );
   }
 
+  /**
+   * Converts stored gender codes into display labels.
+   *
+   * If the code is unknown, it falls back to returning the code itself.
+   */
   getGenderLabel(code: string): string {
+
     return this.genderLabels[code] || code;
+
   }
 
+  /**
+   * Returns a Material icon name corresponding
+   * to a given online platform.
+   *
+   * This allows different link types to display
+   * recognizable icons in the UI.
+   */
   getIcon(platform: string): string {
+
     const icons: Record<string, string> = {
+
       twitter: 'twitter',
+
       x: 'twitter',
+
       linkedin: 'linkedin',
+
       github: 'code',
+
       website: 'language',
+
       instagram: 'photo_camera',
+
       mastodon: 'language',
+
       facebook: 'facebook',
+
       youtube: 'play_circle',
+
       discord: 'group',
+
       telegram: 'send',
+
       default: 'link'
+
     };
+
     const lower = platform.toLowerCase();
+
     return icons[lower] || icons['default'] || 'link';
   }
 }

@@ -403,66 +403,230 @@ import { AuthService } from '../services/auth.service';
     }
   `]
 })
+/**
+ * ProfileComponent
+ *
+ * Acts as the container component for the user's profile area.
+ *
+ * Responsibilities:
+ * - Display wallet address and DID
+ * - Provide copy helpers for address and DID
+ * - Control profile tab navigation (Overview / Edit / Privacy)
+ * - Sync Angular router state with the UI tab index
+ * - Enforce role-based UI logic (USER role)
+ * - Support dark mode UI
+ */
 export class ProfileComponent implements OnInit, OnDestroy {
+
+  /**
+   * Wallet service provides:
+   * - connected wallet address
+   * - connection state
+   * - blockchain provider access
+   */
   wallet = inject(WalletService);
+
+  /**
+   * Theme service exposes dark mode signal used by the UI
+   */
   private themeService = inject(ThemeService);
+
+  /**
+   * Angular router used to:
+   * - detect route changes
+   * - navigate between profile tabs
+   */
   private router = inject(Router);
+
+  /**
+   * ActivatedRoute used for relative navigation
+   * within the /profile route structure
+   */
   private route = inject(ActivatedRoute);
 
+  /**
+   * Dark mode signal passed to template
+   */
   darkMode = this.themeService.darkMode;
 
+  /**
+   * Signals used to briefly show "Copied!" feedback
+   * when the user copies the wallet address.
+   */
   copied = signal(false);
+
+  /**
+   * Signal used for DID copy feedback
+   */
   copiedDid = signal(false);
 
+  /**
+   * Signal storing the currently active tab index.
+   *
+   * Tabs correspond to:
+   * 0 → Profile overview
+   * 1 → Edit profile
+   * 2 → Privacy settings
+   */
   activeTabIndex = signal(0);
 
+  /**
+   * Router event subscription
+   * used to detect navigation changes
+   */
   private subscription: any;
+
+  /**
+   * Authentication service providing role information
+   */
   private auth = inject(AuthService);
+
+  /**
+   * Computed signal used to determine if
+   * the current authenticated role is USER.
+   *
+   * This can be used in templates to conditionally
+   * render UI elements.
+   */
   isUserRole = computed(() => this.auth.role() === 'USER');
 
+  /**
+   * Angular lifecycle hook.
+   *
+   * Subscribes to router navigation events so the tab
+   * index always reflects the current URL.
+   */
   ngOnInit() {
+
     this.subscription = this.router.events.pipe(
+
+      /**
+       * Only react to NavigationEnd events,
+       * which indicate a completed route change.
+       */
       filter(event => event instanceof NavigationEnd)
+
     ).subscribe(() => {
+
       this.updateActiveTab();
+
     });
 
+    /**
+     * Initial tab sync when component loads
+     */
     this.updateActiveTab();
   }
 
+  /**
+   * Angular lifecycle hook.
+   *
+   * Ensures router subscription is cleaned up
+   * to avoid memory leaks.
+   */
   ngOnDestroy() {
-    if (this.subscription) this.subscription.unsubscribe();
+
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
+
   }
 
+  /**
+   * Synchronizes the active tab index
+   * with the current router URL.
+   *
+   * Example routes:
+   * /profile
+   * /profile/edit
+   * /profile/privacy
+   */
   private updateActiveTab() {
+
     const url = this.router.url;
+
     if (url.includes('/profile/edit')) {
+
+      /** Edit profile tab */
       this.activeTabIndex.set(1);
+
     } else if (url.includes('/profile/privacy')) {
+
+      /** Privacy settings tab */
       this.activeTabIndex.set(2);
+
     } else {
+
+      /** Default profile overview tab */
       this.activeTabIndex.set(0);
+
     }
   }
 
+  /**
+   * Called when the user switches tabs in the UI.
+   *
+   * Updates the router so the URL reflects
+   * the selected tab.
+   */
   onTabChange(event: any) {
+
     const index = event.index;
+
+    /** Update signal state */
+
     this.activeTabIndex.set(index);
 
-    const commands = index === 0 ? ['.'] : index === 1 ? ['edit'] : ['privacy'];
-    this.router.navigate(commands, { relativeTo: this.route });
+    /**
+     * Determine route commands based on tab index
+     *
+     * 0 → /profile
+     * 1 → /profile/edit
+     * 2 → /profile/privacy
+     */
+    const commands =
+      index === 0
+        ? ['.']
+        : index === 1
+        ? ['edit']
+        : ['privacy'];
+
+    /**
+     * Navigate relative to current route
+     */
+    this.router.navigate(commands, {
+      relativeTo: this.route
+    });
   }
 
+  /**
+   * Copies the wallet address to clipboard.
+   *
+   * Displays temporary UI feedback.
+   */
   copyAddress(address: string) {
+
     navigator.clipboard.writeText(address);
+
     this.copied.set(true);
+
     setTimeout(() => this.copied.set(false), 2000);
   }
 
+  /**
+   * Copies the user's DID to clipboard.
+   *
+   * DID format:
+   * did:ethr:<walletAddress>
+   */
   copyDid(address: string) {
+
     const did = `did:ethr:${address}`;
+
     navigator.clipboard.writeText(did);
+
     this.copiedDid.set(true);
+
     setTimeout(() => this.copiedDid.set(false), 2000);
   }
 }

@@ -54,8 +54,8 @@ jobs:
           node-version: 20
           cache: 'yarn'
           cache-dependency-path: |
-            backend/yarn.lock
-            frontend/yarn.lock
+            yarn.lock
+            
 
       - name: Enable Corepack
         run: |

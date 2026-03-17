@@ -46,54 +46,67 @@ jobs:
         uses: actions/checkout@v5
 
       # ───────────────────────────────
-      # Node + Yarn with Corepack
+      # Node + Corepack (Yarn 4)
       # ───────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 20
-          cache: 'yarn'
-          cache-dependency-path: |
-            yarn.lock
-            
 
-      - name: Enable Corepack
+      - name: Enable Corepack + install Yarn from packageManager
         run: |
           corepack enable
-          # Verify corepack is working
-          which yarn
-          yarn --version
+          corepack install
+
+      - name: Verify Yarn version
+        run: yarn --version
 
       # ───────────────────────────────
-      # Install dependencies
+      # Cache (Yarn 4 native)
+      # ───────────────────────────────
+      - name: Get Yarn cache directory
+        id: yarn-cache
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+
+      # ───────────────────────────────
+      # Install deps
       # ───────────────────────────────
       - name: Install dependencies
+        run: yarn install --immutable
+
+      # ───────────────────────────────
+      # Wait for Postgres (extra safety)
+      # ───────────────────────────────
+      - name: Wait for Postgres
         run: |
-          # Use yarn directly - corepack will route to the correct version
-          yarn install --immutable
-        env:
-          YARN_ENABLE_IMMUTABLE_INSTALLS: false  # Helps with some CI environments
-      
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U pimv_user && break
+            sleep 2
+          done
+
       # ───────────────────────────────
       # Initialize database schema
       # ───────────────────────────────
       - name: Initialize database schema
-        run: |
-          psql "$DATABASE_URL" -f backend/db/schema.sql
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: psql "$DATABASE_URL" -f backend/db/schema.sql
 
       # ───────────────────────────────
-      # Backend Jest tests (CI mode)
+      # Backend tests
       # ───────────────────────────────
       - name: Run backend Jest tests
         working-directory: backend
         run: yarn test:ci
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       # ───────────────────────────────
-      # Coverage upload
+      # Coverage
       # ───────────────────────────────
       - name: Upload coverage report
         if: always()
@@ -104,7 +117,7 @@ jobs:
           fail_ci_if_error: false
 
       # ───────────────────────────────
-      # Frontend build (optional)
+      # Frontend build
       # ───────────────────────────────
       - name: Build frontend
         working-directory: frontend

@@ -43,13 +43,13 @@ jobs:
       # Checkout
       # ───────────────────────────────
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # ───────────────────────────────
       # Node + Yarn
       # ───────────────────────────────
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
           
@@ -92,7 +92,7 @@ jobs:
       # ───────────────────────────────
       - name: Upload coverage report
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: backend/coverage/lcov.info

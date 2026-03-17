@@ -6,6 +6,7 @@ import cors from "cors";
 import "./config/env.js";
 import morgan from "morgan";
 import contact from './routes/contact.js';
+import { forceEnglishContentLanguage } from '../middleware/contentNegotiation.js';
 
 // Define __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -44,6 +45,8 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use(forceEnglishContentLanguage);
 
 // Optional: request logging (great for dev)
 if (process.env.NODE_ENV !== 'test') {

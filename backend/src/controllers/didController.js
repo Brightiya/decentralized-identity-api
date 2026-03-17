@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 import { requireDidAddress as normalizeAddress } from "../utils/did.js";
 import { getContract } from "../utils/contract.js"; // ← use this instead of raw creation
 
-// Load contractData lazily
+// Load contractData lazily (only once, on first access)
+// Contains address + ABI of the DID registry contract
 const contractDataPromise = (async () => {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -17,6 +18,10 @@ const contractDataPromise = (async () => {
 
 // Lazy registry getter — use mocked version in tests
 let registry;
+/**
+ * Returns either the real ethers contract instance or the test mock
+ * @returns {Promise<import("ethers").Contract | object>} Registry contract (real or mock)
+ */
 async function getRegistry() {
   if (process.env.NODE_ENV === "test") {
     if (!globalThis.mockContract) {
@@ -35,12 +40,16 @@ async function getRegistry() {
 
 /**
  * Register a DID (W3C DID Core + EIP-155 compliant)
+ * Creates DID Document → uploads to IPFS → stores CID on-chain
  * POST /api/did/register
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
 export const registerDID = async (req, res) => {
   try {
     const { address, name, email } = req.body;
 
+    // Basic address validation
     if (!address || !ethers.isAddress(address)) {
       return res.status(400).json({ error: "Valid Ethereum address required" });
     }
@@ -51,7 +60,7 @@ export const registerDID = async (req, res) => {
     // Get registry (mocked in tests, real otherwise)
     const registry = await getRegistry();
 
-    // Build DID Document
+    // Build minimal but standards-compliant DID Document
     const didDocument = {
       "@context": [
         "https://www.w3.org/ns/did/v1",
@@ -88,7 +97,7 @@ export const registerDID = async (req, res) => {
       metadata: { name: name || undefined, email: email || undefined },
     };
 
-    // Upload to IPFS
+    // Upload full DID Document to IPFS via Pinata
     const ipfsUri = await uploadJSON(didDocument);
     const cid = ipfsUri.replace("ipfs://", "");
 
@@ -103,6 +112,7 @@ export const registerDID = async (req, res) => {
       txHash = tx.hash;
     }
 
+    // Success response with useful links and transaction info
     return res.json({
       message: "✅ W3C DID registered successfully (EIP-155 compatible)",
       did,
@@ -120,6 +130,8 @@ export const registerDID = async (req, res) => {
 /**
  * Resolve DID Document from chain + IPFS
  * GET /api/did/:address
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
 export const resolveDID = async (req, res) => {
   try {
@@ -133,11 +145,14 @@ export const resolveDID = async (req, res) => {
     const registry = await getRegistry();
     const cid = await registry.getProfileCID(address);
 
+    // Handle missing / empty CID cases
     if (!cid || cid === "0x" || cid.length === 0) {
       return res.status(404).json({ error: "DID Document not found" });
     }
 
+    // Fetch actual document from IPFS
     const didDocument = await fetchJSON(cid);
+
     return res.json({
       message: "✅ DID Document resolved successfully",
       didDocument,
@@ -156,6 +171,8 @@ export const resolveDID = async (req, res) => {
 /**
  * Verify DID ownership using EIP-191 signature
  * POST /api/did/verify
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
 export const verifyDID = async (req, res) => {
   try {
@@ -176,7 +193,7 @@ export const verifyDID = async (req, res) => {
 
     const didDocument = await fetchJSON(cid);
 
-    // Verify signature
+    // Verify signature matches expected format and recovers correct address
     const message = `Verifying DID ownership for ${did}`;
     let recovered;
     try {

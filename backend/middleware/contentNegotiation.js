@@ -15,9 +15,3 @@ export const forceEnglishContentLanguage = (req, res, next) => {
 
   next();
 };
-
-// After cors, json, etc...
-// usage in index.js or app.js
-//import { forceEnglishContentLanguage } from './middleware/contentNegotiation.js';
-
-//app.use(forceEnglishContentLanguage);

@@ -43,13 +43,13 @@ jobs:
       # Checkout
       # ───────────────────────────────
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       # ───────────────────────────────
       # Node + Yarn
       # ───────────────────────────────
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           package-manager-cache: false

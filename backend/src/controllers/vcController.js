@@ -1,5 +1,3 @@
-// backend/src/controllers/vcController.js
-
 // Import Ethereum utilities for hashing, signing, and verification
 import { ethers } from "ethers";
 

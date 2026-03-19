@@ -1,4 +1,3 @@
-// backend/src/controllers/consentController.js
 import { pool } from "../utils/db.js";
 import { ethers } from "ethers";
 import { fetchJSON } from "../utils/pinata.js";

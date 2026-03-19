@@ -1,22 +1,37 @@
-# fly.toml app configuration file generated for decentralized-identity-api-main on 2026-02-19T14:54:31+01:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
 app = 'pimv'
+# Name of the Fly.io application
+
 primary_region = 'cdg'
+# Primary deployment region (CDG = Paris)
 
 [build]
+# Build configuration section (empty → uses Dockerfile by default)
 
 [http_service]
   internal_port = 8080
+  # Port the app listens on inside the container
+
   force_https = true
+  # Redirect all HTTP traffic to HTTPS
+
   auto_stop_machines = 'stop'
+  # Automatically stop machines when idle to save resources
+
   auto_start_machines = true
+  # Automatically start machines when a request comes in
+
   min_machines_running = 0
+  # Minimum number of running instances (0 allows full scale-to-zero)
+
   processes = ['app']
+  # Process group this service applies to
 
 [[vm]]
   cpu_kind = "shared"
+  # Shared CPU (cost-efficient, not dedicated)
+
   cpus = 1
+  # Number of CPU cores allocated
+
   memory_mb = 512
+  # Amount of RAM allocated (in MB)

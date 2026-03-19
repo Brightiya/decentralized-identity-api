@@ -1,4 +1,3 @@
-// backend/src/controllers/authController.js
 import { ethers } from 'ethers';
 import jwt from 'jsonwebtoken';
 import { SiweMessage, SiweError } from 'siwe';

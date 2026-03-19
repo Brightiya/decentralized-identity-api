@@ -1,250 +1,120 @@
-# PIMV – Personal Identity Management Vault
+# **PIMV – Privacy Identity Management Vault**
 
-## **A Hybrid Self-Sovereign Identity (SSI) System with GDPR Compliance**
+## **Abstract**
 
-PIMV is a full-featured, privacy-first digital identity wallet that gives individuals complete control over their personal data while ensuring verifiable credentials and regulatory compliance.
-
-It combines decentralized identity standards (DIDs, Verifiable Credentials) with a minimal centralized audit layer for GDPR accountability.
-
-## Core Principles
-
-- **You own your identity** – Private keys never leave your wallet
-- **Selective disclosure** – Share only what is needed, when needed
-- **Explicit consent** – No data shared without your approval and defined purpose
-- **Verifiable & immutable** – Credentials cryptographically signed and anchored on-chain
-- **GDPR compliant** – Audit trail, data portability, right to erasure
-
-## Architecture Overview
-
-| Component              | Technology                  | Role                                      |
-|------------------------|-----------------------------|-------------------------------------------|
-| Identifiers            | `did:ethr` (Ethereum-based) | Decentralized, user-controlled DIDs       |
-| Credentials            | W3C Verifiable Credentials  | Standard format, stored on IPFS           |
-| Storage                | IPFS (via Pinata)           | Decentralized, immutable credential storage |
-| Anchoring              | Ethereum (Hardhat local)    | On-chain proof of existence & integrity   |
-| Profile Management     | On-chain registry           | Points DID to current profile CID         |
-| Audit & Compliance     | PostgreSQL                  | Disclosure logs (GDPR Art. 15, 30)        |
-| Frontend               | Angular 17+                 | Beautiful, responsive UI                  |
-| Backend                | Node.js / Express           | Mediation, verification, compliance       |
-
-## Features
-
-- Wallet connection (MetaMask or compatible)
-- Issue context-aware verifiable credentials
-- Manage disclosure contexts (personal, professional, legal, health, custom)
-- Grant/revoke consent
-- View disclosure history (who accessed what and why)
-- Export disclosure report (GDPR data portability)
-- Right to Erasure (GDPR Art. 17) with on-chain tombstone
-- Advanced tools: DID resolution, raw VC validation
-- Dark mode, responsive design
-
-## Getting Started (Local Development)
-
-### Prerequisites
-
-- Node.js ≥ 22.10.0
-- Yarn 4.5.1
-- PostgreSQL (local or Docker)
-- MetaMask browser extension
-
-### 1. Clone and Install
-
-```bash
-git clone https://github.com/yourusername/decentralized-identity-api-main.git
-cd decentralized-identity-api-main
-
-# Install dependencies
-yarn install
-```
-
-### 2. Setup PostgreSQL
-
-```bash
-# Connect as superuser
-psql postgres
-
-# Create user and database
-CREATE USER pimv_user WITH PASSWORD 'strongpassword' CREATEDB;
-CREATE DATABASE pimv_db OWNER pimv_user;
-GRANT ALL PRIVILEGES ON DATABASE pimv_db TO pimv_user;
-\q
-
-# Apply schema
-psql postgresql://pimv_user:strongpassword@localhost:5432/pimv_db -f backend/db/schema.sql
-```
-
-### 3. Environment Configuration
-
-Copy example env files and update as needed:
-
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
-
-Key variables in `backend/.env`:
-
-- `DATABASE_URL=postgresql://pimv_user:strongpassword@localhost:5432/pimv_db`
-- `PRIVATE_KEY` (test account – never use mainnet keys)
-- Pinata credentials
-
-### 4. Run the Application
-
-```bash
-# Terminal 1: Start Hardhat node
-yarn --cwd backend start:node
-
-# Terminal 2: Start backend
-yarn --cwd backend dev
-
-# Terminal 3: Start frontend
-yarn --cwd frontend dev
-```
-
-Open <http://localhost:4200>
-
-## User Guide
-
-### 1. Connect Wallet
-
-- Click "Connect Wallet" in top bar
-- Approve in MetaMask
-- Your address and DID appear
-
-### 2. Issue a Credential
-
-1. Go to **Credentials**
-2. Select context (e.g., "personal")
-3. Enter:
-   - Claim ID: `identity.email`
-   - Claim JSON: `{"email": "you@example.com"}`
-4. Click "Issue Credential"
-5. Success → credential stored on IPFS, anchored on-chain
-
-### 3. Register & Resolve DIDs
-
-- **Registration**: Automatic on first credential issuance (profile created on-chain)
-- **Resolution**:
-  - Go to **Advanced → Resolve DID**
-  - Enter address or full DID
-  - View current profile and credentials
-
-### 4. Sign Verifiable Credentials
-
-- Signing happens automatically during issuance
-- Backend signs VC with its key after user consent
-- Proof uses `EcdsaSecp256k1Signature2019`
-
-### 5. Verify a Credential
-
-#### In App (Advanced Tools)
-
-1. Issue a credential → copy **gatewayUrl**
-2. Open URL → copy full VC JSON
-3. Go to **Advanced → Verify Credential**
-4. Paste VC → click "Verify Credential"
-5. Success confirms signature + on-chain anchor
-
-#### As a Verifier (API)
-
-Note Using CURL, you must start PostgreSQL first: brew services start postgresql
-
-```bash
-curl -X POST http://localhost:4000/api/vc/verify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cid": "Your cid" E.g:,"QmV6jXNoBV85pU1a9PKoXhnSHeKbpsrJZLMt7jibPwJfV3",
-    "claimId": "e.g: professional.medical_license",
-    "subject":e.g: "did:ethr:0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    "verifierDid":e.g: "did:ethr:0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    "purpose":e.g: "employment verification",
-    "consent": true
-  }'
-```
-
-### 6. Manage Consent & Disclosure
-
-- **Contexts**: Add custom contexts
-- **Consent**: Grant explicit consent for non-default contexts
-- **Disclosures**: See audit log of all verifications
-
-### 7. Exercise Right to Erasure (GDPR)
-
-1. Go to **GDPR**
-2. Connect wallet
-3. Check confirmation box
-4. Click "Erase My Profile"
-5. Profile replaced with on-chain tombstone
-6. Old data inaccessible
-
-## Technical Details
-
-### Credential Issuance Flow
-
-1. User connects wallet + grants consent
-2. Backend creates W3C VC with `pimv` extension (context, consent, claimId)
-3. Signs with backend key
-4. Uploads to IPFS → CID
-5. Anchors hash on-chain via `setClaim`
-6. Updates profile CID
-
-### Verification Flow
-
-1. Verifier calls `/api/vc/verify`
-2. Backend enforces purpose/consent
-3. Validates signature & on-chain hash
-4. Logs disclosure in PostgreSQL
-5. Returns success
-
-### Right to Erasure
-
-1. Unpins old CIDs (best-effort)
-2. Creates tombstone profile with `[ERASED]`
-3. Updates on-chain pointer
-4. Provides cryptographic proof
-
-## Shortcomings & Limitations
-
-While PIMV is a strong hybrid SSI implementation, it has some current limitations:
-
-- **Single-chain**: Only Ethereum/Hardhat (local) — no multi-chain support
-- **Backend signer**: Credentials signed by backend key, not user's wallet (common pattern for usability, but reduces "pure" self-sovereignty)
-- **IPFS pinning**: Relies on Pinata (centralized gateway) — data could disappear if unpinned
-- **No ZK proofs**: Selective disclosure is context-based, not zero-knowledge
-- **No revocation**: Credentials cannot be revoked yet
-- **Local-only testing**: Designed for Hardhat node — not mainnet-ready without changes
-- **No mobile support**: Web-only
-- **Limited verifier integration**: No built-in verifier portal
-
-These are planned for future versions.
-
-## Privacy & Security
-
-- No personal data stored on backend
-- Only metadata in PostgreSQL (no PII)
-- All credentials encrypted at rest (IPFS)
-- Private keys never leave browser
-- Consent enforced cryptographically
-
-## Future Enhancements
-
-- User-signed credentials
-- Zero-knowledge selective disclosure
-- Multi-chain support
-- Mobile app
-- Revocation lists
-- Verifier dashboard
-- Hardware wallet integration
+PIMV (Privacy Identity Management Vault) is a hybrid decentralized identity management system that combines blockchain-based identity anchoring with off-chain storage and database-backed audit mechanisms. It is designed to ensure user sovereignty, privacy, and regulatory compliance through consent-driven data sharing, verifiable credentials, and auditable disclosure tracking.
 
 ---
 
-### **Built with passion on December 25, 2025**
+## **Overview**
 
-PIMV proves that true privacy and regulatory compliance can coexist in decentralized systems.
+PIMV adopts a **hybrid architecture** that integrates:
 
-**You own your identity. You control your data.**
+* **On-chain components** for identity ownership and integrity
+* **Off-chain decentralized storage (IPFS)** for scalable and privacy-preserving data
+* **Relational database (PostgreSQL)** for consent management, authentication, and audit logs
 
-Welcome to the future of digital identity.
+This design balances decentralization with performance, usability, and legal compliance (e.g., GDPR).
 
-❤️
+---
+
+## **Architecture**
+
+### **1. Blockchain Layer**
+
+* Smart contracts for identity registration and claim anchoring
+* ERC-2771 meta-transaction support (gasless interactions)
+* Minimal ERC-725-inspired identity model
+
+### **2. Off-Chain Storage Layer**
+
+* IPFS-based storage for profiles and verifiable credentials
+* Integration with pinning services (e.g., nft.storage, Pinata)
+* Client-side encryption for sensitive data
+
+### **3. Backend & Database Layer (Hybrid Core)**
+
+* PostgreSQL schema for:
+
+  * **Authentication (SIWE-based users)**
+  * **Consent registry (context-aware, revocable)**
+  * **Disclosure audit logs (GDPR accountability)**
+  * **Nonce management (replay protection)**
+* REST API for DID resolution, VC issuance, and verification
+
+### **4. Frontend Layer**
+
+* Angular-based application
+* Wallet-based authentication (Sign-In with Ethereum)
+* Role-aware UI (User, Verifier, Admin)
+* Secure local storage with encryption
+
+---
+
+## **Key Features**
+
+* **Hybrid Identity Model:** Combines blockchain immutability with database efficiency
+* **Self-Sovereign Identity (SSI):** Users control their identity and claims
+* **Verifiable Credentials (VCs):** Issuance, validation, and storage workflows
+* **Contextual Identity:** Multiple identity views (e.g., medical, professional, social)
+* **Consent Management:** Fine-grained, revocable, context-based permissions
+* **Disclosure Auditability:** Full traceability of data sharing events
+* **Meta-Transactions:** Gas abstraction for improved UX
+* **GDPR Alignment:** Consent, audit logs, and right-to-erasure support
+
+---
+
+## **Database Design (Hybrid Layer)**
+
+The PostgreSQL schema plays a critical role in PIMV:
+
+* **Users (SIWE identities):** Ethereum addresses as primary identifiers
+* **Profiles:** Context-aware, extensible user data
+* **Consents:** Fine-grained permissions indexed by subject, claim, and context
+* **Disclosures:** Immutable audit trail of data sharing events
+* **Nonces:** Secure authentication challenge storage
+* **Login Audit (optional):** Session-level role tracking
+
+> **Important:** Authorization is derived from **JWT session roles**, not persisted database roles, ensuring flexible and secure access control.
+
+---
+
+## **Technology Stack**
+
+* **Smart Contracts:** Solidity (Base Sepolia)
+* **Frontend:** Angular (signals, standalone architecture)
+* **Backend:** Node.js (REST API)
+* **Database:** PostgreSQL (hybrid trust layer)
+* **Storage:** IPFS (nft.storage / Pinata)
+* **Authentication:** SIWE (Sign-In with Ethereum)
+* **Deployment:** Docker + Fly.io
+
+---
+
+## **Research Context**
+
+PIMV contributes to research in:
+
+* Hybrid decentralized identity architectures
+* Privacy-preserving data management
+* Blockchain-based consent systems
+* GDPR-compliant auditability in SSI systems
+
+It demonstrates how **purely decentralized models can be augmented with structured off-chain systems** to achieve real-world applicability.
+
+---
+
+## **Future Work**
+
+* Integration with W3C DID and Verifiable Credential standards
+* Zero-knowledge proofs for selective disclosure
+* Cross-chain identity interoperability
+* Policy-based and attribute-based access control (ABAC)
+
+---
+
+## **License**
+
+MIT License
+
+---

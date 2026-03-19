@@ -1,33 +1,37 @@
+// Import Express router
 import express from "express";
-import { verifyVC, validateRawVC,issueSignedVC } from "../controllers/vcController.js";
-import { contextMiddleware } from "../../middleware/context.js";
-import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
 
+// Import Verifiable Credential (VC) controllers
+import { 
+  verifyVC,        // Verify a credential (e.g., signature/validity)
+  validateRawVC,   // Validate structure/format of a raw VC
+  issueSignedVC    // Issue and sign a new VC
+} from "../controllers/vcController.js";
+
+// Import middleware
+import { contextMiddleware } from "../../middleware/context.js";     // Inject request context
+import { pinataUserAuth } from "../../middleware/pinataUserAuth.js"; // Handle Pinata auth (IPFS)
+
+// Initialize router
 const router = express.Router();
+ 
+// ────────────────────────────────────────────────
+// Verifiable Credential (VC) Routes
+// ────────────────────────────────────────────────
 
-/**
- * Issue a Verifiable Credential
- * Supports:
- * - Context-aware disclosure
- * - GDPR consent metadata
- */
-/** 
+// Verify an existing credential
+router.post("/verify", verifyVC);
+
+// Validate raw VC structure (no signing)
+router.post("/validate", validateRawVC);
+
+// Issue and sign a new VC (requires context + IPFS auth)
 router.post(
-  "/issue",
+  "/issue-signed",
   contextMiddleware,
   pinataUserAuth,
-  issueVC
+  issueSignedVC
 );
-*/
 
-
- // Verify a Verifiable Credential
- // - Signature verification
- // - On-chain hash verification
- 
-router.post("/verify", verifyVC);
-router.post("/validate", validateRawVC);
-router.post("/issue-signed", contextMiddleware,
-  pinataUserAuth,issueSignedVC);
-
+// Export router
 export default router;

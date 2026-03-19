@@ -113,29 +113,44 @@ import { environment } from '../../environments/environment';
   `]
 })
 export class ContactComponent {
+  // Angular component responsible for handling the contact form UI and submission logic
+
   private fb = inject(FormBuilder);
+  // Injects Angular FormBuilder to create reactive forms
+
   private snackBar = inject(MatSnackBar);
+  // Injects Angular Material SnackBar for user notifications
 
   contactForm = this.fb.group({
     name: ['', Validators.required],
+    // Name field (required)
+
     email: ['', [Validators.required, Validators.email]],
+    // Email field (required + must be valid email format)
+
     subject: ['', Validators.required],
+    // Subject field (required)
+
     message: ['', [Validators.required, Validators.minLength(10)]]
+    // Message field (required + minimum length of 10 characters)
   });
 
   isLoading = signal(false);
+  // Reactive signal to track loading state (e.g., disable UI during submission)
 
   async sendMessage() {
+  // Method to handle form submission asynchronously
+
   if (this.contactForm.invalid) return;
+  // Prevent submission if form validation fails
 
   this.isLoading.set(true);
+  // Set loading state to true
 
   try {
     // Use relative path (same origin on Fly) – preferred
-    const apiUrl = '/api/contact';  // ← relative, resolves to https://pimv.fly.dev/api/contact
-
-    // Optional: if you ever split frontend/backend domains, use:
-    // const apiUrl = environment.backendUrl ? `${environment.backendUrl}/api/contact` : '/api/contact';
+    const apiUrl = '/api/contact';  
+    // Relative API endpoint (resolved to deployed backend URL)
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -143,37 +158,53 @@ export class ContactComponent {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
+      // Sends JSON request
+
       body: JSON.stringify(this.contactForm.value),
+      // Serializes form data into JSON payload
     });
 
     let result;
     try {
       result = await response.json();
+      // Attempts to parse JSON response
     } catch {
       result = {};
+      // Fallback if response is not valid JSON
     }
 
     if (response.ok && result.success) {
+      // Checks for successful HTTP response and backend success flag
+
       this.snackBar.open('✅ Thank you! Your message has been received.', 'Close', {
         duration: 6000,
         panelClass: ['success-snack']
       });
+      // Displays success notification
+
       this.contactForm.reset();
+      // Resets the form after successful submission
     } else {
       const detail = result.detail || result.message || `Failed (HTTP ${response.status})`;
+      // Extracts error message from response or constructs fallback message
+
       this.snackBar.open(`❌ ${detail}`, 'Close', {
         duration: 15000,
         panelClass: ['error-snack']
       });
+      // Displays error notification with details
     }
   } catch (err) {
-  
+    // Handles network or unexpected errors
+
     this.snackBar.open('❌ Network/server error – check browser console!', 'Close', {
       duration: 12000,
       panelClass: ['error-snack']
     });
+    // Displays generic error notification
   } finally {
     this.isLoading.set(false);
+    // Resets loading state regardless of success or failure
   }
 }
 }

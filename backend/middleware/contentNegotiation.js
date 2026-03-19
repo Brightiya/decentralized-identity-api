@@ -1,5 +1,3 @@
-// backend/src/middleware/contentNegotiation.js
-
 /**
  * Forces Content-Language: en for all responses
  * Strategy: Serve everything in English and let modern browsers handle translation

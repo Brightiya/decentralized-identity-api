@@ -1,4 +1,3 @@
-// src/app/pages/login.component.ts
 import { ChangeDetectorRef, Component, inject, PLATFORM_ID, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // ← NEW: for ngModel

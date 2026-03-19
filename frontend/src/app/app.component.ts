@@ -706,31 +706,59 @@ import { SafariInstallDialogComponent } from './pages/safari-install-dialog.comp
 })
 
 export class AppComponent implements OnInit {
+  // Inject platform identifier for SSR/browser detection
   private platformId = inject(PLATFORM_ID);
+
+  // Determine if running in browser (vs SSR)
   private isBrowser = isPlatformBrowser(this.platformId);
+
+  // Angular router for navigation and route events
   private router = inject(Router);
+
+  // Service to dynamically set page title
   private titleService = inject(Title);
+
+  // Change detector for manual UI updates
   private cdr = inject(ChangeDetectorRef);
+
+  // Theme service for dark/light mode
   private themeService = inject(ThemeService);
+
+  // Snackbar for UI notifications
   private snackBar = inject(MatSnackBar);
+
+  // Dialog service (used for Safari MetaMask install prompt)
   private dialog = inject(MatDialog);
 
+  // Wallet service for blockchain interactions
   wallet = inject(WalletService);
+
+  // Auth service for login/logout and role handling
   auth = inject(AuthService);
+
+  // Current year (used in UI footer, etc.)
   currentYear = new Date().getFullYear();
 
+  // Reactive signal tracking current URL
   private currentUrl = signal<string>(this.router.url);
 
+  // Sidebar collapsed state
   miniSidebar = signal(false);
+
+  // Dark mode signal from ThemeService
   darkMode = this.themeService.darkMode;
+
+  // Clipboard copy feedback flag
   copied = false;
 
-  // NEW: controls drawer open/close on mobile
+  // Controls drawer open/close on mobile
   sidenavOpened = signal(false);
-  // NEW: reference to the sidenav component
+
+  // Reference to the sidenav component
   @ViewChild('sidenav') sidenav!: MatSidenav;
 
   constructor() {
+    // Subscribe to router events to track URL changes
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
         this.currentUrl.set(event.urlAfterRedirects.toLowerCase());
@@ -739,35 +767,38 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.themeService.initialize();  // ensure <html> class is set on load
+    // Ensure dark/light mode is applied on initial load
+    this.themeService.initialize();
 
+    // Update document title on route change
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
-      let title = 'PIMV – Identity Vault'; // fallback
+      let title = 'PIMV – Identity Vault'; // fallback title
 
-      // Get the current route snapshot (last child)
+      // Traverse to the deepest active route
       let currentRoute = this.router.routerState.snapshot.root;
       while (currentRoute.firstChild) {
         currentRoute = currentRoute.firstChild;
       }
 
-      // Use route data.title if set, or fallback to capitalized path
+      // Use route metadata title if available
       const routeTitle = currentRoute.data?.['title'];
       if (routeTitle) {
         title = `${routeTitle} • PIMV`;
       } else {
-        // Fallback: capitalize last URL segment
+        // Fallback: generate title from URL path
         const path = currentRoute.url.map(segment => segment.path).join(' ');
         if (path) {
           title = `${this.capitalize(path)} • PIMV`;
         }
       }
 
+      // Apply title to document
       this.titleService.setTitle(title);
     });
 
-    // Optional: close drawer on navigation on mobile
+    // Optional: close drawer on navigation when on mobile
     if (this.isBrowser) {
       this.router.events.pipe(
         filter(event => event instanceof NavigationEnd)
@@ -779,6 +810,7 @@ export class AppComponent implements OnInit {
     }
   }
 
+  // Capitalizes words separated by dashes (e.g., "user-profile" → "User Profile")
   private capitalize(str: string): string {
     return str
       .split('-')
@@ -786,20 +818,24 @@ export class AppComponent implements OnInit {
       .join(' ');
   }
 
+  // Toggle mini sidebar state
   toggleMini() {
     this.miniSidebar.update(v => !v);
   }
 
+  // Breadcrumb computed from current URL
   breadcrumb = computed(() => {
     const segment = this.router.url.split('/').pop() || 'Dashboard';
     return segment.charAt(0).toUpperCase() + segment.slice(1);
   });
 
+  // Toggle dark mode via ThemeService
   toggleDarkMode() {
     this.themeService.toggle();
     this.cdr.detectChanges();
   }
 
+  // Connect wallet with error handling
   async connectWallet() {
   try {
     await this.wallet.connect();
@@ -811,7 +847,7 @@ export class AppComponent implements OnInit {
     let buttonText = 'Close';
     let installUrl = 'https://metamask.io/download/';
 
-    // Detect MetaMask-specific errors
+    // Detect MetaMask-related errors
     if (
       message.includes('MetaMask not detected') ||
       message.includes('MetaMask is required') ||
@@ -819,6 +855,7 @@ export class AppComponent implements OnInit {
     ) {
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
+      // Special handling for Safari users
       if (isSafari) {
         this.showSafariInstallDialog();
       } else {
@@ -827,7 +864,7 @@ export class AppComponent implements OnInit {
         installUrl = 'https://metamask.io/download/';
       }
 
-      // Show snackbar with HTML content
+      // Show snackbar with install action
       const snack = this.snackBar.open(
         message,
         buttonText,
@@ -835,25 +872,30 @@ export class AppComponent implements OnInit {
           duration: 20000,
           horizontalPosition: 'center',
           verticalPosition: 'top',
-          panelClass: ['html-snackbar']  // ← Custom class for HTML rendering
+          panelClass: ['html-snackbar']
         }
       );
 
+      // Open MetaMask install page when action clicked
       snack.onAction().subscribe(() => {
         window.open(installUrl, '_blank', 'noopener,noreferrer');
       });
+
     } else {
+      // Generic error fallback
       this.snackBar.open(message, 'Close', { duration: 8000 });
     }
   }
 }
 
+  // Logout user and disconnect wallet
   logout() {
     this.auth.logout();
     this.wallet.disconnect();
     this.cdr.detectChanges();
   }
 
+  // Human-readable role label
   displayRole = computed(() => {
     switch (this.auth.role()) {
       case 'ADMIN': return 'Admin / Auditor';
@@ -862,22 +904,26 @@ export class AppComponent implements OnInit {
     }
   });
 
+  // Copy wallet address to clipboard
   copyAddress() {
     if (!this.wallet.address) return;
+
     navigator.clipboard.writeText(this.wallet.address);
     this.copied = true;
+
     setTimeout(() => {
       this.copied = false;
       this.cdr.detectChanges();
     }, 2000);
   }
 
-  // NEW: detect mobile/tablet screens
+  // Detect mobile/tablet screens
   isMobile() {
     if (!this.isBrowser) return false;
-    return window.innerWidth <= 960; // breakpoint for mobile/tablet
+    return window.innerWidth <= 960; // breakpoint
   }
 
+  // Show dialog for Safari users to install MetaMask
   private showSafariInstallDialog() {
   this.dialog.open(SafariInstallDialogComponent, {
     width: '480px',

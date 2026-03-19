@@ -1,5 +1,3 @@
-// metaTxController.js
-
 // Import ethers.js for Ethereum RPC interaction, signing, and verification
 import { ethers } from "ethers";
 

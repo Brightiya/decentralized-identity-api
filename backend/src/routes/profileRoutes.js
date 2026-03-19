@@ -1,24 +1,27 @@
-// backend/src/routes/profileRoutes.js
-
+// Import Express router
 import express from "express";
 
+// Import profile-related controllers
 import {
-  getProfile,
-  createOrUpdateProfile,
-  eraseProfile,
-  getDbProfile,
-  upsertDbProfile
+  getProfile,            // Fetch profile from IPFS/blockchain
+  createOrUpdateProfile, // Create or update profile (IPFS + chain)
+  eraseProfile,          // Handle GDPR erasure
+  getDbProfile,          // Fetch profile from database only
+  upsertDbProfile        // Create/update DB-only profile
 } from "../controllers/profileController.js";
 
-import { contextMiddleware } from "../../middleware/context.js";
-import { pinataUserAuth } from "../../middleware/pinataUserAuth.js";
+// Import middleware
+import { contextMiddleware } from "../../middleware/context.js";     // Inject request context
+import { pinataUserAuth } from "../../middleware/pinataUserAuth.js"; // Handle Pinata auth (IPFS)
 
+// Initialize router
 const router = express.Router();
 
 /* --------------------------------------------------
    CREATE / UPDATE PROFILE (IPFS + blockchain)
 -------------------------------------------------- */
 
+// Create or update profile using IPFS + blockchain
 router.post(
   "/",
   contextMiddleware,
@@ -31,6 +34,7 @@ router.post(
    READ PROFILE (IPFS + blockchain)
 -------------------------------------------------- */
 
+// Get full profile (resolved via IPFS + blockchain)
 router.get(
   "/:address",
   contextMiddleware,
@@ -42,6 +46,7 @@ router.get(
    GDPR ERASURE (IPFS + blockchain + DB cleanup)
 -------------------------------------------------- */
 
+// Delete or anonymize user profile (GDPR Art. 17)
 router.delete(
   "/erase",
   contextMiddleware,
@@ -54,14 +59,14 @@ router.delete(
    (no chain/IPFS calls)
 -------------------------------------------------- */
 
-// Read DB profile (context-aware)
+// Get profile directly from database (faster, no external calls)
 router.get(
   "/db/:address",
   contextMiddleware,
   getDbProfile
 );
 
-// Create or update DB profile
+// Create or update database-only profile
 router.post(
   "/db",
   contextMiddleware,
@@ -69,4 +74,5 @@ router.post(
 );
 
 
+// Export router
 export default router;

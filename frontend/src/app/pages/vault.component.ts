@@ -1,4 +1,3 @@
-// src/app/pages/vault/vault.component.ts
 import { Component, OnInit, OnDestroy, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -18,7 +17,6 @@ import { ApiService } from '../services/api.service';
 import { ProfileStateService } from '../services/profile-state.service';
 import { StorageService } from '../services/storage.service';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { GSNService } from '../services/gsn.service';
 import { MetaTxService } from '../services/metaTx.service';
 import ForwarderArtifact from '../abi/Forwarder.json';
 import IdentityRegistryArtifact from '../abi/IdentityRegistry.json';

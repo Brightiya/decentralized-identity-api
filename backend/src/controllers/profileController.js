@@ -1,5 +1,3 @@
-// backend/src/controllers/profileController.js
-
 // IPFS helper utilities for uploading, fetching, and unpinning JSON objects
 import { uploadJSON, fetchJSON, unpinCID } from "../utils/pinata.js";
 

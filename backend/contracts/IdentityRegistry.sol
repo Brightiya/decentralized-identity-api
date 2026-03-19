@@ -14,7 +14,7 @@ contract IdentityRegistry {
     event ClaimSet(address indexed owner, bytes32 indexed claimId, bytes32 claimHash);
     event ClaimRemoved(address indexed owner, bytes32 indexed claimId);
 
-    // CHANGED: New modifier — only the profile owner can update their data
+    // Only the profile owner can update their data
     modifier onlySelf(address subject) {
         require(msg.sender == subject, "Not the profile owner");
         _;

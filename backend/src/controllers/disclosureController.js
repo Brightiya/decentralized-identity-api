@@ -1,4 +1,3 @@
-// backend/src/controllers/disclosureController.js
 import { pool } from "../utils/db.js";
 import { didToAddress } from "../utils/did.js";
 

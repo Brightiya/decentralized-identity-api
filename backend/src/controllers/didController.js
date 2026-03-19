@@ -1,4 +1,3 @@
-// backend/src/controllers/didController.js
 import { ethers } from "ethers";
 import { uploadJSON, fetchJSON } from "../utils/pinata.js";
 import { readFile } from "node:fs/promises";

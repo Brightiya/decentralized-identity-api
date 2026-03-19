@@ -1,5 +1,5 @@
 /**
- * Context middleware (Option B-1 + hardened sanitation)
+ * Context middleware for consent validation
  *
  * Protects against:
  *  - control characters

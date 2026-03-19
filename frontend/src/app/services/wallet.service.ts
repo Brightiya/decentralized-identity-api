@@ -1,149 +1,173 @@
-// src/app/services/wallet.service.ts
 import { Injectable, inject, PLATFORM_ID, signal } from '@angular/core';
+// Injectable: marks service for DI
+// inject: functional DI
+// PLATFORM_ID: used to detect runtime environment
+// signal: reactive state primitive
+
 import { isPlatformBrowser } from '@angular/common';
+// Utility to check if running in browser
+
 import {
-  ethers,
   BrowserProvider,
   JsonRpcProvider,
-  Eip1193Provider,
   Wallet,
   JsonRpcSigner,
   TransactionResponse,
-  TransactionReceipt,
-  Contract
+  TransactionReceipt
+  
 } from 'ethers';
+// Imports ethers.js classes for blockchain interaction
+
 import { BehaviorSubject } from 'rxjs';
+// Reactive stream for state updates
+
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { environment } from '../../environments/environment.prod';
-import { GSNService, GSNTransaction } from './gsn.service';
+// UI notifications
 
 declare const window: any;
-
-// GSN provider interface
-declare class RelayProvider {
-  constructor(input: GSNUnresolvedConstructorInput);
-  init(): Promise<RelayProvider>;
-  getSigner(): any;
-}
-
-interface GSNUnresolvedConstructorInput {
-  provider: JsonRpcProvider | Eip1193Provider;
-  config: Partial<GSNConfig>;
-}
-
-interface GSNConfig {
-  paymasterAddress: string;
-  forwarderAddress: string;
-  loggerConfiguration: {
-    logLevel: 'error' | 'warn' | 'info' | 'debug'; // Specific string literals
-  };
-  relayLookupWindowBlocks: number;
-  maxRelayNonceGap: number;
-  preferredRelays?: string[];
-}
+// Declares global window object (for MetaMask access)
 
 @Injectable({ providedIn: 'root' })
+// Registers service as singleton
 export class WalletService {
-  // GSN provider (we'll handle it differently)
-  private gsnRelayProvider: any = null;
-  
+
   private isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+  // Detects if running in browser environment
 
   private addressSubject = new BehaviorSubject<string | null>(null);
+  // Holds current wallet address
+
   address$ = this.addressSubject.asObservable();
+  // Observable stream for address changes
 
   customRpc = signal<string>('');
+  // Reactive signal storing custom RPC URL
 
   private authState = new BehaviorSubject<{ token: string | null; isAuthenticated: boolean }>({
     token: null,
     isAuthenticated: false
   });
+  // Holds authentication state
+
   authState$ = this.authState.asObservable();
+  // Observable stream for auth state
 
   provider: BrowserProvider | JsonRpcProvider | null = null;
+  // Blockchain provider instance
+
   signer: JsonRpcSigner | Wallet | null = null;
+  // Signer for transactions and messages
 
   private snackBar = inject(MatSnackBar);
+  // Injects snackbar for notifications
 
-  // NEW: Chain configuration for Base Sepolia (matches backend CHAIN_ID=84532)
+  
   readonly expectedChainId = 84532;
-  readonly expectedChainName = 'Base Sepolia Testnet';
+  // Expected chain ID
 
-  constructor(private gsnService: GSNService) {
+  readonly expectedChainName = 'Base Sepolia Testnet';
+  // Expected network name
+
+  constructor() {
    
   }
 
   get address(): string | null {
     return this.addressSubject.value;
+    // Returns current wallet address synchronously
   }
 
   setCustomRpc(url: string) {
+
     if (!url) {
       this.customRpc.set('');
       this.snackBar.open('Custom RPC cleared - using default', 'Close', { duration: 4000 });
       return;
+      // Clears custom RPC if empty input
     }
 
     if (!/^https?:\/\//i.test(url)) {
       this.snackBar.open('Invalid RPC URL - must start with http(s)://', 'Close', { duration: 5000 });
       return;
+      // Validates URL format
     }
 
     this.customRpc.set(url.trim());
+    // Stores trimmed RPC URL
+
     this.snackBar.open(`Custom Hardhat RPC set: ${url}`, 'Close', { duration: 5000 });
+    // Notifies user
   }
 
   async connect() {
+
   if (!this.isBrowser) throw new Error('Wallet connection only available in browser');
+  // Ensures execution only in browser
 
   this.signer = null;
   this.provider = null;
-  this.addressSubject.next(null); // clear old state
+  this.addressSubject.next(null); 
+  // Resets previous connection state
 
   try {
     if (!window.ethereum) {
       throw new Error('MetaMask not detected, please install MetaMask to use this application');
+      // Ensures MetaMask is available
     }
 
-    // Initialize provider first
+   
     this.provider = new BrowserProvider(window.ethereum);
-    this.signer = await this.provider.getSigner();
+    // Creates provider from MetaMask
 
-    await this.ensureCorrectChain(); // 🔥 verify chain BEFORE emitting address
+    this.signer = await this.provider.getSigner();
+    // Retrieves signer
+
+    await this.ensureCorrectChain(); 
+    // Ensures correct network
 
     const addr = await this.signer.getAddress();
+    // Retrieves wallet address
 
     this.addressSubject.next(addr);
+    // Emits address
+
     localStorage.setItem('walletAddress', addr);
+    // Persists address
 
     this.snackBar.open(`Connected: ${addr.slice(0,6)}...`, 'Close', { duration: 4000 });
+    // Shows success notification
 
   } catch (err) {
     this.disconnect(); // 🔥 rollback completely on failure
     throw err;
+    // Ensures clean state on failure
   }
 }
 
-
-  // NEW: Switch or add the correct chain (Base Sepolia)
   async switchToCorrectChain(): Promise<boolean> {
+
     if (!window.ethereum || !this.provider) return false;
+    // Ensures provider exists
 
     try {
       const currentChainId = (await this.provider.getNetwork()).chainId;
+      // Retrieves current network chain ID
 
       if (Number(currentChainId) === this.expectedChainId) {
         return true; // already correct
       }
 
       this.snackBar.open(`Switching to ${this.expectedChainName}...`, 'Close', { duration: 4000 });
+      // Notifies user of switch attempt
 
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${this.expectedChainId.toString(16)}` }],
       });
+      // Requests MetaMask to switch chain
 
       return true;
+
     } catch (switchError: any) {
       // Chain not added → try to add it
       if (switchError.code === 4902) {
@@ -158,6 +182,7 @@ export class WalletService {
               blockExplorerUrls: ['https://sepolia.basescan.org']
             }],
           });
+          // Adds chain to MetaMask
 
           // After adding, switch again
           await window.ethereum.request({
@@ -167,6 +192,7 @@ export class WalletService {
 
           this.snackBar.open(`Added and switched to ${this.expectedChainName}!`, 'Close', { duration: 5000 });
           return true;
+
         } catch (addError: any) {
           console.error('Failed to add chain:', addError);
           this.snackBar.open(`Failed to add ${this.expectedChainName}. Please add it manually.`, 'Close', { duration: 8000 });
@@ -180,18 +206,26 @@ export class WalletService {
     }
   }
 
-  // NEW: Call this before any transaction
+ 
   async ensureCorrectChain(): Promise<void> {
+
     const success = await this.switchToCorrectChain();
+    // Attempts to switch chain
+
     if (!success) {
       throw new Error(`Please switch to ${this.expectedChainName} in your wallet to continue`);
+      // Throws error if unsuccessful
     }
   }
 
 
   async signMessage(message: string): Promise<string> {
+
     if (!this.signer) throw new Error('No signer - connect wallet first');
+    // Ensures signer exists
+
     return await this.signer.signMessage(message);
+    // Signs arbitrary message
   }
 
   /**
@@ -199,19 +233,22 @@ export class WalletService {
    * Returns both hash and receipt for more flexibility
    */
   async signAndSendTransaction(unsignedTx: any): Promise<{ hash: string; receipt: TransactionReceipt }> {
+
     if (!this.signer) throw new Error('No signer - connect wallet first');
     if (!this.provider) throw new Error('Provider not initialized');
+    // Ensures required objects exist
 
     try {
-      // NEW: Ensure correct chain before signing/sending
+      //Ensure correct chain before signing/sending
       await this.ensureCorrectChain();
       
       const network = await this.provider.getNetwork();
       console.log("AFTER SWITCH - provider chainId:", Number(network.chainId));
+      // Debug log
 
       const mmChain = await window.ethereum.request({ method: 'eth_chainId' });
       console.log("MetaMask chainId:", parseInt(mmChain, 16));
-
+      // Debug log
 
       const tx: TransactionResponse = await this.signer.sendTransaction({
         ...unsignedTx,
@@ -220,6 +257,7 @@ export class WalletService {
         maxPriorityFeePerGas: unsignedTx.maxPriorityFeePerGas ? BigInt(unsignedTx.maxPriorityFeePerGas) : undefined,
         value: unsignedTx.value ? BigInt(unsignedTx.value) : 0n,
       });
+      // Sends transaction with normalized bigint fields
 
       console.log('[WalletService] Transaction sent:', tx.hash);
 
@@ -233,6 +271,8 @@ export class WalletService {
       console.log('[WalletService] Confirmed in block:', receipt.blockNumber);
 
       return { hash: tx.hash, receipt };
+      // Returns transaction hash and receipt
+
     } catch (err: any) {
       console.error('[WalletService] Transaction failed:', err);
 
@@ -256,165 +296,48 @@ export class WalletService {
 
   setAuthenticated(token: string) {
     this.authState.next({ token, isAuthenticated: true });
+    // Updates auth state
+
     localStorage.setItem('authToken', token);
+    // Persists token
   }
 
   clearAuth() {
     this.authState.next({ token: null, isAuthenticated: false });
+    // Clears auth state
+
     localStorage.removeItem('authToken');
+    // Removes token from storage
   }
 
   getToken(): string | null {
     return this.authState.value.token || localStorage.getItem('authToken');
+    // Retrieves token from memory or storage
   }
 
   isAuthenticated(): boolean {
     return this.authState.value.isAuthenticated;
-  }
-
-  /**
-   * Send transaction via GSN (gasless)
-   */
-  async sendGSNTransaction(txData: GSNTransaction): Promise<any> {
-    try {
-      // Check if @opengsn/provider is available
-      if (typeof window === 'undefined') {
-        throw new Error('GSN requires browser environment');
-      }
-      
-      if (!this.provider) {
-        await this.connect();
-      }
-      
-      // Get GSN config
-      const config = this.gsnService.getConfig();
-      
-      
-      // Get signer from GSN provider
-      const signer = await this.gsnRelayProvider.getSigner();
-      
-      if (!signer) {
-        throw new Error('Failed to get signer from GSN provider');
-      }
-      
-      // Prepare transaction
-      const tx = {
-        to: txData.to,
-        data: txData.data,
-        chainId: txData.chainId,
-        gasLimit: ethers.toBigInt(txData.gasLimit),
-        value: ethers.toBigInt(txData.value),
-      };
-      
-      // Send transaction via GSN
-      const txResponse = await signer.sendTransaction(tx);
-      
-      return {
-        hash: txResponse.hash,
-        wait: () => txResponse.wait(),
-        from: txData.userAddress || await signer.getAddress(),
-        gasless: true
-      };
-      
-    } catch (error: any) {
-      console.error('GSN transaction failed:', error);
-      throw new Error(`Gasless transaction failed: ${error.message}`);
-    }
-  }
-  
-  /**
-   * Alternative GSN transaction method using direct contract calls
-   * This is simpler and often more reliable
-   */
-  async sendGSNContractTransaction(
-    contractAddress: string,
-    abi: any,
-    methodName: string,
-    args: any[]
-  ): Promise<any> {
-    try {
-      
-      // Get signer from GSN provider
-      const signer = await this.gsnRelayProvider.getSigner();
-      
-      // Create contract instance with GSN signer
-      const contract = new Contract(contractAddress, abi, signer);
-      
-      // Call the method
-      const tx = await contract[methodName](...args);
-      
-      return {
-        hash: tx.hash,
-        wait: () => tx.wait(),
-        gasless: true
-      };
-      
-    } catch (error: any) {
-      console.error('GSN contract transaction failed:', error);
-      
-      // Fallback to regular transaction if GSN fails
-      console.log('Falling back to regular transaction...');
-      return this.sendRegularContractTransaction(contractAddress, abi, methodName, args);
-    }
-  }
-  
-  /**
-   * Regular contract transaction (fallback method)
-   */
-  private async sendRegularContractTransaction(
-    contractAddress: string,
-    abi: any,
-    methodName: string,
-    args: any[]
-  ): Promise<any> {
-    if (!this.signer) {
-      throw new Error('No signer available');
-    }
-    
-    const contract = new Contract(contractAddress, abi, this.signer);
-    const tx = await contract[methodName](...args);
-    
-    return {
-      hash: tx.hash,
-      wait: () => tx.wait(),
-      gasless: false
-    };
-  }
-  
-  /**
-   * Send transaction with automatic fallback (GSN if available, regular if not)
-   */
-  async sendTransactionWithFallback(
-    txData: any, 
-    useGSN: boolean = true
-  ): Promise<any> {
-    if (useGSN && this.gsnService.isEnabled()) {
-      try {
-        return await this.sendGSNTransaction(txData);
-      } catch (error) {
-        console.warn('GSN transaction failed, falling back to regular:', error);
-        // Fall back to regular transaction
-        return await this.signAndSendTransaction(txData);
-      }
-    } else {
-      // Use regular transaction
-      return await this.signAndSendTransaction(txData);
-    }
-  }
-
-  /**
-   * Check if GSN is available
-   */
-  isGSNAvailable(): boolean {
-    return this.gsnService.isEnabled();
+    // Returns authentication status
   }
 
   disconnect() {
+
     this.provider = null;
+    // Clears provider
+
     this.signer = null;
+    // Clears signer
+
     this.addressSubject.next(null);
+    // Clears address
+
     this.clearAuth();
+    // Clears authentication
+
     localStorage.removeItem('walletAddress');
+    // Removes stored address
+
     this.snackBar.open('Wallet disconnected', 'Close', { duration: 3000 });
+    // Notifies user
   }
 }

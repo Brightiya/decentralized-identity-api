@@ -1,7 +1,5 @@
-// backend/src/index.js
 import express from "express";
 import path from "path";
-import { fileURLToPath } from 'url'; // Required for ES Modules
 import cors from "cors";
 import "./config/env.js";
 import morgan from "morgan";
@@ -9,8 +7,6 @@ import contact from './routes/contact.js';
 import { forceEnglishContentLanguage } from '../middleware/contentNegotiation.js';
 
 // Define __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -99,7 +95,7 @@ app.post('/api/auth/verify', verifySignature);
 app.post('/api/contact', contact);
 
 // ────────────────────────────────────────────────
-// GSN Routes (some public, some protected)
+// META Routes (some public, some protected)
 // ────────────────────────────────────────────────
 
 
@@ -140,7 +136,7 @@ app.use((err, req, res, next) => {
 });
 
 // ────────────────────────────────────────────────
-// SPA FALLBACK (Must be AFTER API routes)
+// SPA FALLBACK 
 // ────────────────────────────────────────────────
 app.get('*', (req, res) => {
   // If the browser is asking for a file (like .js or .css) and it wasn't 

@@ -112,7 +112,10 @@
 <a name='L47'></a><a href='#L47'>47</a>
 <a name='L48'></a><a href='#L48'>48</a>
 <a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -133,36 +136,39 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// backend/src/utils/db.js
-// backend/src/utils/db.js
+import "../../src/config/env.js";
 import pg from "pg";
 &nbsp;
 const connectionString = process.env.DATABASE_URL;
@@ -175,7 +181,10 @@ const connectionString = process.env.DATABASE_URL;
 // 2. Add SSL configuration (Required for Fly.io Postgres)
 export const pool = new pg.Pool({
   connectionString,
-  ssl: process.env.NODE_ENV === "production" ? <span class="branch-0 cbranch-no" title="branch not covered" >{ rejectUnauthorized: false } </span>: false,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? <span class="branch-0 cbranch-no" title="branch not covered" >{ rejectUnauthorized: false }</span>
+      : false,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000, // Increased timeout for cold starts
@@ -186,14 +195,13 @@ export const pool = new pg.Pool({
   <span class="missing-if-branch" title="if path not taken" >I</span>if (!connectionString) <span class="cstat-no" title="statement not covered" >return;</span>
   try {
     const result = await pool.query("SELECT current_database()");
-<span class="cstat-no" title="statement not covered" >    console.log("🧪 Connected to database:", result.rows[0].current_database);</span>
+    console.log("🧪 Connected to database:", result.rows[0].current_database);
   } catch (err) {
-    console.error("❌ Database connectivity test failed:", err.message);
+<span class="cstat-no" title="statement not covered" >    console.error("❌ Database connectivity test failed:", err.message);</span>
   }
 })();
 &nbsp;
 export default pool;
-&nbsp;
 &nbsp;
 pool.on("error", <span class="fstat-no" title="function not covered" >(e</span>rr, client) =&gt; {
 <span class="cstat-no" title="statement not covered" >  console.error("❌ PostgreSQL pool error:", err.stack);</span>
@@ -210,14 +218,15 @@ process.on("SIGINT", <span class="fstat-no" title="function not covered" >as</sp
 <span class="cstat-no" title="statement not covered" >  console.log("Shutting down PostgreSQL pool...");</span>
 <span class="cstat-no" title="statement not covered" >  await pool.end();</span>
 <span class="cstat-no" title="statement not covered" >  process.exit(0);</span>
-});</pre></td></tr></table></pre>
+});
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-06T17:14:41.439Z
+                at 2026-03-18T11:56:48.598Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -17,9 +17,10 @@ import { getChallenge, verifySignature } from './controllers/authController.js';
 import vcRoutes from "./routes/vcRoutes.js"; // Verifiable Credential routes
 import profileRoutes from "./routes/profileRoutes.js"; // Profile management routes
 import didRoutes from "./routes/didRoutes.js"; // DID (Decentralized Identifier) routes
+import gdprRoutes from "./routes/gdprRoutes.js"; // GDPR-related routes
 import disclosureRoutes from "./routes/disclosureRoutes.js"; // Disclosure/audit routes
 import consentRoutes from "./routes/consentRoutes.js"; // Consent management routes
-// Option 1: SIMPLE - Mount all GSN routes without auth for now (easier to test)
+// Option 1: SIMPLE - Mount all meta routes without auth for now (easier to test)
 import gsnRoutes from "./routes/meta.js"; // Meta-transaction (gasless) routes
 
 // Middleware
@@ -129,6 +130,7 @@ apiRouter.use(authMiddleware);
 apiRouter.use("/vc", vcRoutes); // Verifiable credentials
 apiRouter.use("/profile", profileRoutes); // User profiles
 apiRouter.use("/did", didRoutes); // DID operations
+apiRouter.use("/gdpr", gdprRoutes); // GDPR actions (e.g., erasure)
 apiRouter.use("/disclosures", disclosureRoutes); // Disclosure logs
 apiRouter.use("/consent", consentRoutes); // Consent management
 

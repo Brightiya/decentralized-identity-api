@@ -442,7 +442,7 @@ describe("Authentication & Authorization", function () {
         .set("Authorization", `Bearer ${validJwtToken}`);
 
       expect(res.status).to.equal(200);
-     // expect(res.body).to.have.property("error").that.includes("No valid active consent");
+     
     });
 
     it("POST /test/protected should allow access when consent exists for claimId", async () => {
@@ -476,8 +476,7 @@ describe("Authentication & Authorization", function () {
         });
 
       expect(res.status).to.equal(200);
-     // expect(res.body).to.have.property("error").that.includes("Missing valid consent");
-     // expect(res.body.failedClaims).to.include("identity.passport");
+     
     });
 
     it("POST /test/protected allows access even if some claimIds lack consent (no enforcement in test", async () => {

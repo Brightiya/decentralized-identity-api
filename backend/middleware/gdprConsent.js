@@ -1,3 +1,6 @@
+//import { pool } from "../utils/db.js"
+import {pool} from "../src/utils/db.js";
+
 /**
  * GDPR Consent Enforcement Middleware
  * 

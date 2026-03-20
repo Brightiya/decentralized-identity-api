@@ -129,19 +129,32 @@ import { firstValueFrom } from 'rxjs';
               <p>Loading attributes...</p>
             </div>
 
-            <div class="attributes-list" *ngIf="!loadingAttributes() && attributes().length > 0">
-              <div *ngFor="let attr of attributes()" class="attribute-row">
-                <mat-checkbox
-                  [checked]="hasActiveConsent(attr) || selectedAttributes().includes(attr)"
-                  [disabled]="hasActiveConsent(attr)"
-                  (change)="toggleAttribute(attr)">
-                  {{ attr | titlecase }}
-                </mat-checkbox>
-                <span class="small muted" *ngIf="hasActiveConsent(attr)">
-                  (Already consented)
-                </span>
+            <div class="attributes-list"
+            *ngIf="!loadingAttributes() && groupedAttributes().length > 0">
+
+          <div *ngFor="let group of groupedAttributes()" class="attribute-group">
+
+            <mat-checkbox
+              [checked]="isGroupSelected(group) || hasGroupConsent(group)"
+              [disabled]="hasGroupConsent(group)"
+              (change)="toggleGroup(group)">
+
+              <div class="group-title">
+                {{ group.purpose || 'General purpose' }}
               </div>
-            </div>
+
+              <div class="group-attrs">
+                {{ group.attributes.join(', ') }}
+              </div>
+
+            </mat-checkbox>
+
+            <span class="small muted" *ngIf="hasGroupConsent(group)">
+              (Already consented)
+            </span>
+
+          </div>
+        </div>
 
             <div class="empty-state" *ngIf="!loadingAttributes() && attributes().length === 0">
               <mat-icon class="empty-icon">inbox</mat-icon>
@@ -963,6 +976,79 @@ export class ConsentComponent implements OnInit {
   });
 
   // ────────────────────────────────────────────────
+// Group attributes by claim (claimId + purpose + context)
+// ────────────────────────────────────────────────
+groupedAttributes = computed(() => {
+
+  const ctx = this.selectedContext()?.toLowerCase() || '';
+  if (!ctx) return [];
+
+  const groups: Record<string, any> = {};
+
+  this.suggestedClaims().forEach(claim => {
+
+    if ((claim.context || '').toLowerCase() !== ctx) return;
+
+    const key = `${claim.claim_id}__${claim.purpose}__${claim.context}`;
+
+    if (!groups[key]) {
+      groups[key] = {
+        claimId: claim.claim_id,
+        purpose: claim.purpose,
+        context: claim.context,
+        attributes: []
+      };
+    }
+
+    (claim.attributes || []).forEach((attr: string) => {
+      if (!groups[key].attributes.includes(attr)) {
+        groups[key].attributes.push(attr);
+      }
+    });
+  });
+
+  return Object.values(groups);
+});
+
+// Check if entire group is already consented
+hasGroupConsent(group: any): boolean {
+  return group.attributes.every((attr: string) =>
+    this.hasActiveConsent(attr)
+  );
+}
+
+// Check if group is selected
+isGroupSelected(group: any): boolean {
+  return group.attributes.every((attr: string) =>
+    this.selectedAttributes().includes(attr)
+  );
+}
+
+// Toggle entire group
+toggleGroup(group: any) {
+
+  if (this.hasGroupConsent(group)) return;
+
+  const current = new Set(this.selectedAttributes());
+
+  const allSelected = group.attributes.every((a: string) => current.has(a));
+
+  if (allSelected) {
+    // remove all
+    group.attributes.forEach((a: string) => current.delete(a));
+  } else {
+    // add all
+    group.attributes.forEach((a: string) => {
+      if (!this.hasActiveConsent(a)) {
+        current.add(a);
+      }
+    });
+  }
+
+  this.selectedAttributes.set(Array.from(current));
+}
+
+  // ────────────────────────────────────────────────
   // Calculate percentage match for suggested claim
   // (Used to display how relevant a suggestion is)
   // ────────────────────────────────────────────────
@@ -1335,25 +1421,26 @@ export class ConsentComponent implements OnInit {
         return;
       }
 
-      // Process each selected attribute
-      for (const shortAttr of this.selectedAttributes()) {
+      // Process grouped attributes instead of individual ones
+      const grouped = this.groupedAttributes();
 
-        const matching = this.suggestedClaims().find(c =>
-          c.attributes?.includes(shortAttr) ||
-          c.claim_id?.split('.').pop() === shortAttr
+      for (const group of grouped) {
+
+        const groupSelected = group.attributes.some((attr: string) =>
+          this.selectedAttributes().includes(attr)
         );
 
-        const claimId = matching?.claim_id || shortAttr;
+        if (!groupSelected) continue;
 
-        if (this.hasActiveConsent(shortAttr)) continue;
+        if (this.hasGroupConsent(group)) continue;
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
 
-       await firstValueFrom(
+        await firstValueFrom(
           this.api.grantConsent({
             owner: addr,
-            claimId: claimId,
+            claimId: group.claimId,
             purpose: this.purposeValue.trim(),
             context: this.selectedContext(),
             expiresAt: expiresAt.toISOString()

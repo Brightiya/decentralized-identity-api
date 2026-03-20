@@ -131,29 +131,31 @@ import { firstValueFrom } from 'rxjs';
 
             <div class="attributes-list"
             *ngIf="!loadingAttributes() && groupedAttributes().length > 0">
-
           <div *ngFor="let group of groupedAttributes()" class="attribute-group">
+          <mat-checkbox
+            class="group-checkbox"
+            [checked]="isGroupSelected(group) || hasGroupConsent(group)"
+            [disabled]="hasGroupConsent(group)"
+            (change)="toggleGroup(group)">
 
-            <mat-checkbox
-              [checked]="isGroupSelected(group) || hasGroupConsent(group)"
-              [disabled]="hasGroupConsent(group)"
-              (change)="toggleGroup(group)">
-
+            <div class="group-content">
               <div class="group-title">
                 {{ group.purpose || 'General purpose' }}
+                <span class="attr-count">({{ group.attributes.length }})</span>
               </div>
 
               <div class="group-attrs">
                 {{ group.attributes.join(', ') }}
               </div>
+            </div>
 
-            </mat-checkbox>
+          </mat-checkbox>
 
-            <span class="small muted" *ngIf="hasGroupConsent(group)">
-              (Already consented)
-            </span>
+          <span class="small muted" *ngIf="hasGroupConsent(group)">
+            (Already consented)
+          </span>
 
-          </div>
+        </div>
         </div>
 
             <div class="empty-state" *ngIf="!loadingAttributes() && attributes().length === 0">
@@ -499,6 +501,46 @@ styles: [`
   .attribute-row .small.muted {
     color: var(--text-secondary);
     font-style: italic;
+  }
+
+  .attribute-group {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+  .attribute-group:hover {
+    border-color: #3f51b5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .group-title {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .group-attrs {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+  }
+
+    .attr-count {
+    font-size: 12px;
+    color: #999;
+    margin-left: 6px;
+  }
+
+  .group-checkbox {
+    width: 100%;
+  }
+
+  .group-content {
+    display: flex;
+    flex-direction: column;
   }
 
   /* Purpose & Consent */

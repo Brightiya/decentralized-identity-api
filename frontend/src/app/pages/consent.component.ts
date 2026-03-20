@@ -1345,7 +1345,7 @@ export class ConsentComponent implements OnInit {
 
         const claimId = matching?.claim_id || shortAttr;
 
-        if (this.hasActiveConsent(claimId)) continue;
+        if (this.hasActiveConsent(shortAttr)) continue;
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);

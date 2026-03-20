@@ -164,7 +164,7 @@ import { BrowserProvider } from 'ethers';
                   <mat-hint>Required for consent-based disclosure</mat-hint>
                 </mat-form-field>
 
-                <!-- Claim ID (now mandatory) -->
+                <!-- Claim ID (Mandatory) -->
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Claim ID *</mat-label>
                   <input
@@ -176,6 +176,13 @@ import { BrowserProvider } from 'ethers';
                   <mat-hint>Unique identifier for this claim (dot notation recommended)</mat-hint>
                 </mat-form-field>
 
+                <div class="claim-warning">
+                  <mat-icon color="warn">privacy_tip</mat-icon>
+                  <span>
+                    You control what gets disclosed later. Only include fields you are comfortable sharing.
+                  </span>
+                </div>
+
                 <!-- Claim JSON (prefilled + auto-format) -->
                 <mat-form-field appearance="outline" class="full-width"
                                 [class.mat-form-field-invalid]="claim && !isValidJson()">
@@ -186,18 +193,28 @@ import { BrowserProvider } from 'ethers';
                     [(ngModel)]="claim"
                     (blur)="formatJson()"
                     (input)="onClaimInput()"
-                    placeholder="Enter claim data as JSON..."
+                    placeholder='⚠️ Only include attributes you are willing to share.
+                    Example:
+                    {
+                      "name": "Alice",
+                      "email": "alice@example.com"
+                    }'
                     required
                   ></textarea>
 
                   <mat-hint *ngIf="claim && isValidJson()" class="valid-hint">
-                    <mat-icon>check_circle</mat-icon> Valid JSON
+                    <mat-icon>check_circle</mat-icon> Valid JSON(⚠️ Only include attributes you consent to disclose later)
                   </mat-hint>
 
                   <mat-error *ngIf="claim && !isValidJson()">
                     Invalid JSON — please fix quotes, commas, or braces
                   </mat-error>
                 </mat-form-field>
+
+                <div *ngIf="isValidJson()" class="keys-preview">
+                <strong>Attributes that can be disclosed:</strong>
+                <span *ngFor="let key of getClaimKeys()">{{ key }}</span>
+              </div>
 
                 <!-- Issue Button -->
                 <div class="issue-actions">
@@ -464,6 +481,17 @@ import { BrowserProvider } from 'ethers';
       background: #1e1e1e;
       color: #9cdcfe;
     }
+
+    .claim-warning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(251, 191, 36, 0.15);
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
 
     /* Empty State */
     .empty-state {
@@ -788,6 +816,14 @@ export class CredentialsComponent implements OnInit {
   "verified": true
 }`;
 
+// Gets the keys of the claim JSON for display or validation purposes
+  getClaimKeys(): string[] {
+    try {
+      return Object.keys(JSON.parse(this.claim));
+    } catch {
+      return [];
+    }
+  }
   // --------------------
   // Lifecycle
   // --------------------

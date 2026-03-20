@@ -179,7 +179,7 @@ import { BrowserProvider } from 'ethers';
                 <div class="claim-warning">
                   <mat-icon color="warn">privacy_tip</mat-icon>
                   <span>
-                    You control what gets disclosed later. Only include fields you are comfortable sharing.
+                    You control what gets disclosed later. Only include fields you are comfortable sharing (selective disclosure enabled).
                   </span>
                 </div>
 
@@ -203,7 +203,7 @@ import { BrowserProvider } from 'ethers';
                   ></textarea>
 
                   <mat-hint *ngIf="claim && isValidJson()" class="valid-hint">
-                    <mat-icon>check_circle</mat-icon> Valid JSON(⚠️ Only include attributes you consent to disclose later)
+                    <mat-icon>check_circle</mat-icon> Valid JSON
                   </mat-hint>
 
                   <mat-error *ngIf="claim && !isValidJson()">
@@ -529,6 +529,68 @@ import { BrowserProvider } from 'ethers';
 
     .credentials-page.dark .validation-hint {
       color: #fcd34d;
+    }
+
+    /* Attribute Preview (Selective Disclosure Hint) */
+    .keys-preview {
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.18);
+
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+
+      font-size: 0.9rem;
+      color: #4f46e5;
+    }
+
+    /* Label */
+    .keys-preview strong {
+      font-weight: 600;
+      margin-right: 6px;
+      color: #4338ca;
+    }
+
+    /* Individual attribute chips */
+    .keys-preview span {
+      background: rgba(99, 102, 241, 0.15);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #3730a3;
+
+      transition: all 0.2s ease;
+    }
+
+    /* Hover effect */
+    .keys-preview span:hover {
+      background: rgba(99, 102, 241, 0.25);
+      transform: translateY(-1px);
+    }
+
+    /* Dark mode support */
+    .credentials-page.dark .keys-preview {
+      background: rgba(129, 140, 248, 0.12);
+      border: 1px solid rgba(129, 140, 248, 0.25);
+      color: #c7d2fe;
+    }
+
+    .credentials-page.dark .keys-preview strong {
+      color: #a5b4fc;
+    }
+
+    .credentials-page.dark .keys-preview span {
+      background: rgba(129, 140, 248, 0.2);
+      color: #e0e7ff;
+    }
+
+    .credentials-page.dark .keys-preview span:hover {
+      background: rgba(129, 140, 248, 0.35);
     }
 
     /* ─────────────────────────────────────────────

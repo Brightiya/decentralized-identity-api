@@ -919,16 +919,14 @@ export class ContextsComponent implements OnInit {
             parsed = null;
           }
 
-          const claimId = parsed?.claim_id || key;
           const purpose = parsed?.purpose || 'General purpose';
           const context = this.currentContext();
 
-          const groupKey = `${purpose}__${claimId}__${context}`;
+          const groupKey = `${purpose}__${context}`;
 
           if (!groups[groupKey]) {
             groups[groupKey] = {
               purpose,
-              claimId,
               context,
               attributes: []
             };

@@ -285,7 +285,7 @@ import { firstValueFrom } from 'rxjs';
             <div class="consents-scroll-container" *ngIf="!loadingConsents() && activeConsents().length > 0">
               <div class="consent-entry" *ngFor="let consent of activeConsents()">
                 <p><strong>Purpose:</strong> {{ consent.purpose }}</p>
-                <p><strong>Attribute:</strong> <code>{{ consent.claimId }}</code></p>
+                <p><strong>Claim ID:</strong> <code>{{ consent.claimId }}</code></p>
                 <p class="small muted">
                   Granted: {{ consent.grantedAt | date:'medium' }}
                 </p>

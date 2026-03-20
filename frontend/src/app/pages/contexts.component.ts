@@ -108,29 +108,57 @@ import { ThemeService } from '../services/theme.service';
       </section>
 
       <!-- Attributes Display -->
-      <section class="card elevated" *ngIf="hasAttributes()">
+      <section class="card elevated" *ngIf="groupedAttributes().length > 0">
         <div class="card-header">
           <mat-icon class="header-icon" color="primary">badge</mat-icon>
           <h3>{{ currentContext() | titlecase }} Attributes</h3>
-          <span class="badge">{{ attributeKeys().length }} attribute{{ attributeKeys().length === 1 ? '' : 's' }}</span>
+          <span class="badge">
+            {{ attributeKeys().length }} attribute{{ attributeKeys().length === 1 ? '' : 's' }}
+          </span>
         </div>
 
-        <div class="attributes-grid">
-          <div class="attribute-item" *ngFor="let key of attributeKeys()">
-            <label class="attribute-label">{{ key | titlecase }}</label>
-            <div class="attribute-value">
-              <code>
-              {{ isObject(profile()[key]) ? (profile()[key] | json) : profile()[key] }}
-              </code>
+        <div class="attributes-list">
 
-              <button 
-                mat-icon-button 
-                (click)="copyToClipboard(profile()[key], key)" 
-                matTooltip="Copy value">
-                <mat-icon>{{ copiedKey === key ? 'check' : 'content_copy' }}</mat-icon>
-              </button>
+          <div *ngFor="let group of groupedAttributes()" class="attribute-group">
+
+            <!-- GROUP HEADER -->
+            <div class="group-title">
+              {{ group.purpose || 'General purpose' }}
+              <span class="attr-count">({{ group.attributes.length }})</span>
             </div>
+
+            <!-- GROUP ATTRIBUTES -->
+            <div class="group-attrs">
+
+              <div class="attribute-item" *ngFor="let key of group.attributes">
+
+                <label class="attribute-label">
+                  {{ key | titlecase }}
+                </label>
+
+                <div class="attribute-value">
+
+                  <code>
+                    {{ isObject(profile()[key]) ? (profile()[key] | json) : profile()[key] }}
+                  </code>
+
+                  <button 
+                    mat-icon-button 
+                    (click)="copyToClipboard(profile()[key], key)" 
+                    matTooltip="Copy value">
+                    <mat-icon>
+                      {{ copiedKey === key ? 'check' : 'content_copy' }}
+                    </mat-icon>
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
+
         </div>
       </section>
 
@@ -328,6 +356,49 @@ styles: [`
     padding: 14px 18px;
     border-radius: 14px;
     border: 1px solid var(--card-border, #e2e8f0);
+  }
+
+  .attribute-group {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+  .contexts-container.dark .attribute-group {
+    background: rgba(30,41,59,0.6);
+    border-color: #4b5563;
+  }
+
+  .attribute-group:hover {
+    border-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .group-title {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .group-attrs {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  .contexts-container.dark .group-attrs {
+    color: #cbd5e1;
+  }
+
+  .attr-count {
+    font-size: 12px;
+    margin-left: 6px;
+    color: #888;
   }
 
   .contexts-container.dark .attribute-value {
@@ -591,6 +662,9 @@ export class ContextsComponent implements OnInit {
   // Reactive signal used when creating a new context
   newContext = signal<string>('');
 
+  // Grouped attributes (same concept as Consent)
+  groupedAttributes = signal<any[]>([]);
+
   // Non-signal UI binding for selected context in dropdown
   selectedContext: string = '';
 
@@ -829,8 +903,41 @@ export class ContextsComponent implements OnInit {
 
       next: (res: any) => {
 
-        // Save returned attributes
-        this.profile.set(res.attributes || {});
+        const attrs = res.attributes || {};
+        this.profile.set(attrs);
+
+        // Build grouped structure
+        const groups: Record<string, any> = {};
+
+        Object.entries(attrs).forEach(([key, value]: [string, any]) => {
+
+          let parsed;
+
+          try {
+            parsed = typeof value === 'string' ? JSON.parse(value) : value;
+          } catch {
+            parsed = null;
+          }
+
+          const claimId = parsed?.claim_id || key;
+          const purpose = parsed?.purpose || 'General purpose';
+          const context = this.currentContext();
+
+          const groupKey = `${purpose}__${claimId}__${context}`;
+
+          if (!groups[groupKey]) {
+            groups[groupKey] = {
+              purpose,
+              claimId,
+              context,
+              attributes: []
+            };
+          }
+
+          groups[groupKey].attributes.push(key);
+        });
+
+        this.groupedAttributes.set(Object.values(groups));
 
         this.loading.set(false);
       },

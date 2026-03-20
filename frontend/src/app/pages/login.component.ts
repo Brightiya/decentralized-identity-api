@@ -1064,9 +1064,6 @@ export class LoginComponent {
       if (!address) {
         throw new Error('Wallet connected but no address received');
       }
-
-      console.log('Wallet connected with address:', address);
-
       /**
        * Initialize encrypted storage
        * (requires wallet signature)

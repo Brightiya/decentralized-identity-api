@@ -44,8 +44,7 @@ export async function gdprConsentMiddleware(req, res, next) {
 
       // If user is requesting their own profile → allow without consent
       if (requestedAddress === requesterAddress) {
-        console.log(`[ConsentMiddleware] Allowing self-read for ${requesterAddress} (no consent required)`);
-
+        
         // Attach consent info indicating self-read bypass
         req.consent = { granted: true, context, selfRead: true };
 

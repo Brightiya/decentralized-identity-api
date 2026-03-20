@@ -63,8 +63,6 @@ describe("DID Routes Basics", function () {
       console.error("Profile creation failed in beforeAll:", profileRes.status, profileRes.body);
       throw new Error(`Profile setup failed with status ${profileRes.status}`);
     }
-
-    console.log("Profile created successfully for DID tests:", profileRes.body.cid);
   });
 
  describe("POST /api/did/register", () => {
@@ -165,8 +163,6 @@ describe("DID Routes Basics", function () {
         address: testAddress,
         signature: "0x0000000000000000000000000000000000000000000000000000000000000000"
       });
-
-    console.log('[DID Invalid Sig Test] Response:', res.body);
     
     expect(res.status).to.equal(400);
     expect(res.body).to.have.property("error");

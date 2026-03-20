@@ -87,8 +87,6 @@ export const issueSignedVC = async (req, res) => {
 
       recovered = didToAddress(signedVc.issuer);
 
-      console.log('[TEST MODE] Bypassing real signature recovery');
-
     } else {
 
       // Recover the signer address from the signature
@@ -100,14 +98,6 @@ export const issueSignedVC = async (req, res) => {
 
     // Compare recovered signer address with expected issuer
     if (recovered.toLowerCase() !== issuerAddr.toLowerCase()) {
-
-      console.log("Frontend signature invalid:", {
-        recovered,
-        expected: issuerAddr,
-        issuerRaw: signedVc.issuer,
-        vcStringLength: vcString.length,
-        proofJwsPrefix: proof.jws.substring(0, 20) + "..."
-      });
 
       return res.status(400).json({ error: "Invalid VC signature from frontend" });
     }
@@ -223,8 +213,6 @@ export const issueSignedVC = async (req, res) => {
         subjectAddress,
         newProfileCid
       );
-
-      console.log("[issueSignedVC] Profile prepared with claim:", signedVc.credentialSubject.claim);
 
     } catch (e) {
 

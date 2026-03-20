@@ -45,8 +45,6 @@ beforeAll(async () => {
   // Override registry FIRST
   ({ mockContract } = await import('../test/setup-contract-mock.js'));
   globalThis.registry = mockContract;
-  console.log('[TEST OVERRIDE EARLY] globalThis.registry replaced with mock');
-
   ({ default: app } = await import("./testServer.js"));
   ({ pool } = await import("../src/utils/db.js"));
   ({ getValidJwtFor } = await import("./testHelpers.js"));
@@ -93,7 +91,6 @@ beforeAll(async () => {
   );
   console.log('[DEBUG CONSENT AFTER INSERT]', check.rows);
 
-  console.log('[TEST SETUP] Consent granted: subject → verifier for identity.email');
 });
 
 describe("Verifiable Credentials Routes", () => {
@@ -223,8 +220,6 @@ describe("Verifiable Credentials Routes", () => {
         consent: true,
         credentials: [{ cid: issueRes.body.signedCid, claimId: "identity.email" }]
       });
-
-    console.log('[VC Verify Test] Response:', res.body);
 
     expect(res.status).to.equal(200);
     expect(res.body).to.have.property("disclosed");
@@ -418,9 +413,6 @@ describe("Verifiable Credentials Routes", () => {
     const claimId = "profile.bio";
 
     const vc = await fetchJSON(enrichedCid); // mocked fetch will return the VC
-
-    console.log('[VC Test] Raw VC fetched:', JSON.stringify(vc, null, 2));
-
     expect(vc).to.have.property("proof");
     expect(vc.proof).to.have.property("jws");
     expect(vc.pimv).to.have.property("cid");
@@ -430,9 +422,6 @@ describe("Verifiable Credentials Routes", () => {
       .set("Authorization", `Bearer ${validJwtToken}`)
       .set("Content-Type", "application/json")
       .send(vc);
-
-    console.log('[VC Validate Test] Response:', res.body);
-
     expect(res.status).to.equal(200);
     expect(res.body.message).to.include("cryptographically and on-chain valid");
     expect(res.body.claimId).to.equal(claimId);
@@ -469,9 +458,6 @@ describe("Verifiable Credentials Routes", () => {
       .post("/api/vc/validate")
       .set("Authorization", `Bearer ${validJwtToken}`)
       .send(fakeVC);
-
-    console.log('[VC Invalid Signature Test] Response:', res.body);
-
     expect(res.status).to.equal(400);
     expect(res.body.error).to.equal("Invalid signature: non-canonical s value (high s not allowed)");
   });
@@ -611,9 +597,6 @@ describe("Verifiable Credentials Routes", () => {
     .post("/api/vc/validate")
     .set("Authorization", `Bearer ${validJwtToken}`)
     .send(vc);
-
-  console.log('[TEST DEBUG] Mock calls:', globalThis.mockContract.getClaim.mock.calls);
-  console.log('[TEST DEBUG] Response:', res.body);
 
   expect(res.status).to.equal(400);
   expect(res.body.error).to.include("On-chain anchor mismatch");

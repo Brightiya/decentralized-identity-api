@@ -198,9 +198,6 @@ export const relayMetaTx = async (req, res) => {
       verifyingContract: domainInfo.verifyingContract,
     };
 
-    console.log("Reconstructed Backend Domain:", domain);
-
-
     /*
       Step 4: Define typed data structure used during signature creation.
 
@@ -276,9 +273,7 @@ export const relayMetaTx = async (req, res) => {
     */
     const result = await txQueue.enqueue(async () => {
 
-      console.log(`Processing meta-tx for ${request.from} in queue...`);
-
-      /*
+    /*
         Fetch current fee data from provider.
         Used to dynamically set gas fees.
       */
@@ -299,9 +294,7 @@ export const relayMetaTx = async (req, res) => {
         maxPriorityFeePerGas:
           (feeData.maxPriorityFeePerGas * 120n) / 100n,
       });
-
-      console.log("Transaction submitted:", tx.hash);
-
+      
       /*
         Wait until the transaction is mined before processing
         the next transaction in the queue.

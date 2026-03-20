@@ -97,4 +97,3 @@ jest.unstable_mockModule('../src/utils/contract.js', () => {
   };
 });
 
-console.log('[TEST SETUP] HYBRID_MODE forced + contract fully mocked');

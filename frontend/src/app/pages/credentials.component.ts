@@ -1128,8 +1128,6 @@ export class CredentialsComponent implements OnInit {
       // Backend should return the CID of the profile
       currentProfileCid = profileRes.cid || null;
 
-      console.log("Sending fresh currentProfileCid:", currentProfileCid);
-
     } catch (e) {
 
       console.warn(
@@ -1186,11 +1184,6 @@ export class CredentialsComponent implements OnInit {
         const signerAddress =
           (await signer.getAddress()).toLowerCase();
 
-        console.log(
-          "Signer address used for VC signature:",
-          signerAddress
-        );
-
         // Deep clone claim object to avoid mutations
         const claimObjCopy =
           JSON.parse(JSON.stringify(claimObj));
@@ -1224,11 +1217,6 @@ export class CredentialsComponent implements OnInit {
         const vcString = JSON.stringify(
           vc,
           Object.keys(vc).sort()
-        );
-
-        console.log(
-          "Canonical VC string being signed:",
-          vcString.substring(0, 300)
         );
 
         // Sign VC content with wallet
@@ -1360,11 +1348,6 @@ export class CredentialsComponent implements OnInit {
 
         // Wait until transaction is mined
         await this.waitForTx(relayResponse.txHash);
-
-        console.log(
-          "Claim anchored:",
-          relayResponse.txHash
-        );
 
         // ------------------------------------------------------------
         // Second meta-transaction: update profile CID
@@ -1527,10 +1510,6 @@ export class CredentialsComponent implements OnInit {
             'No receipt received after waiting'
           );
         }
-
-        console.log(
-          `Main tx confirmed in block ${receipt.blockNumber}`
-        );
 
       } catch (waitErr) {
 

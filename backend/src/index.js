@@ -168,7 +168,6 @@ app.use((err, req, res, next) => {
 app.get('*', (req, res) => {
   // If requesting a static file that doesn't exist, return 404
   if (req.path.includes('.')) {
-    console.log(`🚫 Missing static file: ${req.path}`);
     return res.status(404).send('File not found');
   }
 

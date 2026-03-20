@@ -1258,8 +1258,6 @@ export class VerifierComponent {
       }))
     };
 
-    console.log('[VERIFIER] Sending verification payload:', JSON.stringify(payload, null, 2));
-
     try {
       this.result = await firstValueFrom(
               this.api.verifyVC(payload)

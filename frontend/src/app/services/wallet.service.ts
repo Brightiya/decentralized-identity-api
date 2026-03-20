@@ -243,13 +243,9 @@ export class WalletService {
       await this.ensureCorrectChain();
       
       const network = await this.provider.getNetwork();
-      console.log("AFTER SWITCH - provider chainId:", Number(network.chainId));
-      // Debug log
-
+      
       const mmChain = await window.ethereum.request({ method: 'eth_chainId' });
-      console.log("MetaMask chainId:", parseInt(mmChain, 16));
-      // Debug log
-
+    
       const tx: TransactionResponse = await this.signer.sendTransaction({
         ...unsignedTx,
         gasLimit: unsignedTx.gasLimit ? BigInt(unsignedTx.gasLimit) : undefined,
@@ -259,16 +255,12 @@ export class WalletService {
       });
       // Sends transaction with normalized bigint fields
 
-      console.log('[WalletService] Transaction sent:', tx.hash);
-
       // Wait for at least 1 confirmation
       const receipt = await tx.wait(1);
 
       if (!receipt) {
         throw new Error('Transaction receipt is null - likely dropped or timeout');
       }
-
-      console.log('[WalletService] Confirmed in block:', receipt.blockNumber);
 
       return { hash: tx.hash, receipt };
       // Returns transaction hash and receipt

@@ -222,8 +222,6 @@ export const createOrUpdateProfile = async (req, res) => {
         unsignedTx,
         newProfileCid: cid
       };
-
-      console.log('[Hybrid] Prepared unsigned setProfileCID tx');
     } 
 
     // ────────────────────────────────
@@ -242,8 +240,6 @@ export const createOrUpdateProfile = async (req, res) => {
       responseData.txHash = tx.hash;
 
       responseData.message = "✅ Profile merged & stored on-chain (backend signed)";
-
-      console.log('[Dev] Backend signed & submitted setProfileCID tx');
     }
 
     return res.json(responseData);
@@ -499,8 +495,6 @@ export const eraseProfile = async (req, res) => {
         message: "✅ Erasure prepared - please sign & send transaction in your wallet",
         unsignedTx
       };
-
-      console.log('[Hybrid] Prepared unsigned setProfileCID (erase) tx');
     } 
 
     // ----------------------------------------------------
@@ -517,8 +511,6 @@ export const eraseProfile = async (req, res) => {
       responseData.txHash = txHash;
 
       responseData.message = "✅ Profile erased on-chain (backend signed)";
-
-      console.log('[Dev] Backend signed & submitted setProfileCID (erase) tx');
     }
 
     // ----------------------------------------------------
@@ -541,8 +533,6 @@ export const eraseProfile = async (req, res) => {
             'DELETE FROM profiles WHERE user_id = $1',
             [userId]
           );
-
-          console.log(`[GDPR] Deleted DB profiles for ${subjectAddress}`);
 
         }
 
@@ -579,8 +569,6 @@ export const eraseProfile = async (req, res) => {
           "compliance"
         ]
       );
-
-      console.log(`[GDPR] Erasure logged to disclosures for ${subjectAddress}`);
 
     } catch (logErr) {
 

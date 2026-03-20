@@ -68,7 +68,6 @@ beforeAll(async () => {
     throw new Error("Profile creation failed in beforeAll: " + JSON.stringify(profileRes.body));
   }
 
-  console.log('[TEST SETUP] Profile created for test user');
 });
 
 describe("Profile Routes Integration", () => {

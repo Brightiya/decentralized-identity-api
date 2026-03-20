@@ -7,6 +7,4 @@ export default async function globalTeardown() {
       await provider.destroy();
     }
   }
-
-  console.log("[GLOBAL TEARDOWN] 🧹 Mock ethers provider cleaned up");
 }

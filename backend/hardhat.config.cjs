@@ -4,10 +4,6 @@ const { resolve } = require("path");
 
 config({ path: resolve(__dirname, ".env") });
 
-console.log("=== Hardhat config debug ===");
-console.log("BASE_SEPOLIA_RPC_URL:", process.env.BASE_SEPOLIA_RPC_URL ? "present" : "MISSING");
-console.log("PRIVATE_KEY:", process.env.PRIVATE_KEY ? "present" : "MISSING");
-
 module.exports = {
   solidity: {
     version: "0.8.20",
@@ -66,4 +62,3 @@ module.exports = {
   },
 };
 
-console.log("=== Hardhat config debug end ===");

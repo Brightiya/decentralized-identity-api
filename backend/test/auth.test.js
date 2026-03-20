@@ -397,7 +397,6 @@ describe("Authentication & Authorization", function () {
       `, [testUserDid, c.claim_id, c.purpose, c.context]);
     }
 
-    // In auth.test.js beforeAll - after inserts
     const check = await pool.query(
       "SELECT * FROM consents WHERE subject_did = $1 AND claim_id = $2",
       [testUserDid.toLowerCase(), "identity.name"]

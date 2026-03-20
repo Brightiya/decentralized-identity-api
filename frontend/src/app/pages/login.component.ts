@@ -941,9 +941,6 @@ export class LoginComponent {
           }
         });
 
-        this.qrCodeUrl.set(url);
-        console.log('QR code generated successfully');
-
       } catch (err) {
         console.error('Failed to generate QR code:', err);
 
@@ -1066,9 +1063,7 @@ export class LoginComponent {
       if (!address) {
         throw new Error('Wallet connected but no address received');
       }
-
-      console.log('Wallet connected with address:', address);
-
+      
       /**
        * Initialize encrypted storage
        * (requires wallet signature)

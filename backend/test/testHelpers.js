@@ -44,8 +44,6 @@ export async function getValidJwtFor(address) {
         userId: decoded.userId || 1
       };
       const testToken = jwt.sign(testPayload, process.env.JWT_SECRET || 'super-secret-dev-key-change-in-prod-please');
-
-      console.log('[TEST] Generated test token for', lowerAddress, ':', testToken.substring(0, 50) + '...');
       return testToken;
     }
 

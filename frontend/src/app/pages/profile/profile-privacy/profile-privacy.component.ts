@@ -433,12 +433,8 @@ export class ProfilePrivacyComponent implements OnInit {
       })
 
     ).subscribe({
-
+      
       next: (data) => {
-
-        /** Temporary debug output for backend response */
-        console.log('Raw consents from backend:', data);
-
         if (data) {
           this.consents.set(data || []);
         }

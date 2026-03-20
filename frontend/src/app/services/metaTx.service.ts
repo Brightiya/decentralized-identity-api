@@ -254,7 +254,6 @@ export class MetaTxService {
       At this point the payload is ready to be sent to the relayer.
       The relayer will call forwarder.verify(request) before executing.
     */
-    console.log("Ready for forwarder.verify(requestForRelayer)");
 
     return {request: requestForRelayer, signature};
   }

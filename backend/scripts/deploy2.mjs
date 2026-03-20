@@ -1,8 +1,6 @@
 import hre from "hardhat"; // Import Hardhat Runtime Environment (HRE)
 
 async function main() {
-  // Log start of deployment process
-  console.log("Deploying contracts...");
 
   // Extract ethers.js from Hardhat environment
   const { ethers } = hre;

@@ -21,9 +21,3 @@ console.warn = function (...args) {
   // Let all other warnings through
   originalWarn.apply(console, args);
 };
-
-
-console.log("[Jest EARLY SETUP] NODE_ENV:", process.env.NODE_ENV);
-console.log("[Jest EARLY SETUP] DATABASE_URL:", process.env.DATABASE_URL);
-console.log("[Jest EARLY SETUP] PRIVATE_KEY exists?", !!process.env.PRIVATE_KEY);
-console.log("[Jest EARLY SETUP] HYBRID_MODE:", process.env.HYBRID_MODE || "NOT SET");

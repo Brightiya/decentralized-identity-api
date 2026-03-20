@@ -11,11 +11,8 @@ process.env.NODE_ENV = "test";
 // Force SIWE mock at the very top — before anything else imports siwe
 // ────────────────────────────────────────────────
 import { SiweMessage as OriginalSiweMessage } from "siwe";
-
-console.log("[TEST SETUP] Applying global SIWE mock (immediate)");
-
 const mockedVerify = async function (options) {
-  console.log("[TEST MOCK] SIWE verify() bypassed");
+ 
   return {
     success: true,
     data: {
@@ -49,20 +46,8 @@ jest.mock("siwe", () => ({
   SiweError: OriginalSiweMessage.SiweError, // preserve error class if needed
 }));
 
-console.log("[TEST SETUP] SIWE mock applied (prototype + constructor patched)");
-
 // Now it is SAFE to import DB
 import { pool } from "../src/utils/db.js";
-
-console.log(
-  "[TEST SETUP] NODE_ENV:",
-  process.env.NODE_ENV
-);
-console.log(
-  "[TEST SETUP] JWT_SECRET loaded:",
-  !!process.env.JWT_SECRET
-);
-
 
 // =========================
 // Reset test state before each test
@@ -81,7 +66,6 @@ beforeEach(async () => {
 // =========================
 
 afterAll(async () => {
-  console.log("Cleaning up test database...");
 
   try {
     await pool.query(`
@@ -94,13 +78,11 @@ afterAll(async () => {
       RESTART IDENTITY CASCADE;
     `);
 
-    console.log("Test DB cleaned up successfully.");
   } catch (err) {
     console.error("Failed to clean up test DB:", err.stack || err);
   } finally {
     try {
       await pool.end();
-      console.log("PostgreSQL connection pool closed.");
     } catch (closeErr) {
       console.error("Error closing pool:", closeErr);
     }

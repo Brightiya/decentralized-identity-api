@@ -9,10 +9,6 @@ export default async function globalSetup() {
   // Force HYBRID MODE in tests
   process.env.HYBRID_MODE = "true";
   process.env.NODE_ENV = "test";
-  console.log(
-    "[GLOBAL SETUP] Loaded .env.test → HYBRID_MODE:",
-    process.env.HYBRID_MODE
-  );
 
   // ─────────────────────────────────────────────
   // Register GLOBAL mocked ethers provider
@@ -40,6 +36,4 @@ export default async function globalSetup() {
 
   // Make provider globally available
   global.__MOCK_PROVIDER__ = mockProvider;
-
-  console.log("[GLOBAL SETUP] ✅ Mock ethers provider registered");
 }

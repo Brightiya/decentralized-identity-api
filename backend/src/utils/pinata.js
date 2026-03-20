@@ -35,7 +35,6 @@ const pinata = new PinataSDK({ pinataJWTKey: PINATA_JWT });
 export async function uploadJSON(json, pinataJwt = null, nftStorageKey = null) {
   // Priority 1: nft.storage (decentralized, free, preferred)
   if (nftStorageKey) {
-    console.log('[uploadJSON] Using nft.storage (preferred)');
     return await uploadToNftStorage(json, nftStorageKey);
   }
 
@@ -52,8 +51,6 @@ export async function uploadJSON(json, pinataJwt = null, nftStorageKey = null) {
       "[SECURITY] Using shared Pinata JWT in production - strongly recommend per-user keys"
     );
   }
-
-  console.log('[uploadJSON] Using Pinata');
 
   try {
     // Upload JSON to IPFS via Pinata
@@ -132,16 +129,12 @@ export async function fetchJSON(cidOrUrl, retries = 3, preferredGateway = null) 
   for (const gateway of gateways) {
     const url = cid.startsWith("http") ? cid : `${gateway}${cid}`;
 
-    console.log(`[fetchJSON] Trying gateway: ${url}`);
-
     // Retry mechanism per gateway
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const res = await axios.get(url, {
           timeout: 30000, // Request timeout
         });
-
-        console.log(`[fetchJSON] Success from ${gateway}`);
         return res.data; // Return fetched JSON
       } catch (err) {
         lastError = err;

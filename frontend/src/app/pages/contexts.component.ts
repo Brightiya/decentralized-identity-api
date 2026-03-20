@@ -922,7 +922,9 @@ export class ContextsComponent implements OnInit {
           const purpose = parsed?.purpose || 'General purpose';
           const context = this.currentContext();
 
-          const groupKey = `${purpose}__${context}`;
+          const groupKey = parsed?.claim_id
+            ? `${purpose}__${parsed.claim_id}__${context}`
+            : `${purpose}__${context}`;
 
           if (!groups[groupKey]) {
             groups[groupKey] = {
